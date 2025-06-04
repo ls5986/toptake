@@ -1,0 +1,1 @@
+.eq('prompt_date', today) 
