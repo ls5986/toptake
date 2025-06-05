@@ -72,7 +72,6 @@ export const handleAuthError = (error: any): string => {
 
 export const getTodayPrompt = async () => {
   const today = new Date().toISOString().split('T')[0];
-  console.log('Fetching prompt for date:', today);
   const { data, error } = await supabase
     .from('daily_prompts')
     .select('prompt_text')
@@ -80,7 +79,15 @@ export const getTodayPrompt = async () => {
     .eq('is_active', true)
     .limit(1)
     .single();
-  console.log('Prompt data:', data);
-  if (error) console.log('Prompt fetch error:', error);
+  if (error) {
+    console.error('Prompt fetch error:', error);
+    if (error.code === '406') {
+      return { data: null, error: 'No prompt available for today.' };
+    }
+  }
   return { data, error };
 };
+
+export async function addNotification(userId: string, type: string, message: string) {
+  return supabase.from('notifications').insert({ user_id: userId, type, message });
+}
