@@ -44,10 +44,11 @@ export const TodaysPrompt: React.FC<TodaysPromptProps> = ({
   }
 
   if (!displayPrompt) {
+    console.log('No prompt found for date:', selectedDate);
     return (
       <Card className="bg-card-gradient">
         <CardContent className="p-6">
-          <div className="text-brand-danger font-semibold">No prompt found for today!</div>
+          <div className="text-brand-danger font-semibold">No prompt found for this day! (Check prompt date, timezone, and is_active in Supabase)</div>
         </CardContent>
       </Card>
     );

@@ -71,7 +71,10 @@ export const handleAuthError = (error: any): string => {
 };
 
 export const getTodayPrompt = async () => {
-  const today = new Date().toLocaleDateString('en-CA');
+  // Use UTC date to avoid timezone issues
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate())).toISOString().split('T')[0];
+  console.log('Querying daily_prompts for UTC date:', today);
   const { data, error } = await supabase
     .from('daily_prompts')
     .select('prompt_text')

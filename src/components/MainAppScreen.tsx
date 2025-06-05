@@ -24,6 +24,10 @@ import NotificationsScreen from './NotificationsScreen';
 import LateSubmitModal from './LateSubmitModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
+import { loadStripe } from '@stripe/stripe-js';
+
+const STRIPE_PRICE_ID_LATE_SUBMIT = 'price_1RWZSlQvxHfIZexznBKQf7Jx';
+const STRIPE_PUBLIC_KEY = (import.meta as any).env.VITE_STRIPE_PUBLIC_KEY;
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt } = useAppContext();
@@ -584,7 +588,29 @@ const MainAppScreen: React.FC = () => {
         <LateSubmitModal
           isOpen={showLateSubmit}
           onClose={() => setShowLateSubmit(false)}
-          onPurchase={() => {/* billing/credit logic here */}}
+          onPurchase={async () => {
+            if (!user) return;
+            try {
+              const res = await fetch('https://toptake.onrender.com/api/create-checkout-session', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ priceId: STRIPE_PRICE_ID_LATE_SUBMIT, userId: user.id })
+              });
+              const data = await res.json();
+              if (data.sessionId) {
+                const stripe = await loadStripe(STRIPE_PUBLIC_KEY);
+                if (stripe) {
+                  await stripe.redirectToCheckout({ sessionId: data.sessionId });
+                } else {
+                  alert('Stripe failed to load.');
+                }
+              } else {
+                alert('Failed to create Stripe session.');
+              }
+            } catch (err) {
+              alert('Error connecting to payment service.');
+            }
+          }}
           date={selectedDate}
         />
       )}

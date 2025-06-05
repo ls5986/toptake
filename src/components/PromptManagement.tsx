@@ -30,11 +30,12 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ prompts, onPromptsU
   const addPrompt = async () => {
     if (!newPrompt.trim() || !selectedDate) return;
     try {
-      // Check for duplicate
+      // Check for duplicate (active) prompt
       const { data: existing, error: fetchError } = await supabase
         .from('daily_prompts')
         .select('id')
         .eq('prompt_date', selectedDate)
+        .eq('is_active', true)
         .single();
       if (existing) {
         toast({ title: 'A prompt for this date already exists. Please choose another date.', variant: 'destructive' });
@@ -45,7 +46,7 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ prompts, onPromptsU
         .insert({
           prompt_text: newPrompt.trim(),
           prompt_date: selectedDate,
-          is_active: false
+          is_active: true
         });
       if (error) throw error;
       setNewPrompt('');

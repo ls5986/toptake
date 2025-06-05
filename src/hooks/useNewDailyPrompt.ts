@@ -31,10 +31,9 @@ export const useNewDailyPrompt = () => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
-
-      const today = new Date().toISOString().split('T')[0];
-      const promptId = getCurrentPrompt().id;
-
+      const prompt = getCurrentPrompt();
+      const today = prompt.date;
+      const promptId = prompt.id;
       const { error } = await supabase
         .from('takes')
         .insert({
@@ -45,8 +44,19 @@ export const useNewDailyPrompt = () => {
           prompt_date: today,
           take_date: today
         });
-
       if (error) return false;
+      // Insert engagement analytics record
+      const { error: analyticsError } = await supabase
+        .from('engagement_analytics')
+        .insert({
+          prompt_id: promptId,
+          user_id: user.id,
+          action_type: 'take',
+          created_at: new Date().toISOString()
+        });
+      if (analyticsError) {
+        console.error('Error inserting engagement analytics:', analyticsError);
+      }
       setHasPostedToday(true);
       return true;
     } catch (error) {

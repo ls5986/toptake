@@ -116,7 +116,7 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
           content: response.trim(),
           is_anonymous: isAnonymous,
           prompt_date: today,
-          daily_prompt_id: dailyPrompt.id,
+          prompt_id: dailyPrompt.id,
           reactions: { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }
         });
 
@@ -131,6 +131,19 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
         console.error('Take submission error:', error);
         toast({ title: "Failed to submit take", description: error.message, variant: "destructive" });
         return;
+      }
+
+      // Insert engagement analytics record
+      const { error: analyticsError } = await supabase
+        .from('engagement_analytics')
+        .insert({
+          prompt_id: dailyPrompt.id,
+          user_id: user.id,
+          action_type: 'take',
+          created_at: new Date().toISOString()
+        });
+      if (analyticsError) {
+        console.error('Error inserting engagement analytics:', analyticsError);
       }
 
       if (isAnonymous) {

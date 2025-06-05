@@ -81,12 +81,17 @@ export const TakeCard: React.FC<TakeCardProps> = ({
       return;
     }
     // Upsert user's reaction
-    await supabase.from('take_reactions').upsert({
+    const { error } = await supabase.from('take_reactions').upsert({
       take_id: take.id,
       actor_id: user.id,
       reaction_type: reaction,
       created_at: new Date().toISOString(),
     });
+    if (error) {
+      console.error('Error upserting take_reaction:', error);
+      toast({ title: 'Failed to react', description: error.message, variant: 'destructive' });
+      return;
+    }
     setUserReaction(reaction);
     toast({ title: `Reacted with ${getReactionEmoji(reaction)}!`, duration: 1000 });
     // Optionally, refetch reactions

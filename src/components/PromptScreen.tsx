@@ -25,15 +25,13 @@ const PromptScreen: React.FC = () => {
 
   const handleSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
-    
     if (hasPostedToday) {
       alert('You have already posted today!');
       return;
     }
-
     setIsSubmitting(true);
-    const success = await submitTake(takeContent, isAnonymous);
-    
+    // Always pass prompt_id and prompt_date
+    const success = await submitTake(takeContent, isAnonymous, currentPrompt?.id);
     if (success) {
       setCurrentScreen('main');
     } else {
@@ -52,10 +50,23 @@ const PromptScreen: React.FC = () => {
       is_late_submit: true,
       created_at: currentPrompt?.created_at, // backdate
       prompt_id: currentPrompt?.id,
+      prompt_date: currentPrompt?.prompt_date,
       user_id: user.id,
     };
     const { error } = await supabase.from('takes').insert([takeData]);
     if (!error) {
+      // Insert engagement analytics record
+      const { error: analyticsError } = await supabase
+        .from('engagement_analytics')
+        .insert({
+          prompt_id: currentPrompt?.id,
+          user_id: user.id,
+          action_type: 'take',
+          created_at: currentPrompt?.created_at
+        });
+      if (analyticsError) {
+        console.error('Error inserting engagement analytics:', analyticsError);
+      }
       toast({ title: 'Late Take Submitted', description: 'Your take was submitted and backdated to the prompt date.' });
       setCurrentScreen('main');
     } else {

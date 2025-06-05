@@ -18,28 +18,38 @@ interface AppBlockerProps {
 }
 
 export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
-  const { user, updateStreak, setUser, submitTake } = useAppContext();
+  const { user, updateStreak, setUser, submitTake, currentPrompt: contextPrompt } = useAppContext();
   const [response, setResponse] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
 
-  // Prompt state
-  const [currentPrompt, setCurrentPrompt] = useState('');
+  // Local prompt state for direct fetch
+  const [promptText, setPromptText] = useState('');
   const [promptLoading, setPromptLoading] = useState(true);
-
-  const canPostAnonymously = user && hasFeatureCredit(user, 'anonymous');
 
   useEffect(() => {
     const fetchPrompt = async () => {
       setPromptLoading(true);
-      const { data, error } = await getTodayPrompt();
-      setCurrentPrompt(data?.prompt_text || '');
+      try {
+        const { data, error } = await getTodayPrompt();
+        if (error) {
+          console.error("Error fetching today's prompt:", error);
+          setPromptText(contextPrompt || 'No prompt for today!');
+        } else {
+          setPromptText(data?.prompt_text || contextPrompt || 'No prompt for today!');
+        }
+      } catch (error) {
+        console.error("Error fetching today's prompt:", error);
+        setPromptText(contextPrompt || 'No prompt for today!');
+      }
       setPromptLoading(false);
     };
-    fetchPrompt();
-  }, []);
+    if (isBlocked) fetchPrompt();
+  }, [isBlocked, contextPrompt]);
+
+  const canPostAnonymously = user && hasFeatureCredit(user, 'anonymous');
 
   const submitResponse = async () => {
     if (!response.trim()) {
@@ -128,7 +138,7 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
               {promptLoading ? (
                 <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
               ) : (
-                <p className="text-brand-muted">{currentPrompt}</p>
+                <p className="text-brand-muted">{promptText}</p>
               )}
             </div>
             

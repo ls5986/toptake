@@ -156,11 +156,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const submitTake = async (content: string, isAnonymous: boolean, promptId?: string): Promise<boolean> => {
     try {
       if (!user) return false;
-      const today = new Date(Date.UTC(
+      // Use currentPrompt from context if available
+      const prompt = typeof currentPrompt === 'object' ? currentPrompt : null;
+      const today = prompt?.prompt_date || new Date(Date.UTC(
         new Date().getUTCFullYear(),
         new Date().getUTCMonth(),
         new Date().getUTCDate()
       )).toISOString().split('T')[0];
+      const prompt_id = prompt?.id || promptId;
       const { error } = await supabase
         .from('takes')
         .insert({
@@ -168,12 +171,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           content,
           is_anonymous: isAnonymous,
           prompt_date: today,
+          prompt_id,
           created_at: new Date().toISOString(),
           reactions: { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }
         });
       if (error) {
         console.error('Error submitting take:', error);
         return false;
+      }
+      // Insert engagement analytics record
+      const { error: analyticsError } = await supabase
+        .from('engagement_analytics')
+        .insert({
+          prompt_id,
+          user_id: user.id,
+          action_type: 'take',
+          created_at: new Date().toISOString()
+        });
+      if (analyticsError) {
+        console.error('Error inserting engagement analytics:', analyticsError);
       }
       await supabase
         .from('profiles')

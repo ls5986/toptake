@@ -92,11 +92,12 @@ const PromptGenerator: React.FC = () => {
 
     setScheduling(true);
     try {
-      // 1. Check if a prompt already exists for this date
+      // 1. Check if a prompt already exists for this date (active)
       const { data: existing, error: fetchError } = await supabase
         .from('daily_prompts')
         .select('id')
         .eq('prompt_date', scheduleDate)
+        .eq('is_active', true)
         .single();
 
       if (fetchError && fetchError.code !== 'PGRST116') {
@@ -106,6 +107,7 @@ const PromptGenerator: React.FC = () => {
 
       if (existing) {
         toast({ title: 'A prompt for this date already exists. Please choose another date.', variant: 'destructive' });
+        setScheduling(false);
         return;
       }
 
@@ -124,6 +126,7 @@ const PromptGenerator: React.FC = () => {
         if (insertError.code === '23505') {
           // Duplicate key error, likely due to a race condition
           toast({ title: 'A prompt for this date was just created by someone else. Please refresh and try again.', variant: 'destructive' });
+          setScheduling(false);
           return;
         }
         throw insertError;
@@ -140,9 +143,9 @@ const PromptGenerator: React.FC = () => {
       const nextDay = new Date(scheduleDate);
       nextDay.setDate(nextDay.getDate() + 1);
       setScheduleDate(nextDay.toISOString().split('T')[0]);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Error scheduling prompt:', error);
-      toast({ title: 'Error scheduling prompt', description: error.message || String(error), variant: 'destructive' });
+      toast({ title: `Error scheduling prompt: ${JSON.stringify(error)}`, variant: 'destructive' });
     } finally {
       setScheduling(false);
     }
@@ -208,7 +211,6 @@ const PromptGenerator: React.FC = () => {
                   type="date"
                   value={scheduleDate}
                   onChange={(e) => setScheduleDate(e.target.value)}
-                  min={new Date().toISOString().split('T')[0]}
                   className="max-w-xs"
                 />
               </div>

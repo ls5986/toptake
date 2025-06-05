@@ -77,9 +77,10 @@ const PromptScheduler: React.FC = () => {
         .from('daily_prompts')
         .select('id')
         .eq('prompt_date', selectedDate)
+        .eq('is_active', true)
         .single();
       if (existing) {
-        setLastResult({ success: false, message: `A prompt is already scheduled for ${selectedDate}. Please choose a different date.` });
+        setLastResult({ success: false, message: `A prompt is already scheduled for ${selectedDate}. Please choose another date.` });
         toast({ title: 'Duplicate Date', description: `A prompt is already scheduled for ${selectedDate}.`, variant: 'destructive' });
         setSubmitting(false);
         return;
@@ -160,7 +161,6 @@ const PromptScheduler: React.FC = () => {
               type="date"
               value={selectedDate}
               onChange={(e) => setSelectedDate(e.target.value)}
-              min={new Date().toISOString().split('T')[0]}
               disabled={submitting}
               className={submitting ? 'opacity-50' : ''}
             />
