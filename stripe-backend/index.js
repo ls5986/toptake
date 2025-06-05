@@ -2,11 +2,25 @@ const express = require('express');
 const Stripe = require('stripe');
 const { createClient } = require('@supabase/supabase-js');
 const bodyParser = require('body-parser');
+const cors = require('cors');
 const app = express();
 const PORT = process.env.PORT || 3000;
 
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
+
+const allowedOrigins = [
+  'http://localhost:8080',
+  'http://192.168.1.66:8080',
+  'https://toptake.onrender.com',
+  'https://toptake.app',
+  'https://your-frontend.com'
+];
+
+app.use(cors({
+  origin: allowedOrigins,
+  credentials: true
+}));
 
 // For webhook, Stripe requires the raw body
 app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
