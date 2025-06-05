@@ -143,6 +143,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
       .from('takes')
       .update({ reactions: updatedReactions })
       .eq('id', takeId);
+    if (take && user && take.userId !== user.id) {
+      await supabase.from('notifications').insert([{
+        user_id: take.userId,
+        type: 'reaction',
+        actor_id: user.id,
+        takeid: take.id,
+        created_at: new Date().toISOString(),
+        read: false,
+        extra: { reaction }
+      }]);
+    }
   };
 
   const handleProfileUpdate = (updatedProfile: any) => {
