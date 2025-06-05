@@ -69,7 +69,7 @@ const PromptCalendar: React.FC = () => {
       if (error) throw error;
       // Fetch engagement for each prompt
       const promptsWithEngagement = await Promise.all(
-        (data || []).map(async (p: any) => {
+        (data || []).map(async (p: Prompt) => {
           // Takes
           const { count: takesCount } = await supabase
             .from('takes')
@@ -85,9 +85,9 @@ const PromptCalendar: React.FC = () => {
             .from('takes')
             .select('reactions')
             .eq('prompt_date', p.prompt_date);
-          const totalReactions = (takes || []).reduce((sum: number, t: any) => {
+          const totalReactions = (takes || []).reduce((sum: number, t: { reactions?: Record<string, number> }) => {
             const r = t.reactions || {};
-            return sum + Object.values(r).reduce((a: number, b: any) => a + (b as number), 0);
+            return sum + Object.values(r).reduce((a: number, b: number) => a + b, 0);
           }, 0);
           return {
             ...p,
@@ -96,7 +96,7 @@ const PromptCalendar: React.FC = () => {
         })
       );
       setPrompts(promptsWithEngagement);
-    } catch (err) {
+    } catch (err: unknown) {
       setPrompts([]);
     } finally {
       setLoading(false);
@@ -129,8 +129,8 @@ const PromptCalendar: React.FC = () => {
       setNewPromptText('');
       await loadPrompts();
       toast({ title: 'Prompt added!', description: `Prompt scheduled for ${dateStr}.`, variant: 'default' });
-    } catch (err: any) {
-      toast({ title: 'Error adding prompt', description: err.message || String(err), variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Error adding prompt', description: (err as Error).message || String(err), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -149,8 +149,8 @@ const PromptCalendar: React.FC = () => {
       setNewPromptText('');
       await loadPrompts();
       toast({ title: 'Prompt updated!', description: 'Prompt text updated.', variant: 'default' });
-    } catch (err: any) {
-      toast({ title: 'Error updating prompt', description: err.message || String(err), variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Error updating prompt', description: (err as Error).message || String(err), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -168,8 +168,8 @@ const PromptCalendar: React.FC = () => {
       setShowModal(false);
       await loadPrompts();
       toast({ title: 'Prompt deleted', description: 'Prompt has been archived/deleted.', variant: 'default' });
-    } catch (err: any) {
-      toast({ title: 'Error deleting prompt', description: err.message || String(err), variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'Error deleting prompt', description: (err as Error).message || String(err), variant: 'destructive' });
     } finally {
       setSaving(false);
     }
@@ -183,8 +183,8 @@ const PromptCalendar: React.FC = () => {
       const improved = await fixPromptWithAI(textToFix);
       setNewPromptText(improved);
       toast({ title: 'AI improved prompt!', description: 'Prompt text was improved by AI.', variant: 'default' });
-    } catch (err: any) {
-      toast({ title: 'AI error', description: err.message || String(err), variant: 'destructive' });
+    } catch (err: unknown) {
+      toast({ title: 'AI error', description: (err as Error).message || String(err), variant: 'destructive' });
     } finally {
       setAiLoading(false);
     }

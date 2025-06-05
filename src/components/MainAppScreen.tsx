@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Users, LogOut, Menu } from 'lucide-react';
+import { Users, LogOut, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
@@ -21,6 +21,9 @@ import { getTodayPrompt } from '@/lib/supabase';
 import BillingModal from './BillingModal';
 import AccountSettingsModal from './AccountSettingsModal';
 import NotificationsScreen from './NotificationsScreen';
+import LateSubmitModal from './LateSubmitModal';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { Calendar } from '@/components/ui/calendar';
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt } = useAppContext();
@@ -37,10 +40,15 @@ const MainAppScreen: React.FC = () => {
   const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [focusedTakeId, setFocusedTakeId] = useState<string | null>(null);
-
-  if (currentScreen === 'friends') {
-    return <FriendsScreen />;
-  }
+  const [selectedDate, setSelectedDate] = useState(() => {
+    const today = new Date();
+    today.setHours(0,0,0,0);
+    return today;
+  });
+  const [showLateSubmit, setShowLateSubmit] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  const today = new Date();
+  const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
 
   useEffect(() => {
     if (!user || fetchInProgress.current) return;
@@ -62,9 +70,9 @@ const MainAppScreen: React.FC = () => {
       }
     };
     initializeScreen();
-  }, [user]);
+  }, [user, checkDailyPost]);
 
-  const loadTakes = async () => {
+  const loadTakes = React.useCallback(async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const { data, error } = await supabase
@@ -82,10 +90,10 @@ const MainAppScreen: React.FC = () => {
         .from('profiles')
         .select('id, username')
         .in('id', userIds);
-      const profileMap = profiles?.reduce((acc, profile) => {
+      const profileMap: Record<string, { id: string; username: string }> = profiles?.reduce((acc, profile) => {
         acc[profile.id] = profile;
         return acc;
-      }, {} as Record<string, any>) || {};
+      }, {} as Record<string, { id: string; username: string }>) || {};
       // Fetch all comments for today's takes and count per take
       const takeIds = data.map(take => take.id);
       let commentCountMap: Record<string, number> = {};
@@ -118,7 +126,7 @@ const MainAppScreen: React.FC = () => {
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
 
   const loadFakeTakes = () => {
     try {
@@ -159,18 +167,13 @@ const MainAppScreen: React.FC = () => {
         .from('takes')
         .update({ reactions: updatedReactions })
         .eq('id', takeId);
-      // Add notification for reaction
-      if (take && user && take.userId !== user.id) {
-        await supabase.from('notifications').insert([{
-          user_id: take.userId,
-          type: 'reaction',
-          actor_id: user.id,
-          takeid: take.id,
-          created_at: new Date().toISOString(),
-          read: false,
-          extra: { reaction }
-        }]);
-      }
+      // Log the reaction event
+      await supabase.from('take_reactions').upsert({
+        take_id: takeId,
+        actor_id: user.id,
+        reaction_type: reaction,
+        created_at: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
@@ -251,7 +254,7 @@ const MainAppScreen: React.FC = () => {
       }
 
       if (currentTab === 'notifications') {
-        return <NotificationsScreen onGoToTake={handleGoToTake} onUpdateUnread={updateUnreadNotifications} />;
+        return <NotificationsScreen />;
       }
 
       return (
@@ -328,6 +331,132 @@ const MainAppScreen: React.FC = () => {
     fetchUnread();
   }, [user]);
 
+  useEffect(() => {
+    const now = new Date();
+    const midnight = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1, 0, 0, 0, 0);
+    const msToMidnight = midnight.getTime() - now.getTime();
+    const timer = setTimeout(() => window.location.reload(), msToMidnight);
+    return () => clearTimeout(timer);
+  }, []);
+
+  const goToPrevDay = () => setSelectedDate(prev => {
+    const d = new Date(prev);
+    d.setDate(d.getDate() - 1);
+    return d;
+  });
+  const goToNextDay = () => setSelectedDate(prev => {
+    const d = new Date(prev);
+    d.setDate(d.getDate() + 1);
+    if (d > today) return prev;
+    return d;
+  });
+
+  // Helper to format date as yyyy-MM-dd
+  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+
+  // Fetch prompt and takes for selectedDate
+  const fetchPromptAndTakesForDate = async (date: Date) => {
+    setLoading(true);
+    try {
+      // Fetch prompt for selectedDate
+      const { data: promptData, error: promptError } = await supabase
+        .from('daily_prompts')
+        .select('prompt_text')
+        .eq('prompt_date', formatDate(date))
+        .single();
+      setPromptText(promptData?.prompt_text || '');
+      // Fetch takes for selectedDate
+      const { data: takesData, error: takesError } = await supabase
+        .from('takes')
+        .select('*')
+        .eq('prompt_date', formatDate(date))
+        .order('created_at', { ascending: false });
+      // Fetch profiles for user_ids
+      const userIds = [...new Set((takesData || []).map(t => t.user_id).filter(Boolean))];
+      let profileMap: Record<string, { id: string; username: string }> = {};
+      if (userIds.length > 0) {
+        const { data: profiles } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('id', userIds);
+        profileMap = (profiles || []).reduce((acc, profile) => {
+          acc[profile.id] = profile;
+          return acc;
+        }, {} as Record<string, { id: string; username: string }>);
+      }
+      // Fetch all comments for takes and count per take
+      const takeIds = (takesData || []).map((take: { id: string }) => take.id);
+      let commentCountMap: Record<string, number> = {};
+      if (takeIds.length > 0) {
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('comments')
+          .select('id, take_id')
+          .in('take_id', takeIds);
+        if (!commentsError && commentsData) {
+          commentCountMap = commentsData.reduce((acc: Record<string, number>, row: { take_id: string }) => {
+            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
+            return acc;
+          }, {});
+        }
+      }
+      const formattedTakes = (takesData || []).map(take => ({
+        id: take.id,
+        userId: take.user_id,
+        content: take.content,
+        username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
+        isAnonymous: take.is_anonymous,
+        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
+        commentCount: commentCountMap[take.id] || 0,
+        timestamp: take.created_at
+      }));
+      setTakes(formattedTakes);
+    } catch (error) {
+      setPromptText('');
+      setTakes([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Watch selectedDate and currentTab, fetch for date if feed or toptakes
+  useEffect(() => {
+    if (currentTab === 'feed' || currentTab === 'toptakes') {
+      fetchPromptAndTakesForDate(selectedDate);
+    }
+    // eslint-disable-next-line
+  }, [selectedDate, currentTab]);
+
+  const checkHasPostedForDate = async (date: Date) => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('takes')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('prompt_date', formatDate(date))
+      .single();
+    setHasPostedForSelectedDate(!!data);
+  };
+
+  // Watch selectedDate and user, check if posted
+  useEffect(() => {
+    if (user) checkHasPostedForDate(selectedDate);
+    // eslint-disable-next-line
+  }, [selectedDate, user]);
+
+  // Show late submit modal if not posted, not today
+  useEffect(() => {
+    const isToday = formatDate(selectedDate) === formatDate(today);
+    if (!hasPostedForSelectedDate && !isToday) {
+      setShowLateSubmit(true);
+    } else {
+      setShowLateSubmit(false);
+    }
+  }, [hasPostedForSelectedDate, selectedDate, today]);
+
+  if (currentScreen === 'friends') {
+    return <FriendsScreen />;
+  }
+
   return (
     <div className="bg-brand-background min-h-screen flex flex-col">
       <AppBlocker isBlocked={isAppBlocked} onSubmit={handleUnlock} />
@@ -354,6 +483,30 @@ const MainAppScreen: React.FC = () => {
         
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl mx-auto h-full">
+            <div className="flex items-center justify-center gap-4 my-4">
+              <Button variant="ghost" onClick={goToPrevDay}><ChevronLeft /></Button>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="font-semibold text-lg px-4" onClick={() => setCalendarOpen(true)}>
+                    {selectedDate.toLocaleDateString()}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="center" className="bg-brand-surface border-brand-border p-0">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={date => {
+                      if (date > today) return;
+                      setSelectedDate(date);
+                      setCalendarOpen(false);
+                    }}
+                    initialFocus
+                    toDate={today}
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button variant="ghost" onClick={goToNextDay} disabled={selectedDate.getTime() === today.getTime()}><ChevronRight /></Button>
+            </div>
             {renderContent()}
           </div>
         </div>
@@ -425,6 +578,15 @@ const MainAppScreen: React.FC = () => {
       )}
       {showAccountSettingsModal && (
         <AccountSettingsModal isOpen={showAccountSettingsModal} onClose={() => setShowAccountSettingsModal(false)} />
+      )}
+
+      {showLateSubmit && (
+        <LateSubmitModal
+          isOpen={showLateSubmit}
+          onClose={() => setShowLateSubmit(false)}
+          onPurchase={() => {/* billing/credit logic here */}}
+          date={selectedDate}
+        />
       )}
     </div>
   );

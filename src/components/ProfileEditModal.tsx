@@ -9,11 +9,21 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
 
+// Define a Profile type for this modal
+interface Profile {
+  id: string;
+  username: string;
+  full_name?: string;
+  bio?: string;
+  email?: string;
+  avatar_url?: string;
+}
+
 interface ProfileEditModalProps {
   isOpen: boolean;
   onClose: () => void;
-  profile: any;
-  onUpdate: (updatedProfile: any) => void;
+  profile: Profile;
+  onUpdate: (updatedProfile: Profile) => void;
 }
 
 const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
@@ -65,10 +75,10 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       onUpdate({ ...profile, ...formData });
       toast({ title: 'Profile updated successfully!' });
       onClose();
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({ 
         title: 'Error updating profile',
-        description: error.message,
+        description: (error as Error).message,
         variant: 'destructive'
       });
     } finally {
@@ -84,10 +94,10 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
       if (error) throw error;
       
       toast({ title: 'Password reset email sent!' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       toast({ 
         title: 'Error sending reset email',
-        description: error.message,
+        description: (error as Error).message,
         variant: 'destructive'
       });
     }

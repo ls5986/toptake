@@ -84,7 +84,7 @@ export const BulkPromptGenerator: React.FC<BulkPromptGeneratorProps> = ({ onProm
         .gte('prompt_date', tomorrow.toISOString().split('T')[0])
         .order('prompt_date', { ascending: true });
 
-      let scheduleDate = new Date(tomorrow);
+      const scheduleDate = new Date(tomorrow);
       const existingDates = existingPrompts?.map(p => p.prompt_date) || [];
       
       while (existingDates.includes(scheduleDate.toISOString().split('T')[0])) {

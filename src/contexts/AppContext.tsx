@@ -24,6 +24,8 @@ interface AppContextType {
   submitTake: (content: string, isAnonymous: boolean, promptId?: string) => Promise<boolean>;
   isAppBlocked: boolean;
   setIsAppBlocked: (blocked: boolean) => void;
+  currentTakeId: string | null;
+  setCurrentTakeId: (id: string | null) => void;
 }
 
 const AppContext = createContext<AppContextType>({} as AppContextType);
@@ -47,6 +49,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [currentPrompt, setCurrentPrompt] = useState<string>('');
   const [tomorrowPrompt, setTomorrowPrompt] = useState<string | null>(null);
   const [isAppBlocked, setIsAppBlocked] = useState(false);
+  const [currentTakeId, setCurrentTakeId] = useState<string | null>(null);
 
   const isAuthenticated = user !== null;
 
@@ -296,6 +299,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     };
   }, []);
 
+  useEffect(() => {
+    if (!user?.id) return;
+    // Subscribe to real-time updates for the current user's profile
+    const profileSub = supabase
+      .channel('public:profiles')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+        async (payload) => {
+          // Refetch the updated profile
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (profile) {
+            setUser((prev) => prev ? { ...prev, ...profile } : prev);
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(profileSub);
+    };
+  }, [user?.id]);
+
   if (isLoading) {
     return <LoadingSpinner />;
   }
@@ -323,6 +352,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         submitTake,
         isAppBlocked,
         setIsAppBlocked,
+        currentTakeId,
+        setCurrentTakeId,
       }}
     >
       {children}

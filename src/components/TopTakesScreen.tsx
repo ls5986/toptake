@@ -9,6 +9,9 @@ import { RefreshCw, Trophy } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodayPrompt } from '@/lib/supabase';
 import { TakeCard } from './TakeCard';
+import { hasFeatureCredit } from '@/lib/featureCredits';
+import BillingModal from './BillingModal';
+import { useToast } from '@/hooks/use-toast';
 
 interface TopTakesScreenProps {
   focusedTakeId?: string | null;
@@ -23,6 +26,11 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
   const fetchInProgress = useRef(false);
   const takeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightedTakeId, setHighlightedTakeId] = useState<string | null>(null);
+  const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
+  const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
+  const { toast } = useToast();
+
+  const canSneakPeek = user && hasFeatureCredit(user, 'sneak_peek');
 
   useEffect(() => {
     if (user && !isAppBlocked && !fetchInProgress.current) {
@@ -140,18 +148,13 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
         .from('takes')
         .update({ reactions: updatedReactions })
         .eq('id', takeId);
-      // Add notification for reaction
-      if (take && user && take.userId !== user.id) {
-        await supabase.from('notifications').insert([{
-          user_id: take.userId,
-          type: 'reaction',
-          actor_id: user.id,
-          takeid: take.id,
-          created_at: new Date().toISOString(),
-          read: false,
-          extra: { reaction }
-        }]);
-      }
+      // Log the reaction event
+      await supabase.from('take_reactions').upsert({
+        take_id: takeId,
+        actor_id: user.id,
+        reaction_type: reaction,
+        created_at: new Date().toISOString(),
+      });
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
@@ -171,6 +174,23 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
     } catch (error) {
       console.error('Error unlocking:', error);
     }
+  };
+
+  const isFutureTake = (take) => {
+    const today = new Date();
+    const takeDate = new Date(take.timestamp);
+    return takeDate > today;
+  };
+
+  const handleSneakPeekUnlock = async (take) => {
+    if (!canSneakPeek) {
+      setShowSneakPeekModal(true);
+      return;
+    }
+    setUnlockingTakeId(take.id);
+    await supabase.from('sneak_peeks').insert({ user_id: user.id, take_id: take.id, created_at: new Date().toISOString() });
+    toast({ title: 'Sneak Peek Unlocked', description: 'You have unlocked a future take!' });
+    setUnlockingTakeId(null);
   };
 
   if (isAppBlocked) {
@@ -216,18 +236,35 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
                   const engagementB = Object.values(b.reactions || {}).reduce((sum, c) => sum + (typeof c === 'number' ? c : 0), 0) + (b.commentCount || 0);
                   return engagementB - engagementA;
                 })
-                .map((take, index) => (
-                  <div
-                    key={take.id}
-                    ref={el => (takeRefs.current[take.id] = el)}
-                    className={highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}
-                  >
-                    <TakeCard 
-                      take={take} 
-                      onReact={handleReaction}
-                    />
-                  </div>
-                ))}
+                .map((take, index) => {
+                  const futureTake = isFutureTake(take);
+                  const canView = !futureTake || canSneakPeek;
+                  return (
+                    <div
+                      key={take.id}
+                      ref={el => (takeRefs.current[take.id] = el)}
+                      className={highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}
+                    >
+                      {!canView ? (
+                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
+                          <div className="text-white text-lg mb-2">🔒 Sneak Peek Locked</div>
+                          <Button
+                            onClick={() => handleSneakPeekUnlock(take)}
+                            className="bg-blue-500 text-white hover:bg-blue-600"
+                          >
+                            {canSneakPeek ? 'Unlock Sneak Peek' : 'Buy Sneak Peek Credit'}
+                          </Button>
+                        </div>
+                      ) : null}
+                      <div className={canView ? '' : 'blur-sm pointer-events-none select-none'}>
+                        <TakeCard 
+                          take={take} 
+                          onReact={handleReaction}
+                        />
+                      </div>
+                    </div>
+                  );
+                })}
               
               {topTakes.length === 0 && (
                 <div className="text-center text-gray-400 py-8">
@@ -239,6 +276,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
           </ScrollArea>
         )}
       </div>
+      <BillingModal isOpen={showSneakPeekModal} onClose={() => setShowSneakPeekModal(false)} />
     </div>
   );
 };

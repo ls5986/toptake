@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
@@ -12,6 +12,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePackSystem } from '@/hooks/usePackSystem';
 import ProfileView from './ProfileView';
+import { supabase } from '@/lib/supabase';
 
 interface TakeCardProps {
   take: Take;
@@ -21,6 +22,7 @@ interface TakeCardProps {
   promptText?: string;
   dayNumber?: number;
   isOwnTake?: boolean;
+  selectedDate?: string;
 }
 
 export const TakeCard: React.FC<TakeCardProps> = ({ 
@@ -30,7 +32,8 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   showPrompt = false, 
   promptText = '', 
   dayNumber = 1,
-  isOwnTake = false
+  isOwnTake = false,
+  selectedDate
 }) => {
   const { user, hasPostedToday } = useAppContext();
   const { packUsage, consumeUse } = usePackSystem(user?.id);
@@ -38,16 +41,64 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const [showProfile, setShowProfile] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<'delete' | null>(null);
   const { toast } = useToast();
+  const [reactions, setReactions] = useState<{ [key: string]: number }>({});
+  const [userReaction, setUserReaction] = useState<string | null>(null);
+  const [reactionTypes, setReactionTypes] = useState<{ name: string; emoji: string }[]>([]);
 
   const canInteract = hasPostedToday || user?.hasPostedToday;
 
-  const handleReaction = (reaction: keyof Take['reactions']) => {
+  useEffect(() => {
+    // Fetch all reaction types
+    const fetchReactionTypes = async () => {
+      const { data } = await supabase.from('reaction_types').select('name, emoji');
+      setReactionTypes(data || []);
+    };
+    fetchReactionTypes();
+  }, []);
+
+  useEffect(() => {
+    // Fetch reactions for this take
+    const fetchReactions = async () => {
+      const { data } = await supabase
+        .from('take_reactions')
+        .select('reaction_type, actor_id')
+        .eq('take_id', take.id);
+      const counts: { [key: string]: number } = {};
+      let userReact: string | null = null;
+      (data || []).forEach((r: any) => {
+        counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+        if (r.actor_id === user?.id) userReact = r.reaction_type;
+      });
+      setReactions(counts);
+      setUserReaction(userReact);
+    };
+    if (take.id && user?.id) fetchReactions();
+  }, [take.id, user?.id]);
+
+  const handleReaction = async (reaction: string) => {
     if (!canInteract) {
       toast({ title: "🔒 Post today's take first to react!", variant: "destructive" });
       return;
     }
-    onReact(take.id, reaction);
+    // Upsert user's reaction
+    await supabase.from('take_reactions').upsert({
+      take_id: take.id,
+      actor_id: user.id,
+      reaction_type: reaction,
+      created_at: new Date().toISOString(),
+    });
+    setUserReaction(reaction);
     toast({ title: `Reacted with ${getReactionEmoji(reaction)}!`, duration: 1000 });
+    // Optionally, refetch reactions
+    const { data } = await supabase
+      .from('take_reactions')
+      .select('reaction_type, actor_id')
+      .eq('take_id', take.id);
+    const counts: { [key: string]: number } = {};
+    (data || []).forEach((r: any) => {
+      counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
+    });
+    setReactions(counts);
   };
 
   const handleDelete = async () => {
@@ -126,11 +177,8 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   // Helper to show comment count (flat for now, can be improved to count nested)
   const commentCount = take.commentCount || 0;
 
-  // Engagement = sum of all reactions + commentCount, excluding user's own reactions/comments
-  const engagementCount = Object.entries(take.reactions).reduce((sum, [reaction, count]) => {
-    // Optionally, exclude user's own reactions if tracked
-    return sum + (typeof count === 'number' ? count : 0);
-  }, 0) + (take.commentCount || 0);
+  // Engagement = sum of all reactions + commentCount
+  const engagementCount = Object.values(reactions).reduce((sum, count) => sum + count, 0) + (take.commentCount || 0);
 
   return (
     <>
@@ -171,10 +219,15 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                       </Badge>
                     )}
                     <span className="text-brand-muted text-xs">{formatTimestamp(take.timestamp)}</span>
+                    {take.is_late_submit && (
+                      <Badge className="bg-yellow-400 text-yellow-900 text-xs px-2 py-1 flex-shrink-0 ml-2" title="Late Submit">
+                        ⏰ Late Submit
+                      </Badge>
+                    )}
                   </div>
-                  <Badge className="bg-brand-accent text-brand-text text-xs px-2 py-1 flex-shrink-0">
+                  <div className="inline-block px-2 py-1 rounded bg-brand-surface text-brand-accent text-xs font-semibold border border-brand-accent">
                     🔥 {engagementCount}
-                  </Badge>
+                  </div>
                   
                   {isOwnTake && onDelete && (
                     <Button
@@ -192,18 +245,18 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                 <p className="text-brand-muted mb-3 leading-relaxed text-sm sm:text-base break-words">{take.content}</p>
                 
                 <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 sm:gap-2 mb-3">
-                  {Object.entries(take.reactions).map(([reaction, count]) => (
+                  {reactionTypes.map(rt => (
                     <Button
-                      key={reaction}
-                      onClick={() => handleReaction(reaction as keyof Take['reactions'])}
-                      variant="outline"
+                      key={rt.name}
+                      onClick={() => handleReaction(rt.name)}
+                      variant={userReaction === rt.name ? "solid" : "outline"}
                       size="sm"
-                      className="border-brand-border text-brand-text hover:border-brand-accent hover:text-brand-accent text-xs px-2 py-1 h-auto min-h-[28px] justify-start"
+                      className={`border-brand-border text-brand-text hover:border-brand-accent hover:text-brand-accent text-xs px-2 py-1 h-auto min-h-[28px] justify-start ${userReaction === rt.name ? 'bg-brand-accent text-white' : ''}`}
                       disabled={!canInteract}
                     >
-                      <span className="mr-1">{getReactionEmoji(reaction)}</span>
-                      <span className="truncate">{getReactionLabel(reaction)}</span>
-                      {count > 0 && <span className="ml-1 font-bold">{count}</span>}
+                      <span className="mr-1">{rt.emoji}</span>
+                      <span className="truncate">{getReactionLabel(rt.name)}</span>
+                      {reactions[rt.name] > 0 && <span className="ml-1 font-bold">{reactions[rt.name]}</span>}
                     </Button>
                   ))}
                 </div>
@@ -226,7 +279,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
       </div>
       
       {showComments && (
-        <CommentSection takeId={take.id} isOpen={showComments} onClose={() => setShowComments(false)} />
+        <CommentSection takeId={take.id} isOpen={showComments} onClose={() => setShowComments(false)} selectedDate={selectedDate} />
       )}
       
       {showProfile && (

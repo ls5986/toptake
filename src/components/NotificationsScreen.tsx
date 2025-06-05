@@ -17,8 +17,8 @@ interface Notification {
   extra?: any;
 }
 
-export const NotificationsScreen: React.FC<{ onGoToTake: (takeid: string) => void; onUpdateUnread: () => void }> = ({ onGoToTake, onUpdateUnread }) => {
-  const { user } = useAppContext();
+export const NotificationsScreen: React.FC = () => {
+  const { user, setCurrentScreen, setCurrentTakeId } = useAppContext();
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -44,12 +44,22 @@ export const NotificationsScreen: React.FC<{ onGoToTake: (takeid: string) => voi
   const markAsRead = async (notificationId: string) => {
     setNotifications((prev) => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
     await supabase.from('notifications').update({ read: true }).eq('id', notificationId);
-    onUpdateUnread();
   };
 
   const handleClick = (notification: Notification) => {
     markAsRead(notification.id);
-    onGoToTake(notification.takeid);
+    setCurrentTakeId(notification.takeid);
+    setCurrentScreen('take');
+  };
+
+  const getReactionEmoji = (reaction: string) => {
+    switch (reaction) {
+      case 'wildTake': return '🚨';
+      case 'fairPoint': return '⚖️';
+      case 'mid': return '🙄';
+      case 'thatYou': return '👻';
+      default: return '👍';
+    }
   };
 
   return (
@@ -77,7 +87,19 @@ export const NotificationsScreen: React.FC<{ onGoToTake: (takeid: string) => voi
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-brand-text truncate">
                       <span className="font-semibold">{n.actor?.username || 'Someone'}</span>
-                      {n.type === 'comment' ? ' commented on your take' : ' reacted to your take'}
+                      {n.type === 'comment' ? (
+                        <>
+                          {' commented: '}
+                          <span className="italic text-brand-muted">{n.extra?.comment?.slice(0, 60) || 'on your take'}</span>
+                        </>
+                      ) : (
+                        <>
+                          {' reacted '}
+                          <span className="mx-1">{getReactionEmoji(n.extra?.reaction)}</span>
+                          <span className="text-brand-muted">{n.extra?.reaction || ''}</span>
+                          {' to your take'}
+                        </>
+                      )}
                     </div>
                     <div className="text-xs text-brand-muted mt-0.5">{new Date(n.created_at).toLocaleString()}</div>
                   </div>

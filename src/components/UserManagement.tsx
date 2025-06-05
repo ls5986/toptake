@@ -5,9 +5,10 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
+import { User as AppUser } from '@/types';
 
 interface UserManagementProps {
-  users: any[];
+  users: AppUser[];
   onUsersUpdate: () => void;
 }
 
@@ -139,7 +140,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUsersUpdate })
                     </div>
                     <div className="flex items-center gap-2">
                       <Badge variant="secondary">Streak: {user.streak || 0}</Badge>
-                      <Badge variant="outline">Score: {user.drama_score || 0}</Badge>
+                      <Badge variant="outline">Score: {user.dramaScore || 0}</Badge>
                       {user.is_banned ? (
                         <>
                           <Badge variant="destructive">Banned</Badge>

@@ -5,6 +5,7 @@ import LandingPage from './LandingPage';
 import EnhancedAdminScreen from './EnhancedAdminScreen';
 import SuperAdminScreen from './SuperAdminScreen';
 import AdminLogin from './AdminLogin';
+import TakePage from './TakePage';
 
 // Lazy load components to improve initial load time
 const AuthScreen = React.lazy(() => import('./AuthScreen'));
@@ -14,7 +15,7 @@ const MainAppScreen = React.lazy(() => import('./MainAppScreen'));
 const FriendsScreen = React.lazy(() => import('./FriendsScreen'));
 
 const AppLayout: React.FC = () => {
-  const { currentScreen, isAuthenticated, user, shouldShowCarousel, setCurrentScreen } = useAppContext();
+  const { currentScreen, isAuthenticated, user, shouldShowCarousel, setCurrentScreen, currentTakeId } = useAppContext();
   const [isAdminMode, setIsAdminMode] = React.useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [showAdminLogin, setShowAdminLogin] = React.useState(false);
@@ -112,6 +113,11 @@ const AppLayout: React.FC = () => {
       // If user is on friends screen
       if (currentScreen === 'friends') {
         return <FriendsScreen />;
+      }
+
+      // If user is on take page
+      if (currentScreen === 'take') {
+        return <TakePage takeId={currentTakeId} />;
       }
 
       // Default authenticated main screen with all features

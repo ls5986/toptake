@@ -3,7 +3,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Send } from 'lucide-react';
+import { Send, ThumbsUp, ThumbsDown } from 'lucide-react';
+import clsx from 'clsx';
 
 export interface Comment {
   id: string;
@@ -19,10 +20,14 @@ export interface Comment {
 interface CommentThreadProps {
   comment: Comment;
   onReply: (parentId: string, content: string, isAnonymous: boolean) => Promise<void>;
+  onVote: (commentId: string, voteType: 'like' | 'dislike' | undefined) => void;
+  likeCount: number;
+  dislikeCount: number;
+  userVote?: 'like' | 'dislike';
   depth?: number;
 }
 
-export const CommentThread: React.FC<CommentThreadProps> = ({ comment, onReply, depth = 0 }) => {
+export const CommentThread: React.FC<CommentThreadProps> = ({ comment, onReply, onVote, likeCount, dislikeCount, userVote, depth = 0 }) => {
   const [showReply, setShowReply] = useState(false);
   const [replyText, setReplyText] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -49,8 +54,24 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ comment, onReply, 
     return date.toLocaleDateString();
   };
 
+  const handleLike = () => {
+    if (userVote === 'like') {
+      onVote(comment.id, undefined);
+    } else {
+      onVote(comment.id, 'like');
+    }
+  };
+
+  const handleDislike = () => {
+    if (userVote === 'dislike') {
+      onVote(comment.id, undefined);
+    } else {
+      onVote(comment.id, 'dislike');
+    }
+  };
+
   return (
-    <div style={{ marginLeft: depth * 20, marginTop: 8 }}>
+    <div className={clsx('mt-2', depth > 0 && `ml-[${depth*20}px]`)}>
       <Card className="bg-brand-surface border-border">
         <CardContent className="p-3">
           <div className="flex justify-between items-start mb-2">
@@ -75,6 +96,24 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ comment, onReply, 
               onClick={() => setShowReply((v) => !v)}
             >
               Reply
+            </Button>
+            <Button
+              variant={userVote === 'like' ? 'solid' : 'ghost'}
+              size="sm"
+              className={`flex items-center gap-1 text-xs ${userVote === 'like' ? '!bg-brand-accent !text-white' : '!bg-transparent'}`}
+              onClick={handleLike}
+            >
+              <ThumbsUp className={`w-4 h-4 ${userVote === 'like' ? 'text-white' : 'text-brand-accent'}`} />
+              <span className={userVote === 'like' ? 'text-white' : 'text-brand-accent'}>{likeCount}</span>
+            </Button>
+            <Button
+              variant={userVote === 'dislike' ? 'solid' : 'ghost'}
+              size="sm"
+              className={`flex items-center gap-1 text-xs ${userVote === 'dislike' ? '!bg-brand-danger !text-white' : '!bg-transparent'}`}
+              onClick={handleDislike}
+            >
+              <ThumbsDown className={`w-4 h-4 ${userVote === 'dislike' ? 'text-white' : 'text-brand-danger'}`} />
+              <span className={userVote === 'dislike' ? 'text-white' : 'text-brand-danger'}>{dislikeCount}</span>
             </Button>
           </div>
           {showReply && (
@@ -116,7 +155,16 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ comment, onReply, 
       {comment.replies && comment.replies.length > 0 && (
         <div className="mt-2 space-y-2">
           {comment.replies.map((reply) => (
-            <CommentThread key={reply.id} comment={reply} onReply={onReply} depth={depth + 1} />
+            <CommentThread 
+              key={reply.id} 
+              comment={reply} 
+              onReply={onReply} 
+              onVote={onVote}
+              likeCount={likeCount}
+              dislikeCount={dislikeCount}
+              userVote={userVote}
+              depth={depth + 1} 
+            />
           ))}
         </div>
       )}

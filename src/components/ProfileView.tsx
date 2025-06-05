@@ -8,20 +8,40 @@ import { TakeCard } from './TakeCard';
 import ProfileEditModal from './ProfileEditModal';
 import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
-import { Take } from '@/types';
+import { User as AppUser, Take as AppTake } from '@/types';
+import { isPremiumTheme } from './theme-provider';
+import { MonetizationModals } from './MonetizationModals';
+import { useToast } from '@/hooks/use-toast';
 
 interface ProfileViewProps {
   userId?: string;
   username?: string;
 }
 
+type ProfileData = AppUser & {
+  avatar_url?: string;
+  bio?: string;
+  full_name?: string;
+  is_private?: boolean;
+  theme_id?: string;
+};
+
+type TakeWithPrompt = {
+  take: AppTake;
+  prompt: string;
+  dayNumber: number;
+};
+
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
   const { user } = useAppContext();
-  const [userTakes, setUserTakes] = useState<Take[]>([]);
-  const [profileData, setProfileData] = useState<any>(null);
+  const [userTakes, setUserTakes] = useState<AppTake[]>([]);
+  const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [takesWithPrompts, setTakesWithPrompts] = useState<any[]>([]);
+  const [takesWithPrompts, setTakesWithPrompts] = useState<TakeWithPrompt[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const { toast } = useToast();
 
   const isOwnProfile = !userId || userId === user?.id;
   const displayUser = isOwnProfile ? (profileData || user) : profileData;
@@ -111,7 +131,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
     }
   };
 
-  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
+  const handleReaction = async (takeId: string, reaction: keyof AppTake['reactions']) => {
     setUserTakes(prev => prev.map(t => 
       t.id === takeId ? { 
         ...t, 
@@ -143,21 +163,43 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
       .from('takes')
       .update({ reactions: updatedReactions })
       .eq('id', takeId);
-    if (take && user && take.userId !== user.id) {
-      await supabase.from('notifications').insert([{
-        user_id: take.userId,
-        type: 'reaction',
+    // Log the reaction event
+    if (user) {
+      await supabase.from('take_reactions').upsert({
+        take_id: takeId,
         actor_id: user.id,
-        takeid: take.id,
+        reaction_type: reaction,
         created_at: new Date().toISOString(),
-        read: false,
-        extra: { reaction }
-      }]);
+      });
     }
   };
 
-  const handleProfileUpdate = (updatedProfile: any) => {
+  const handleProfileUpdate = (updatedProfile: ProfileData) => {
     setProfileData(updatedProfile);
+  };
+
+  const availableThemes = [
+    { id: 'light', name: 'Light', premium: false },
+    { id: 'dark', name: 'Dark', premium: false },
+    { id: 'orange_glow', name: 'Orange Glow', premium: true },
+  ];
+
+  const handleThemeSelect = async (themeId: string, premium: boolean) => {
+    if (premium && !currentUser.isPremium) {
+      setShowPremiumModal(true);
+      return;
+    }
+    // Update theme_id in Supabase and local state
+    await supabase.from('profiles').update({ theme_id: themeId }).eq('id', currentUser.id);
+    setProfileData((prev: ProfileData | null) => ({ ...prev, theme_id: themeId }));
+    toast({ title: 'Theme Changed', description: `Theme set to ${themeId.replace('_', ' ')}` });
+  };
+
+  const handlePremiumPurchase = async () => {
+    // Update isPremium in Supabase and local state
+    await supabase.from('profiles').update({ is_premium: true }).eq('id', currentUser.id);
+    setProfileData((prev: ProfileData | null) => ({ ...prev, isPremium: true }));
+    toast({ title: 'Premium Unlocked!', description: 'You now have access to all premium features and themes.' });
   };
 
   if (loading) {
@@ -211,6 +253,34 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
                     Private
                   </Badge>
                 )}
+              </div>
+              <div className="mt-4">
+                <div className="font-semibold text-brand-text mb-2">Theme</div>
+                <div className="flex gap-2 justify-center">
+                  {availableThemes.map(theme => (
+                    <Button
+                      key={theme.id}
+                      onClick={() => handleThemeSelect(theme.id, theme.premium)}
+                      className={`px-3 py-1 rounded-full border ${profileData?.theme_id === theme.id ? 'border-brand-accent' : 'border-brand-border'} ${theme.id === 'orange_glow' ? 'bg-gradient-to-r from-orange-300 to-orange-500 text-orange-900' : ''}`}
+                      disabled={profileData?.theme_id === theme.id}
+                    >
+                      {theme.name}
+                      {theme.premium && !currentUser.isPremium && (
+                        <Lock className="inline w-4 h-4 ml-1 text-brand-danger" />
+                      )}
+                    </Button>
+                  ))}
+                </div>
+                <MonetizationModals
+                  showAnonymousModal={false}
+                  showStreakModal={false}
+                  showPremiumModal={showPremiumModal}
+                  showBoostModal={false}
+                  onClose={() => setShowPremiumModal(false)}
+                  onPurchase={(type) => {
+                    if (type === 'premium') handlePremiumPurchase();
+                  }}
+                />
               </div>
               {isOwnProfile && (
                 <Button

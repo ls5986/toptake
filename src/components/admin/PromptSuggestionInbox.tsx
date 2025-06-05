@@ -5,13 +5,16 @@ import { supabase } from '@/lib/supabase';
 import { fixPromptWithAI } from '@/lib/openai';
 import { useToast } from '@/components/ui/use-toast';
 import { Input } from '@/components/ui/input';
+import { addNotification } from '@/lib/supabase';
 
 interface Suggestion {
   id: string;
   user_id: string;
-  suggestion_text: string;
+  original_text: string;
+  ai_fixed_text?: string;
   status: string;
   created_at: string;
+  submitted_version?: 'original' | 'ai_fixed';
 }
 
 interface Profile {
@@ -35,6 +38,9 @@ const PromptSuggestionInbox: React.FC = () => {
   const [stats, setStats] = useState({ pending: 0, approved: 0, rejected: 0, used: 0 });
   const [profiles, setProfiles] = useState<Record<string, Profile>>({});
   const { toast } = useToast();
+  const [editAIFixed, setEditAIFixed] = useState('');
+  const [editingAIFixedId, setEditingAIFixedId] = useState<string | null>(null);
+  const [scheduleDate, setScheduleDate] = useState('');
 
   useEffect(() => {
     loadSuggestions();
@@ -81,35 +87,47 @@ const PromptSuggestionInbox: React.FC = () => {
   };
 
   const handleApprove = async (s: Suggestion) => {
-    try {
-      const { error: insertError } = await supabase
-        .from('daily_prompts')
-        .insert({ prompt_text: s.suggestion_text, prompt_date: null, status: 'unscheduled', source: 'suggestion', suggestion_id: s.id });
-      if (insertError) throw insertError;
-      await supabase
-        .from('prompt_suggestions')
-        .update({ status: 'used' })
-        .eq('id', s.id);
-      await loadSuggestions();
-      await loadStats();
-      toast({ title: 'Suggestion approved!', description: 'Prompt moved to daily prompts.', variant: 'default' });
-    } catch (err) {
-      toast({ title: 'Error approving suggestion', description: err.message || String(err), variant: 'destructive' });
+    // Ask for date
+    let date = scheduleDate;
+    if (!date) {
+      date = prompt('Enter date to schedule this prompt (YYYY-MM-DD):') || '';
     }
+    if (!date) return;
+    // Check for duplicate
+    const { data: existing } = await supabase
+      .from('daily_prompts')
+      .select('id')
+      .eq('prompt_date', date)
+      .single();
+    if (existing) {
+      toast({ title: 'A prompt for this date already exists. Please choose another date.', variant: 'destructive' });
+      return;
+    }
+    // Use whichever version was last edited or submitted
+    const promptText = s.submitted_version === 'ai_fixed' ? (editingAIFixedId === s.id ? editAIFixed : s.ai_fixed_text) : (editingId === s.id ? editText : s.original_text);
+    const { error: insertError } = await supabase
+      .from('daily_prompts')
+      .insert({ prompt_text: promptText, prompt_date: date, status: 'scheduled', source: 'suggestion', suggestion_id: s.id });
+    if (insertError) throw insertError;
+    await supabase
+      .from('prompt_suggestions')
+      .update({ status: 'scheduled', scheduled_date: date })
+      .eq('id', s.id);
+    await addNotification(s.user_id, 'prompt_approved', `Your prompt was approved and scheduled for ${date}`);
+    await loadSuggestions();
+    await loadStats();
+    toast({ title: 'Suggestion approved & scheduled!', description: 'Prompt moved to daily prompts.', variant: 'default' });
   };
 
-  const handleReject = async (id: string) => {
-    try {
-      await supabase
-        .from('prompt_suggestions')
-        .update({ status: 'rejected' })
-        .eq('id', id);
-      await loadSuggestions();
-      await loadStats();
-      toast({ title: 'Suggestion rejected', description: 'Suggestion has been rejected.', variant: 'default' });
-    } catch (err) {
-      toast({ title: 'Error rejecting suggestion', description: err.message || String(err), variant: 'destructive' });
-    }
+  const handleReject = async (id: string, userId: string) => {
+    await supabase
+      .from('prompt_suggestions')
+      .update({ status: 'rejected' })
+      .eq('id', id);
+    await addNotification(userId, 'prompt_rejected', 'Your prompt suggestion was rejected.');
+    await loadSuggestions();
+    await loadStats();
+    toast({ title: 'Suggestion rejected', description: 'Suggestion has been rejected.', variant: 'default' });
   };
 
   const handleBulkApprove = async () => {
@@ -123,7 +141,8 @@ const PromptSuggestionInbox: React.FC = () => {
 
   const handleBulkReject = async () => {
     for (const id of selectedIds) {
-      await handleReject(id);
+      const s = suggestions.find(s => s.id === id);
+      if (s) await handleReject(id, s.user_id);
     }
     setSelectedIds([]);
     toast({ title: 'Bulk reject complete', description: 'Selected suggestions rejected.', variant: 'default' });
@@ -131,31 +150,47 @@ const PromptSuggestionInbox: React.FC = () => {
 
   const handleEdit = (s: Suggestion) => {
     setEditingId(s.id);
-    setEditText(s.suggestion_text);
+    setEditText(s.original_text);
   };
 
   const handleSaveEdit = async (id: string) => {
     try {
       await supabase
         .from('prompt_suggestions')
-        .update({ suggestion_text: editText })
+        .update({ original_text: editText })
         .eq('id', id);
       setEditingId(null);
       setEditText('');
       await loadSuggestions();
-      toast({ title: 'Suggestion edited', description: 'Suggestion text updated.', variant: 'default' });
+      toast({ title: 'Original suggestion edited', description: 'Original text updated.', variant: 'default' });
     } catch (err) {
-      toast({ title: 'Error editing suggestion', description: err.message || String(err), variant: 'destructive' });
+      toast({ title: 'Error editing original suggestion', description: err.message || String(err), variant: 'destructive' });
     }
   };
 
-  const handleFixWithAI = async (s: Suggestion) => {
+  const handleEditAIFixed = (s: Suggestion) => {
+    setEditingAIFixedId(s.id);
+    setEditAIFixed(s.ai_fixed_text || '');
+  };
+
+  const handleSaveEditAIFixed = async (id: string) => {
+    await supabase
+      .from('prompt_suggestions')
+      .update({ ai_fixed_text: editAIFixed })
+      .eq('id', id);
+    setEditingAIFixedId(null);
+    setEditAIFixed('');
+    await loadSuggestions();
+    toast({ title: 'AI-fixed suggestion edited', description: 'AI-fixed text updated.', variant: 'default' });
+  };
+
+  const handleFixWithAIOriginal = async (s: Suggestion) => {
     setAiLoadingId(s.id);
     try {
-      const improved = await fixPromptWithAI(s.suggestion_text);
-      setEditingId(s.id);
-      setEditText(improved);
-      toast({ title: 'AI improved suggestion!', description: 'Suggestion text was improved by AI.', variant: 'default' });
+      const improved = await fixPromptWithAI(s.original_text);
+      setEditingAIFixedId(s.id);
+      setEditAIFixed(improved);
+      toast({ title: 'AI improved suggestion!', description: 'AI-fixed text updated.', variant: 'default' });
     } catch (err: any) {
       toast({ title: 'AI error', description: err.message || String(err), variant: 'destructive' });
     } finally {
@@ -202,7 +237,7 @@ const PromptSuggestionInbox: React.FC = () => {
                     onChange={e => setEditText(e.target.value)}
                   />
                 ) : (
-                  <div className="font-semibold text-brand-primary truncate">{s.suggestion_text}</div>
+                  <div className="font-semibold text-brand-primary truncate">{s.original_text}</div>
                 )}
                 <div className="text-xs text-brand-muted">{s.created_at}</div>
                 <div className="text-xs text-brand-accent">Status: {s.status}</div>
@@ -213,9 +248,8 @@ const PromptSuggestionInbox: React.FC = () => {
                 ) : (
                   <>
                     <Button size="sm" onClick={() => handleApprove(s)} className="bg-brand-primary hover:bg-brand-accent text-brand-text">Approve</Button>
-                    <Button size="sm" onClick={() => handleReject(s.id)} className="bg-brand-danger hover:bg-brand-primary text-brand-text">Reject</Button>
+                    <Button size="sm" onClick={() => handleReject(s.id, s.user_id)} className="bg-brand-danger hover:bg-brand-primary text-brand-text">Reject</Button>
                     <Button size="sm" onClick={() => handleEdit(s)} className="bg-brand-muted text-brand-primary border border-brand-border">Edit</Button>
-                    <Button size="sm" onClick={() => handleFixWithAI(s)} className="bg-brand-surface text-brand-primary border border-brand-border" disabled={aiLoadingId === s.id}>{aiLoadingId === s.id ? (<><Spinner />Thinking...</>) : 'Fix with AI'}</Button>
                   </>
                 )}
               </div>

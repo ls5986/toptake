@@ -27,6 +27,9 @@ const PromptRecommendations: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [newPrompt, setNewPrompt] = useState('');
   const [submitting, setSubmitting] = useState(false);
+  const [aiFixedPrompt, setAiFixedPrompt] = useState('');
+  const [aiLoading, setAiLoading] = useState(false);
+  const [showAIPreview, setShowAIPreview] = useState(false);
   const { user, isAdmin } = useAppContext();
   const { toast } = useToast();
 
@@ -90,27 +93,45 @@ const PromptRecommendations: React.FC = () => {
     }
   };
 
-  const submitRecommendation = async () => {
+  const handleFixWithAI = async () => {
+    setAiLoading(true);
+    try {
+      const improved = await fixPromptWithAI(newPrompt);
+      setAiFixedPrompt(improved);
+      setShowAIPreview(true);
+    } catch (err) {
+      toast({ title: 'AI error', description: err.message || String(err), variant: 'destructive' });
+    } finally {
+      setAiLoading(false);
+    }
+  };
+
+  const submitRecommendation = async (useAIFixed = false) => {
     if (!newPrompt.trim() || !user) return;
-    
     setSubmitting(true);
     try {
       const { error } = await supabase
-        .from('prompt_recommendations')
+        .from('prompt_suggestions')
         .insert({
-          prompt_text: newPrompt.trim(),
+          original_text: newPrompt.trim(),
+          ai_fixed_text: aiFixedPrompt.trim(),
           user_id: user.id,
-          status: 'pending'
+          status: 'pending',
+          submitted_version: useAIFixed ? 'ai_fixed' : 'original'
         });
-      
       if (error) throw error;
-      
       setNewPrompt('');
+      setAiFixedPrompt('');
+      setShowAIPreview(false);
       loadRecommendations();
       loadUserSubmissions();
+      await supabase.from('notifications').insert({
+        user_id: user.id,
+        type: 'prompt_submitted',
+        message: 'Your prompt suggestion was submitted!'
+      });
       toast({ title: 'Prompt suggestion submitted!' });
     } catch (error) {
-      console.error('Error submitting recommendation:', error);
       toast({ title: 'Error submitting suggestion', variant: 'destructive' });
     } finally {
       setSubmitting(false);
@@ -202,11 +223,25 @@ const PromptRecommendations: React.FC = () => {
             className=""
           />
           <Button 
-            onClick={submitRecommendation}
+            onClick={handleFixWithAI}
             disabled={!newPrompt.trim() || submitting}
             className="btn-primary w-full"
           >
-            {submitting ? 'Submitting...' : 'Submit Suggestion'}
+            {aiLoading ? 'Fixing with AI...' : 'Fix with AI'}
+          </Button>
+          <Button 
+            onClick={() => submitRecommendation(false)}
+            disabled={!newPrompt.trim() || submitting}
+            className="btn-primary w-full"
+          >
+            {submitting ? 'Submitting...' : 'Submit Original'}
+          </Button>
+          <Button 
+            onClick={() => submitRecommendation(true)}
+            disabled={!aiFixedPrompt.trim() || submitting}
+            className="btn-primary w-full"
+          >
+            {submitting ? 'Submitting...' : 'Submit AI Fixed'}
           </Button>
         </CardContent>
       </Card>
