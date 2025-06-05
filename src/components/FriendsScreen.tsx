@@ -90,7 +90,7 @@ const FriendsScreen: React.FC = () => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 min-h-screen">
+    <div className="bg-brand-gradient min-h-screen">
       <div className="max-w-2xl mx-auto p-6">
         <div className="flex items-center mb-6">
           <Button
@@ -111,14 +111,14 @@ const FriendsScreen: React.FC = () => {
           <Button
             onClick={() => setActiveTab('friends')}
             variant={activeTab === 'friends' ? 'default' : 'outline'}
-            className={activeTab === 'friends' ? 'bg-purple-600' : 'border-purple-400 text-purple-400'}
+            className={activeTab === 'friends' ? 'bg-brand-accent' : 'border-brand-accent text-brand-accent'}
           >
             My Friends ({friends.length})
           </Button>
           <Button
             onClick={() => setActiveTab('search')}
             variant={activeTab === 'search' ? 'default' : 'outline'}
-            className={activeTab === 'search' ? 'bg-purple-600' : 'border-purple-400 text-purple-400'}
+            className={activeTab === 'search' ? 'bg-brand-accent' : 'border-brand-accent text-brand-accent'}
           >
             <Search className="w-4 h-4 mr-1" />
             Find Friends
@@ -132,10 +132,10 @@ const FriendsScreen: React.FC = () => {
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 placeholder="Search for users..."
-                className="bg-gray-800 border-gray-600 text-white"
+                className="bg-brand-surface border-brand-border text-brand-text"
                 onKeyPress={(e) => e.key === 'Enter' && searchUsers()}
               />
-              <Button onClick={searchUsers} className="bg-purple-600" disabled={loading}>
+              <Button onClick={searchUsers} className="bg-brand-accent" disabled={loading}>
                 <Search className="w-4 h-4" />
               </Button>
             </div>
@@ -144,14 +144,14 @@ const FriendsScreen: React.FC = () => {
 
         <div className="space-y-3">
           {activeTab === 'friends' && friends.map((friend) => (
-            <Card key={friend.id} className="bg-gray-800 border-gray-700">
+            <Card key={friend.id} className="bg-brand-surface border-brand-border">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${friend.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} />
+                    <div className={`w-3 h-3 rounded-full ${friend.isOnline ? 'bg-brand-success' : 'bg-brand-muted'}`} />
                     <div>
-                      <p className="text-white font-medium">{friend.username}</p>
-                      <p className="text-gray-400 text-sm">
+                      <p className="text-brand-text font-medium">{friend.username}</p>
+                      <p className="text-brand-muted text-sm">
                         🔥 {friend.streak} day streak
                       </p>
                     </div>
@@ -162,21 +162,21 @@ const FriendsScreen: React.FC = () => {
           ))}
 
           {activeTab === 'search' && searchResults.map((user) => (
-            <Card key={user.id} className="bg-gray-800 border-gray-700">
+            <Card key={user.id} className="bg-brand-surface border-brand-border">
               <CardContent className="p-4">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-3">
-                    <div className={`w-3 h-3 rounded-full ${user.isOnline ? 'bg-green-500' : 'bg-gray-500'}`} />
+                    <div className={`w-3 h-3 rounded-full ${user.isOnline ? 'bg-brand-success' : 'bg-brand-muted'}`} />
                     <div>
-                      <p className="text-white font-medium">{user.username}</p>
-                      <p className="text-gray-400 text-sm">
+                      <p className="text-brand-text font-medium">{user.username}</p>
+                      <p className="text-brand-muted text-sm">
                         🔥 {user.streak} day streak
                       </p>
                     </div>
                   </div>
                   <Button
                     onClick={() => addFriend(user.id, user.username)}
-                    className="bg-purple-600"
+                    className="bg-brand-accent"
                     size="sm"
                   >
                     <UserPlus className="w-4 h-4 mr-1" />
@@ -189,13 +189,13 @@ const FriendsScreen: React.FC = () => {
         </div>
 
         {activeTab === 'search' && searchTerm && searchResults.length === 0 && !loading && (
-          <div className="text-center text-gray-400 py-8">
+          <div className="text-center text-brand-muted py-8">
             <p>No users found matching "{searchTerm}"</p>
           </div>
         )}
 
         {activeTab === 'friends' && friends.length === 0 && (
-          <div className="text-center text-gray-400 py-8">
+          <div className="text-center text-brand-muted py-8">
             <p>No friends yet. Use the search tab to find people!</p>
           </div>
         )}

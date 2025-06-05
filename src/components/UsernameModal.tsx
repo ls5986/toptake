@@ -158,13 +158,13 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
-      <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+    <div className="fixed inset-0 bg-brand-background bg-opacity-80 flex items-center justify-center p-6 z-50">
+      <Card className="w-full max-w-md bg-brand-surface border-brand-border">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-white">
+          <CardTitle className="text-2xl font-bold text-brand-text">
             Choose Your Username
           </CardTitle>
-          <p className="text-gray-400">This will be your unique identifier</p>
+          <p className="text-brand-muted">This will be your unique identifier</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -172,21 +172,21 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
             placeholder="Enter username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
-            className="bg-gray-700 border-gray-600 text-white"
+            className="bg-brand-surface border-brand-border text-brand-text"
             maxLength={20}
             onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
           />
           
           <div className="text-center">
-            <Badge variant="outline" className="text-purple-400 border-purple-400">
-              👻 You get 3 anonymous posts to start
+            <Badge variant="outline" className="text-brand-accent border-brand-accent">
+              You get 3 anonymous posts to start
             </Badge>
           </div>
           
           <Button 
             onClick={handleSubmit}
             disabled={loading || !username.trim() || username.length < 3}
-            className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+            className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text"
           >
             {loading ? 'Setting Username...' : 'Continue'}
           </Button>

@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge';
 import { MessageCircle, Send, X } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
+import CommentThread, { Comment as CommentType } from './CommentThread';
 
 interface Comment {
   id: string;
@@ -23,7 +24,7 @@ interface CommentSectionProps {
 }
 
 export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps) => {
-  const [comments, setComments] = useState<Comment[]>([]);
+  const [comments, setComments] = useState<CommentType[]>([]);
   const [newComment, setNewComment] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -36,24 +37,37 @@ export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps)
     }
   }, [isOpen, takeId]);
 
+  // Helper to build a tree of comments
+  const buildCommentTree = (flatComments: CommentType[]): CommentType[] => {
+    const map: Record<string, CommentType & { replies: CommentType[] }> = {};
+    const roots: (CommentType & { replies: CommentType[] })[] = [];
+    flatComments.forEach((c) => {
+      map[c.id] = { ...c, replies: [] };
+    });
+    flatComments.forEach((c) => {
+      if (c.parent_comment_id) {
+        map[c.parent_comment_id]?.replies.push(map[c.id]);
+      } else {
+        roots.push(map[c.id]);
+      }
+    });
+    return roots;
+  };
+
   const loadComments = async () => {
     try {
       setLoadingComments(true);
-      console.log('Loading comments for takeId:', takeId);
-      
       const { data, error } = await supabase
         .from('comments')
-        .select('*')
+        .select('*, profiles(username)')
         .eq('take_id', takeId)
         .order('created_at', { ascending: true });
-
-      if (error) {
-        console.error('Error loading comments:', error);
-        throw error;
-      }
-
-      console.log('Loaded comments:', data);
-      setComments(data || []);
+      if (error) throw error;
+      const formatted = (data || []).map((c: any) => ({
+        ...c,
+        username: c.is_anonymous ? 'Anonymous' : (c.profiles?.username || 'User'),
+      }));
+      setComments(formatted);
     } catch (error) {
       console.error('Failed to load comments:', error);
       toast({ 
@@ -66,73 +80,40 @@ export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps)
     }
   };
 
-  const submitComment = async () => {
-    if (!newComment.trim()) return;
-    
+  // Add a comment or reply
+  const handleReply = async (parentId: string | null, content: string, isAnonymous: boolean) => {
     setLoading(true);
-    
     try {
-      console.log('Submitting comment for takeId:', takeId);
-      
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
-      
       if (!user) {
-        toast({ 
-          title: 'Please log in to comment', 
-          variant: 'destructive' 
-        });
+        toast({ title: 'Please log in to comment', variant: 'destructive' });
         return;
       }
-
-      // Get user profile for username
       const { data: profile } = await supabase
         .from('profiles')
         .select('username')
         .eq('id', user.id)
         .single();
-
-      const username = isAnonymous ? 'Anonymous' : (profile?.username || 'User');
-      
-      const commentData = {
-        content: newComment.trim(),
+      const commentData: any = {
+        content,
         take_id: takeId,
         user_id: user.id,
         is_anonymous: isAnonymous,
-        username: username
+        parent_comment_id: parentId,
       };
-
-      console.log('Inserting comment:', commentData);
-
-      const { data, error } = await supabase
+      const { data: inserted, error } = await supabase
         .from('comments')
         .insert([commentData])
         .select()
         .single();
-
-      if (error) {
-        console.error('Error inserting comment:', error);
-        throw error;
-      }
-
-      console.log('Comment inserted successfully:', data);
-      
-      // Add the new comment to the local state
-      setComments(prev => [...prev, data]);
+      if (error) throw error;
+      const displayUsername = isAnonymous ? 'Anonymous' : (profile?.username || 'User');
+      const displayComment = { ...inserted, username: displayUsername };
+      setComments((prev) => [...prev, displayComment]);
       setNewComment('');
-      
-      toast({ 
-        title: 'Comment posted successfully!', 
-        duration: 2000 
-      });
-      
+      toast({ title: 'Comment posted successfully!', duration: 2000 });
     } catch (error: any) {
-      console.error('Failed to post comment:', error);
-      toast({ 
-        title: 'Failed to post comment', 
-        description: error.message || 'Please try again',
-        variant: 'destructive'
-      });
+      toast({ title: 'Failed to post comment', description: error.message || 'Please try again', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -153,11 +134,14 @@ export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps)
 
   if (!isOpen) return null;
 
+  // Build the comment tree for rendering
+  const commentTree = buildCommentTree(comments);
+
   return (
     <div className="fixed inset-0 bg-black/50 flex items-end z-50" onClick={onClose}>
-      <div className="bg-gray-900 w-full max-h-[80vh] rounded-t-lg" onClick={e => e.stopPropagation()}>
-        <div className="p-4 border-b border-gray-700 flex justify-between items-center">
-          <h3 className="text-white font-semibold flex items-center">
+      <div className="bg-brand-surface w-full max-h-[80vh] rounded-t-lg" onClick={e => e.stopPropagation()}>
+        <div className="p-4 border-b border-brand-border flex justify-between items-center">
+          <h3 className="text-brand-text font-semibold flex items-center">
             <MessageCircle className="w-5 h-5 mr-2" />
             Comments ({comments.length})
           </h3>
@@ -165,42 +149,23 @@ export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps)
             <X className="w-4 h-4" />
           </Button>
         </div>
-        
         <div className="p-4 max-h-96 overflow-y-auto space-y-3">
           {loadingComments ? (
-            <div className="text-center text-gray-400 py-8">
+            <div className="text-center text-brand-muted py-8">
               <p>Loading comments...</p>
             </div>
-          ) : comments.length === 0 ? (
-            <div className="text-center text-gray-400 py-8">
+          ) : commentTree.length === 0 ? (
+            <div className="text-center text-brand-muted py-8">
               <MessageCircle className="w-12 h-12 mx-auto mb-2 opacity-50" />
               <p>No comments yet. Be the first to comment!</p>
             </div>
           ) : (
-            comments.map((comment) => (
-              <Card key={comment.id} className="bg-gray-800 border-gray-700">
-                <CardContent className="p-3">
-                  <div className="flex justify-between items-start mb-2">
-                    <div className="flex items-center space-x-2">
-                      <span className="text-sm font-medium text-white">
-                        {comment.username}
-                      </span>
-                      {comment.is_anonymous && (
-                        <Badge variant="secondary" className="bg-purple-600 text-xs">👻</Badge>
-                      )}
-                    </div>
-                    <span className="text-xs text-gray-500">
-                      {formatTime(comment.created_at)}
-                    </span>
-                  </div>
-                  <p className="text-gray-300 text-sm">{comment.content}</p>
-                </CardContent>
-              </Card>
+            commentTree.map((comment) => (
+              <CommentThread key={comment.id} comment={comment} onReply={handleReply} />
             ))
           )}
         </div>
-        
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-brand-border">
           <div className="flex items-center mb-3">
             <input
               type="checkbox"
@@ -209,7 +174,7 @@ export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps)
               onChange={(e) => setIsAnonymous(e.target.checked)}
               className="mr-2 rounded"
             />
-            <label htmlFor="anonymous" className="text-sm text-gray-300">
+            <label htmlFor="anonymous" className="text-sm text-brand-muted">
               Post anonymously 👻
             </label>
           </div>
@@ -218,19 +183,19 @@ export const CommentSection = ({ takeId, isOpen, onClose }: CommentSectionProps)
               value={newComment}
               onChange={(e) => setNewComment(e.target.value)}
               placeholder="Add a thoughtful comment..."
-              className="bg-gray-800 border-gray-600 text-white resize-none"
+              className="resize-none"
               rows={2}
               maxLength={500}
             />
-            <Button 
-              onClick={submitComment} 
+            <Button
+              onClick={() => handleReply(null, newComment, isAnonymous)}
               disabled={loading || !newComment.trim()}
-              className="bg-purple-600 hover:bg-purple-700"
+              className="btn-primary"
             >
               {loading ? '...' : <Send className="w-4 h-4" />}
             </Button>
           </div>
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-brand-muted mt-1">
             {newComment.length}/500 characters
           </p>
         </div>

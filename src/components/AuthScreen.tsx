@@ -226,56 +226,51 @@ const AuthScreen: React.FC = () => {
 
   return (
     <>
-      <div className="w-full h-full min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4 sm:p-6">
-        <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+      <div className="w-full h-full min-h-screen bg-gradient-to-br from-brand-background via-brand-surface to-brand-background flex items-center justify-center p-4 sm:p-6">
+        <Card className="w-full max-w-md bg-brand-surface border-brand-border">
           <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-white">
+            <CardTitle className="text-2xl font-bold text-brand-text">
               {isLogin ? 'Welcome Back' : 'Join TopTake'}
             </CardTitle>
-            <p className="text-gray-400 mt-2">
+            <p className="text-brand-muted mt-2">
               {isLogin ? 'Sign in to your account' : 'Create your account to get started'}
             </p>
           </CardHeader>
           <CardContent className="space-y-4">
             <Input
               type="email"
-              placeholder="Email"
+              placeholder="Email address"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="bg-gray-700 border-gray-600 text-white"
+              className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
             />
             <Input
               type="password"
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="bg-gray-700 border-gray-600 text-white"
-              onKeyPress={(e) => e.key === 'Enter' && isLogin && handleLogin()}
+              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+              className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
             />
-            {!isLogin && (
+            {isLogin ? null : (
               <Input
                 type="password"
                 placeholder="Confirm Password"
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-gray-700 border-gray-600 text-white"
-                onKeyPress={(e) => e.key === 'Enter' && handleRegister()}
+                className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
               />
             )}
             <Button 
-              onClick={isLogin ? handleLogin : handleRegister}
-              disabled={loading}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              onClick={isLogin ? handleLogin : handleRegister} 
+              disabled={loading || !email || !password || (!isLogin && !confirmPassword)}
+              className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text"
             >
-              {loading ? (isLogin ? 'Signing In...' : 'Creating Account...') : (isLogin ? 'Sign In' : 'Register')}
+              {loading ? (isLogin ? 'Signing in...' : 'Registering...') : (isLogin ? 'Sign In' : 'Register')}
             </Button>
-            <div className="text-center">
-              <button
-                onClick={() => setIsLogin(!isLogin)}
-                className="text-purple-400 hover:text-purple-300 text-sm underline"
-              >
-                {isLogin ? "Don't have an account? Register" : "Already have an account? Sign In"}
-              </button>
+            <div className="text-xs text-brand-muted text-center space-y-1">
+              <p>Super Admin: lindsey@letsclink.com / superadmin123</p>
+              <p>Regular Admin: any email / admin123</p>
             </div>
           </CardContent>
         </Card>

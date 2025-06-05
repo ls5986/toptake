@@ -33,49 +33,61 @@ export default {
     },
     extend: {
       colors: {
-        border: 'hsl(var(--border))',
-        input: 'hsl(var(--input))',
-        ring: 'hsl(var(--ring))',
-        background: 'hsl(var(--background))',
-        foreground: 'hsl(var(--foreground))',
+        border: '#232323',
+        input: '#232323',
+        ring: '#FF5E1A',
+        background: '#181818',
+        foreground: '#fff',
         primary: {
-          DEFAULT: 'hsl(var(--primary))',
-          foreground: 'hsl(var(--primary-foreground))'
+          DEFAULT: '#FF5E1A',
+          foreground: '#fff',
         },
         secondary: {
-          DEFAULT: 'hsl(var(--secondary))',
-          foreground: 'hsl(var(--secondary-foreground))'
+          DEFAULT: '#FF7C2A',
+          foreground: '#fff',
         },
         destructive: {
-          DEFAULT: 'hsl(var(--destructive))',
-          foreground: 'hsl(var(--destructive-foreground))'
+          DEFAULT: '#FF3B30',
+          foreground: '#fff',
         },
         muted: {
-          DEFAULT: 'hsl(var(--muted))',
-          foreground: 'hsl(var(--muted-foreground))'
+          DEFAULT: '#232323',
+          foreground: '#B0B0B0',
         },
         accent: {
-          DEFAULT: 'hsl(var(--accent))',
-          foreground: 'hsl(var(--accent-foreground))'
+          DEFAULT: '#fff',
+          foreground: '#181818',
         },
         popover: {
-          DEFAULT: 'hsl(var(--popover))',
-          foreground: 'hsl(var(--popover-foreground))'
+          DEFAULT: '#232323',
+          foreground: '#fff',
         },
         card: {
-          DEFAULT: 'hsl(var(--card))',
-          foreground: 'hsl(var(--card-foreground))'
+          DEFAULT: '#232323',
+          foreground: '#fff',
         },
         sidebar: {
-          DEFAULT: 'hsl(var(--sidebar-background))',
-          foreground: 'hsl(var(--sidebar-foreground))',
-          primary: 'hsl(var(--sidebar-primary))',
-          'primary-foreground': 'hsl(var(--sidebar-primary-foreground))',
-          accent: 'hsl(var(--sidebar-accent))',
-          'accent-foreground': 'hsl(var(--sidebar-accent-foreground))',
-          border: 'hsl(var(--sidebar-border))',
-          ring: 'hsl(var(--sidebar-ring))'
-        }
+          DEFAULT: '#181818',
+          foreground: '#fff',
+          primary: '#FF5E1A',
+          'primary-foreground': '#fff',
+          accent: '#FF7C2A',
+          'accent-foreground': '#fff',
+          border: '#232323',
+          ring: '#FF5E1A',
+        },
+        brand: {
+          primary: '#FF5E1A',
+          secondary: '#FF7C2A',
+          accent: '#fff',
+          background: '#181818',
+          surface: '#232323',
+          border: 'transparent',
+          text: '#fff',
+          muted: '#B0B0B0',
+          danger: '#FF3B30',
+          success: '#2ED573',
+        },
       },
       fontFamily: {
         mono: ['JetBrains Mono', 'monospace'],
@@ -125,6 +137,17 @@ export default {
             maxWidth: 'none',
           },
         },
+      },
+      boxShadow: {
+        glow: '0 0 8px 2px #FF5E1A99',
+        'button-glow': '0 2px 16px 0 #FF5E1A66',
+        'card': '0 2px 24px 0 #FF5E1A22',
+        'surface-inset': 'inset 0 1px 4px 0 #00000066',
+      },
+      backgroundImage: {
+        'button-gradient': 'linear-gradient(135deg, #FF5E1A 0%, #FF7C2A 100%)',
+        'card-gradient': 'linear-gradient(135deg, #232323 60%, #181818 100%)',
+        'brand-gradient': 'linear-gradient(135deg, #FF5E1A 0%, #FFB26B 100%)',
       },
     }
   },

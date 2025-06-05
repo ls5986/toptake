@@ -124,7 +124,7 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUsersUpdate })
           <ScrollArea className="h-96">
             <div className="space-y-2">
               {users.length === 0 ? (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-brand-muted py-8">
                   No users found. This might indicate a data loading issue.
                 </div>
               ) : (
@@ -132,8 +132,8 @@ const UserManagement: React.FC<UserManagementProps> = ({ users, onUsersUpdate })
                   <div key={user.id} className="flex items-center justify-between p-3 border rounded">
                     <div>
                       <div className="font-medium">{user.username}</div>
-                      <div className="text-sm text-gray-500">{user.email}</div>
-                      <div className="text-xs text-gray-400">
+                      <div className="text-sm text-brand-muted">{user.email}</div>
+                      <div className="text-xs text-brand-muted">
                         ID: {user.id.substring(0, 8)}... | Joined: {new Date(user.created_at).toLocaleDateString()}
                       </div>
                     </div>

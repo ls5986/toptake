@@ -31,28 +31,28 @@ export const MonetizationModals = ({
     <>
       {/* Anonymous Credits Modal */}
       <Dialog open={showAnonymousModal} onOpenChange={onClose}>
-        <DialogContent className="bg-gray-900 border-gray-700 text-white">
+        <DialogContent className="bg-brand-background border-brand-border text-brand-text">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-purple-400">
-              <Ghost className="w-6 h-6 mr-2" />
+            <DialogTitle className="flex items-center text-brand-accent">
+              <Ghost className="w-6 h-6 mr-2 text-brand-accent" />
               Out of Anonymous Posts
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-gray-300">
+            <p className="text-brand-muted">
               You have used all 3 free anonymous posts. Stay hidden with more credits!
             </p>
-            <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="bg-brand-surface p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-semibold">5 Anonymous Posts</h3>
-                  <p className="text-sm text-gray-400">Post without revealing identity</p>
+                  <p className="text-sm text-brand-muted">Post without revealing identity</p>
                 </div>
-                <Badge className="bg-purple-600">$1.99</Badge>
+                <Badge className="bg-brand-accent">$1.99</Badge>
               </div>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
+              <Button variant="outline" onClick={onClose} className="flex-1 border-brand-border text-brand-text">
                 Maybe Later
               </Button>
               <StripeIntegration
@@ -61,7 +61,7 @@ export const MonetizationModals = ({
                 description="5 Anonymous Posts"
                 onSuccess={() => handlePurchaseSuccess('anonymous')}
               >
-                <Button className="flex-1 bg-purple-600 hover:bg-purple-700">
+                <Button className="btn-primary flex-1">
                   Buy Now
                 </Button>
               </StripeIntegration>
@@ -72,28 +72,28 @@ export const MonetizationModals = ({
 
       {/* Streak Restore Modal */}
       <Dialog open={showStreakModal} onOpenChange={onClose}>
-        <DialogContent className="bg-gray-900 border-gray-700 text-white">
+        <DialogContent className="bg-brand-background border-brand-border text-brand-text">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-red-400">
-              <Flame className="w-6 h-6 mr-2" />
+            <DialogTitle className="flex items-center text-brand-primary">
+              <Flame className="w-6 h-6 mr-2 text-brand-primary" />
               Streak Broken!
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-gray-300">
+            <p className="text-brand-muted">
               You missed yesterday. Your streak is gone forever... unless?
             </p>
-            <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="bg-brand-surface p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-semibold">Revive Streak</h3>
-                  <p className="text-sm text-gray-400">Restore your streak like nothing happened</p>
+                  <p className="text-sm text-brand-muted">Restore your streak like nothing happened</p>
                 </div>
-                <Badge className="bg-red-600">$2.99</Badge>
+                <Badge className="bg-brand-danger">$2.99</Badge>
               </div>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
+              <Button variant="outline" onClick={onClose} className="flex-1 border-brand-border text-brand-text">
                 Accept Defeat
               </Button>
               <StripeIntegration
@@ -102,7 +102,7 @@ export const MonetizationModals = ({
                 description="Streak Restore"
                 onSuccess={() => handlePurchaseSuccess('streak')}
               >
-                <Button className="flex-1 bg-red-600 hover:bg-red-700">
+                <Button className="btn-primary flex-1">
                   Revive Streak
                 </Button>
               </StripeIntegration>
@@ -113,43 +113,43 @@ export const MonetizationModals = ({
 
       {/* Premium Modal */}
       <Dialog open={showPremiumModal} onOpenChange={onClose}>
-        <DialogContent className="bg-gray-900 border-gray-700 text-white">
+        <DialogContent className="bg-brand-background border-brand-border text-brand-text">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-yellow-400">
-              <Crown className="w-6 h-6 mr-2" />
+            <DialogTitle className="flex items-center text-brand-primary">
+              <Crown className="w-6 h-6 mr-2 text-brand-primary" />
               TopTake Premium
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">
-              <div className="flex items-center text-sm">
-                <span className="text-green-400 mr-2">✓</span>
+              <div className="flex items-center text-sm text-brand-success">
+                <span className="mr-2">✓</span>
                 Unlimited anonymous posts
               </div>
-              <div className="flex items-center text-sm">
-                <span className="text-green-400 mr-2">✓</span>
+              <div className="flex items-center text-sm text-brand-success">
+                <span className="mr-2">✓</span>
                 Auto-streak protection
               </div>
-              <div className="flex items-center text-sm">
-                <span className="text-green-400 mr-2">✓</span>
+              <div className="flex items-center text-sm text-brand-success">
+                <span className="mr-2">✓</span>
                 Early access to prompts
               </div>
-              <div className="flex items-center text-sm">
-                <span className="text-green-400 mr-2">✓</span>
+              <div className="flex items-center text-sm text-brand-success">
+                <span className="mr-2">✓</span>
                 Premium badge
               </div>
             </div>
-            <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="bg-brand-surface p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-semibold">Monthly Premium</h3>
-                  <p className="text-sm text-gray-400">All premium features</p>
+                  <p className="text-sm text-brand-muted">All premium features</p>
                 </div>
-                <Badge className="bg-yellow-600">$4.99/mo</Badge>
+                <Badge className="bg-brand-primary">$4.99/mo</Badge>
               </div>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
+              <Button variant="outline" onClick={onClose} className="flex-1 border-brand-border text-brand-text">
                 Not Now
               </Button>
               <StripeIntegration
@@ -158,7 +158,7 @@ export const MonetizationModals = ({
                 description="Premium Monthly"
                 onSuccess={() => handlePurchaseSuccess('premium')}
               >
-                <Button className="flex-1 bg-yellow-600 hover:bg-yellow-700">
+                <Button className="btn-primary flex-1">
                   Go Premium
                 </Button>
               </StripeIntegration>
@@ -169,28 +169,28 @@ export const MonetizationModals = ({
 
       {/* Boost Modal */}
       <Dialog open={showBoostModal} onOpenChange={onClose}>
-        <DialogContent className="bg-gray-900 border-gray-700 text-white">
+        <DialogContent className="bg-brand-background border-brand-border text-brand-text">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-blue-400">
-              <Zap className="w-6 h-6 mr-2" />
+            <DialogTitle className="flex items-center text-brand-accent">
+              <Zap className="w-6 h-6 mr-2 text-brand-accent" />
               Boost Your Take
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <p className="text-gray-300">
+            <p className="text-brand-muted">
               Make your take appear at the top of the feed for 24 hours!
             </p>
-            <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="bg-brand-surface p-4 rounded-lg">
               <div className="flex justify-between items-center">
                 <div>
                   <h3 className="font-semibold">24-Hour Boost</h3>
-                  <p className="text-sm text-gray-400">Pin to top of feed</p>
+                  <p className="text-sm text-brand-muted">Pin to top of feed</p>
                 </div>
-                <Badge className="bg-blue-600">$0.99</Badge>
+                <Badge className="bg-brand-accent">$0.99</Badge>
               </div>
             </div>
             <div className="flex space-x-2">
-              <Button variant="outline" onClick={onClose} className="flex-1">
+              <Button variant="outline" onClick={onClose} className="flex-1 border-brand-border text-brand-text">
                 Skip
               </Button>
               <StripeIntegration
@@ -199,7 +199,7 @@ export const MonetizationModals = ({
                 description="24-Hour Boost"
                 onSuccess={() => handlePurchaseSuccess('boost')}
               >
-                <Button className="flex-1 bg-blue-600 hover:bg-blue-700">
+                <Button className="btn-primary flex-1">
                   Boost Now
                 </Button>
               </StripeIntegration>

@@ -51,20 +51,30 @@ const PromptCalendar: React.FC = () => {
   const loadMonthlyPrompts = async () => {
     setLoading(true);
     setError(null);
-    
     try {
       const year = currentMonth.getFullYear();
       const month = currentMonth.getMonth();
-      
+      const firstDay = new Date(year, month, 1);
+      const lastDay = new Date(year, month + 1, 0);
+      const firstDayStr = firstDay.toISOString().split('T')[0];
+      const lastDayStr = lastDay.toISOString().split('T')[0];
       const result = await supabase
         .from('daily_prompts')
         .select()
-        .eq('is_active', true)
-        .eq('prompt_date', `%${year}-${month + 1}%`)
+        .gte('prompt_date', firstDayStr)
+        .lte('prompt_date', lastDayStr)
         .order('prompt_date', { ascending: true });
-      
       if (result.data) {
         setDailyPrompts(result.data);
+        // Check for duplicate prompt_date
+        const dateCounts = result.data.reduce((acc, p) => {
+          acc[p.prompt_date] = (acc[p.prompt_date] || 0) + 1;
+          return acc;
+        }, {});
+        const dupes = Object.entries(dateCounts).filter(([k, v]) => v > 1);
+        if (dupes.length > 0) {
+          setError(`Duplicate prompts found for: ${dupes.map(([d]) => d).join(', ')}`);
+        }
         console.log(`Loaded ${result.data.length} prompts for ${year}-${month + 1}`);
       } else {
         setError('No prompts found');
@@ -214,18 +224,39 @@ const PromptCalendar: React.FC = () => {
     }
   };
 
+  // Helper to remove duplicate prompts for the same date
+  const removeDuplicatePrompts = async () => {
+    // Find duplicates
+    const dateCounts = dailyPrompts.reduce((acc, p) => {
+      acc[p.prompt_date] = (acc[p.prompt_date] || 0) + 1;
+      return acc;
+    }, {});
+    const dupes = Object.entries(dateCounts).filter(([k, v]) => v > 1);
+    if (dupes.length === 0) return;
+    for (const [date] of dupes) {
+      // Get all prompts for this date, keep the first, delete the rest
+      const promptsForDate = dailyPrompts.filter(p => p.prompt_date === date);
+      const toDelete = promptsForDate.slice(1).map(p => p.id);
+      if (toDelete.length > 0) {
+        await supabase.from('daily_prompts').delete().in('id', toDelete);
+      }
+    }
+    await loadMonthlyPrompts();
+    toast({ title: 'Duplicates removed', description: 'All duplicate prompts for each date have been deleted.' });
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto mb-2" />
-          <p className="text-gray-600">Loading calendar...</p>
+          <p className="text-brand-muted">Loading calendar...</p>
         </div>
       </div>
     );
   }
 
-  if (error) {
+  if (error && error.startsWith('Duplicate prompts found') && isAdmin) {
     return (
       <Card>
         <CardContent className="p-6">
@@ -237,9 +268,9 @@ const PromptCalendar: React.FC = () => {
                 variant="outline" 
                 size="sm" 
                 className="ml-2"
-                onClick={loadMonthlyPrompts}
+                onClick={removeDuplicatePrompts}
               >
-                Retry
+                Remove Duplicates
               </Button>
             </AlertDescription>
           </Alert>
@@ -268,7 +299,7 @@ const PromptCalendar: React.FC = () => {
               {isAdmin && (
                 <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
                   <DialogTrigger asChild>
-                    <Button size="sm" className="bg-green-600 hover:bg-green-700">
+                    <Button size="sm" className="bg-brand-success hover:bg-brand-success/80">
                       <Plus className="w-4 h-4 mr-1" />
                       Add Prompt
                     </Button>

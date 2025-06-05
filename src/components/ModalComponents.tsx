@@ -3,6 +3,7 @@ import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/AppContext';
 import { UsernameModal } from './UsernameModal';
+import { Sparkles, Crown, Flame, Ghost } from 'lucide-react';
 
 interface ModalProps {
   isOpen: boolean;
@@ -22,18 +23,21 @@ export const MissedStreakModal: React.FC<ModalProps> = ({ isOpen, onClose }) => 
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
-      <Card className="bg-gray-800 border-gray-700 max-w-sm">
+    <div className="fixed inset-0 bg-brand-background bg-opacity-80 flex items-center justify-center p-6 z-50">
+      <Card className="bg-brand-surface border-brand-border max-w-sm">
         <CardHeader>
-          <CardTitle className="text-white text-center">💀 Missed your streak?</CardTitle>
+          <CardTitle className="text-brand-accent text-center flex items-center justify-center gap-2">
+            <Flame className="w-5 h-5 text-brand-accent" />
+            Missed your streak?
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <p className="text-gray-300">Revive it for $2.99</p>
+          <p className="text-brand-muted">Revive it for $2.99</p>
           <div className="space-y-2">
-            <Button onClick={handleRestore} className="w-full bg-gradient-to-r from-purple-600 to-pink-600">
-              💳 Restore Streak - $2.99
+            <Button onClick={handleRestore} className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text">
+              Restore Streak - $2.99
             </Button>
-            <Button onClick={onClose} variant="outline" className="w-full border-gray-600 text-white">
+            <Button onClick={onClose} variant="outline" className="w-full border-brand-border text-brand-text">
               Cancel
             </Button>
           </div>
@@ -47,23 +51,26 @@ export const PremiumModal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
-      <Card className="bg-gray-800 border-gray-700 max-w-sm">
+    <div className="fixed inset-0 bg-brand-background bg-opacity-80 flex items-center justify-center p-6 z-50">
+      <Card className="bg-brand-surface border-brand-border max-w-sm">
         <CardHeader>
-          <CardTitle className="text-white text-center">✨ Go Premium</CardTitle>
+          <CardTitle className="text-brand-primary text-center flex items-center justify-center gap-2">
+            <Crown className="w-5 h-5 text-brand-primary" />
+            Go Premium
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <p className="text-gray-300">Unlock special features for $4.99/month</p>
-          <ul className="text-sm text-gray-300 space-y-1">
+          <p className="text-brand-muted">Unlock special features for $4.99/month</p>
+          <ul className="text-sm text-brand-muted space-y-1">
             <li>• View feed without posting</li>
             <li>• Anonymous analytics</li>
             <li>• Choose prompt categories</li>
           </ul>
           <div className="space-y-2">
-            <Button onClick={onClose} className="w-full bg-gradient-to-r from-purple-600 to-pink-600">
-              💎 Subscribe - $4.99/mo
+            <Button onClick={onClose} className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text">
+              Subscribe - $4.99/mo
             </Button>
-            <Button onClick={onClose} variant="outline" className="w-full border-gray-600 text-white">
+            <Button onClick={onClose} variant="outline" className="w-full border-brand-border text-brand-text">
               Maybe Later
             </Button>
           </div>
@@ -77,15 +84,18 @@ export const BlockingModal: React.FC<ModalProps> = ({ isOpen, onClose }) => {
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-6 z-50">
-      <Card className="bg-gray-800 border-gray-700 max-w-sm">
+    <div className="fixed inset-0 bg-brand-background bg-opacity-80 flex items-center justify-center p-6 z-50">
+      <Card className="bg-brand-surface border-brand-border max-w-sm">
         <CardHeader>
-          <CardTitle className="text-white text-center">🔥 You haven't posted today</CardTitle>
+          <CardTitle className="text-brand-accent text-center flex items-center justify-center gap-2">
+            <Sparkles className="w-5 h-5 text-brand-accent" />
+            You haven't posted today
+          </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4 text-center">
-          <p className="text-gray-300">Submit your take to unlock the app</p>
-          <Button onClick={onClose} className="w-full bg-gradient-to-r from-purple-600 to-pink-600">
-            📝 Post Now
+          <p className="text-brand-muted">Submit your take to unlock the app</p>
+          <Button onClick={onClose} className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text">
+            Post Now
           </Button>
         </CardContent>
       </Card>

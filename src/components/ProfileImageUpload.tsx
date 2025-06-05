@@ -70,9 +70,13 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       onImageUpdate(publicUrl);
       toast({ title: 'Profile picture updated successfully!' });
     } catch (error: any) {
+      let description = error.message;
+      if (description && description.toLowerCase().includes('bucket')) {
+        description += ' (Check that the avatars storage bucket exists in Supabase)';
+      }
       toast({
         title: 'Error uploading image',
-        description: error.message,
+        description,
         variant: 'destructive'
       });
     } finally {
@@ -87,19 +91,19 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
           {currentImageUrl ? (
             <AvatarImage src={currentImageUrl} alt={username} />
           ) : (
-            <AvatarFallback className="bg-purple-600 text-white text-2xl">
+            <AvatarFallback className="bg-brand-accent text-brand-text text-2xl">
               {username[0]?.toUpperCase() || 'U'}
             </AvatarFallback>
           )}
         </Avatar>
         <Button
           size="sm"
-          className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-purple-600 hover:bg-purple-700"
+          className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-brand-accent hover:bg-brand-primary"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
         >
           {uploading ? (
-            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white" />
+            <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white border-brand-accent" />
           ) : (
             <Camera className="w-4 h-4" />
           )}
@@ -111,7 +115,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         size="sm"
         onClick={() => fileInputRef.current?.click()}
         disabled={uploading}
-        className="border-gray-600 text-gray-300 hover:bg-gray-800"
+        className="border-brand-accent text-brand-accent hover:bg-brand-surface"
       >
         <Upload className="w-4 h-4 mr-2" />
         {uploading ? 'Uploading...' : 'Change Photo'}

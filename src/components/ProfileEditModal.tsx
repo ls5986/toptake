@@ -99,7 +99,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-900 border-gray-700 text-white max-w-md max-h-[90vh] overflow-y-auto">
+      <DialogContent className="bg-brand-surface border-brand-border text-brand-text max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Profile</DialogTitle>
         </DialogHeader>
@@ -117,7 +117,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               id="username"
               value={formData.username}
               onChange={(e) => setFormData(prev => ({ ...prev, username: e.target.value }))}
-              className="bg-gray-800 border-gray-600 text-white"
+              className="bg-brand-surface border-brand-border text-brand-text"
               required
             />
           </div>
@@ -128,7 +128,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               id="full_name"
               value={formData.full_name}
               onChange={(e) => setFormData(prev => ({ ...prev, full_name: e.target.value }))}
-              className="bg-gray-800 border-gray-600 text-white"
+              className="bg-brand-surface border-brand-border text-brand-text"
             />
           </div>
 
@@ -138,7 +138,7 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               id="bio"
               value={formData.bio}
               onChange={(e) => setFormData(prev => ({ ...prev, bio: e.target.value }))}
-              className="bg-gray-800 border-gray-600 text-white"
+              className="bg-brand-surface border-brand-border text-brand-text"
               placeholder="Tell us about yourself..."
               rows={3}
             />
@@ -151,21 +151,20 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
               type="email"
               value={formData.email}
               onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
-              className="bg-gray-800 border-gray-600 text-white"
+              className="bg-brand-surface border-brand-border text-brand-text"
               required
             />
           </div>
 
           <div className="flex flex-col space-y-2">
-            <Button type="submit" disabled={loading} className="bg-purple-600 hover:bg-purple-700">
+            <Button type="submit" disabled={loading} className="bg-brand-accent hover:bg-brand-primary">
               {loading ? 'Updating...' : 'Update Profile'}
             </Button>
             
             <Button 
               type="button" 
-              variant="outline" 
               onClick={handleResetPassword}
-              className="border-gray-600 text-gray-300 hover:bg-gray-800"
+              className="btn-secondary"
             >
               Reset Password
             </Button>

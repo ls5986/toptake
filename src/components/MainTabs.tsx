@@ -22,21 +22,17 @@ const MainTabs: React.FC<MainTabsProps> = ({ currentTab, onTabChange, showAdmin 
   }
 
   return (
-    <div className="sticky top-0 z-20 bg-gray-800/95 backdrop-blur-sm border-b border-gray-700">
+    <div className="sticky top-0 z-20 bg-brand-surface/95 backdrop-blur-sm border-b border-brand-border">
       <div className="flex p-2 gap-1">
         {tabs.map((tab) => {
           const Icon = tab.icon;
+          const isActive = currentTab === tab.id;
           return (
             <Button
               key={tab.id}
               onClick={() => onTabChange(tab.id)}
-              variant={currentTab === tab.id ? 'default' : 'ghost'}
               size="sm"
-              className={`flex-1 min-w-0 px-2 py-2 text-xs sm:text-sm transition-all duration-200 ${
-                currentTab === tab.id 
-                  ? 'bg-purple-600 text-white hover:bg-purple-700 shadow-lg' 
-                  : 'text-gray-400 hover:text-white hover:bg-gray-700/50'
-              }`}
+              className={`flex-1 min-w-0 px-2 py-2 text-xs sm:text-sm transition-all duration-200 ${isActive ? 'text-brand-primary border-b-2 border-brand-primary bg-transparent' : 'bg-transparent text-brand-muted hover:bg-brand-muted/10'}`}
             >
               <Icon className="w-4 h-4 flex-shrink-0" />
               <span className="ml-1 truncate hidden xs:inline">{tab.shortLabel}</span>

@@ -6,12 +6,12 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { MessageSquare, Send, Eye, EyeOff } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
-import { useDailyPrompt } from '@/hooks/useDailyPrompt';
+import { useNewDailyPrompt } from '@/hooks/useNewDailyPrompt';
 import { toast } from '@/hooks/use-toast';
 
 const DailyPromptScreen: React.FC = () => {
   const { user, setCurrentScreen, submitTake } = useAppContext();
-  const { currentPrompt } = useDailyPrompt();
+  const { currentPrompt } = useNewDailyPrompt();
   const [take, setTake] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -68,21 +68,21 @@ const DailyPromptScreen: React.FC = () => {
 
   return (
     <div className="flex-1 flex items-center justify-center p-4">
-      <Card className="w-full max-w-2xl bg-gray-800 border-gray-700">
+      <Card className="w-full max-w-2xl bg-brand-surface border-brand-border">
         <CardHeader>
-          <CardTitle className="text-white flex items-center gap-2">
+          <CardTitle className="text-brand-text flex items-center gap-2">
             <MessageSquare className="w-5 h-5" />
             Today's Prompt
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-6">
-          <div className="bg-gradient-to-r from-purple-600 to-blue-600 p-4 rounded-lg">
-            <p className="text-white text-lg font-medium">{currentPrompt}</p>
+          <div className="bg-brand-accent p-4 rounded-lg">
+            <p className="text-brand-text text-lg font-medium">{currentPrompt.prompt}</p>
           </div>
           
           <div className="space-y-4">
             <div>
-              <Label htmlFor="take" className="text-white mb-2 block">
+              <Label htmlFor="take" className="text-brand-text mb-2 block">
                 Your Take
               </Label>
               <Textarea
@@ -90,10 +90,10 @@ const DailyPromptScreen: React.FC = () => {
                 placeholder="Share your thoughts..."
                 value={take}
                 onChange={(e) => setTake(e.target.value)}
-                className="bg-gray-700 border-gray-600 text-white placeholder-gray-400 min-h-[120px] resize-none"
+                className="bg-brand-surface border-brand-border text-brand-text placeholder:text-brand-muted min-h-[120px] resize-none"
                 maxLength={500}
               />
-              <div className="text-right text-sm text-gray-400 mt-1">
+              <div className="text-right text-sm text-brand-muted mt-1">
                 {take.length}/500
               </div>
             </div>
@@ -104,7 +104,7 @@ const DailyPromptScreen: React.FC = () => {
                 checked={isAnonymous}
                 onCheckedChange={setIsAnonymous}
               />
-              <Label htmlFor="anonymous" className="text-white flex items-center gap-2">
+              <Label htmlFor="anonymous" className="text-brand-text flex items-center gap-2">
                 {isAnonymous ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
                 Post anonymously
               </Label>
@@ -113,12 +113,12 @@ const DailyPromptScreen: React.FC = () => {
             <Button
               onClick={handleSubmit}
               disabled={!take.trim() || isSubmitting}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white"
+              className="btn-primary w-full"
               size="lg"
             >
               {isSubmitting ? (
                 <div className="flex items-center gap-2">
-                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white"></div>
+                  <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-brand-text"></div>
                   Posting...
                 </div>
               ) : (

@@ -72,6 +72,18 @@ const PromptScheduler: React.FC = () => {
     setSubmitting(true);
     setLastResult(null);
     try {
+      // Check for duplicate
+      const { data: existing, error: fetchError } = await supabase
+        .from('daily_prompts')
+        .select('id')
+        .eq('prompt_date', selectedDate)
+        .single();
+      if (existing) {
+        setLastResult({ success: false, message: `A prompt is already scheduled for ${selectedDate}. Please choose a different date.` });
+        toast({ title: 'Duplicate Date', description: `A prompt is already scheduled for ${selectedDate}.`, variant: 'destructive' });
+        setSubmitting(false);
+        return;
+      }
       const { error } = await supabase
         .from('daily_prompts')
         .insert({
@@ -143,7 +155,7 @@ const PromptScheduler: React.FC = () => {
           />
           
           <div className="flex items-center gap-2">
-            <Calendar className="w-4 h-4 text-gray-500" />
+            <Calendar className="w-4 h-4 text-brand-muted" />
             <Input
               type="date"
               value={selectedDate}
@@ -156,7 +168,7 @@ const PromptScheduler: React.FC = () => {
           
           <Button 
             onClick={addPrompt} 
-            className="w-full" 
+            className="btn-primary w-full"
             disabled={submitting || !newPrompt.trim() || !selectedDate}
           >
             {submitting ? (
@@ -179,7 +191,7 @@ const PromptScheduler: React.FC = () => {
           <ScrollArea className="h-96">
             <div className="space-y-3">
               {prompts.map((prompt) => (
-                <div key={prompt.id} className="p-3 border rounded-lg space-y-2">
+                <div key={prompt.id} className="p-3 border border-border rounded-lg space-y-2">
                   <div className="flex justify-between items-start">
                     <div className="text-sm font-medium">
                       {new Date(prompt.prompt_date).toLocaleDateString()}

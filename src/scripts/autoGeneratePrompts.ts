@@ -92,6 +92,7 @@ async function insertDraftPrompts(prompts: string[]) {
           source: 'ai_auto_generated'
         });
       } else {
+        // If duplicate, skip to next day
         scheduleDate.setDate(scheduleDate.getDate() + 1);
       }
     }

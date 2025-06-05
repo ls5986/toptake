@@ -113,42 +113,42 @@ const EnhancedAdminScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 p-4 bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
+    <div className="flex-1 p-4 bg-gradient-to-br from-brand-background via-brand-surface to-brand-background">
       <div className="max-w-7xl mx-auto">
         <div className="flex items-center justify-between mb-6">
-          <h1 className="text-3xl font-bold text-white flex items-center space-x-2">
-            <Zap className="h-8 w-8 text-yellow-400" />
+          <h1 className="text-3xl font-bold text-brand-text flex items-center space-x-2">
+            <Zap className="h-8 w-8 text-brand-primary" />
             <span>AI-Powered Admin Hub</span>
           </h1>
-          <Badge variant="secondary" className="text-lg px-3 py-1">
+          <Badge variant="secondary" className="text-lg px-3 py-1 bg-brand-surface text-brand-primary">
             {totalUsers} Total Users
           </Badge>
         </div>
         
         <Tabs defaultValue="dashboard" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-6 bg-white/10 backdrop-blur-sm">
-            <TabsTrigger value="dashboard" className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
+          <TabsList className="grid w-full grid-cols-6 bg-brand-surface/10 backdrop-blur-sm">
+            <TabsTrigger value="dashboard" className="flex items-center space-x-2 text-brand-text">
+              <BarChart3 className="h-4 w-4 text-brand-accent" />
               <span>Dashboard</span>
             </TabsTrigger>
-            <TabsTrigger value="automation" className="flex items-center space-x-2">
-              <Zap className="h-4 w-4" />
+            <TabsTrigger value="automation" className="flex items-center space-x-2 text-brand-text">
+              <Zap className="h-4 w-4 text-brand-primary" />
               <span>Automation</span>
             </TabsTrigger>
-            <TabsTrigger value="generator" className="flex items-center space-x-2">
-              <Sparkles className="h-4 w-4" />
+            <TabsTrigger value="generator" className="flex items-center space-x-2 text-brand-text">
+              <Sparkles className="h-4 w-4 text-brand-accent" />
               <span>AI Generator</span>
             </TabsTrigger>
-            <TabsTrigger value="suggestions" className="flex items-center space-x-2">
-              <TrendingUp className="h-4 w-4" />
+            <TabsTrigger value="suggestions" className="flex items-center space-x-2 text-brand-text">
+              <TrendingUp className="h-4 w-4 text-brand-primary" />
               <span>Suggestions</span>
             </TabsTrigger>
-            <TabsTrigger value="analytics" className="flex items-center space-x-2">
-              <BarChart3 className="h-4 w-4" />
+            <TabsTrigger value="analytics" className="flex items-center space-x-2 text-brand-text">
+              <BarChart3 className="h-4 w-4 text-brand-accent" />
               <span>Analytics</span>
             </TabsTrigger>
-            <TabsTrigger value="users" className="flex items-center space-x-2">
-              <Users className="h-4 w-4" />
+            <TabsTrigger value="users" className="flex items-center space-x-2 text-brand-text">
+              <Users className="h-4 w-4 text-brand-primary" />
               <span>Users</span>
             </TabsTrigger>
           </TabsList>

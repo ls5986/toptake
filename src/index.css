@@ -140,3 +140,37 @@
 .markdown-preview ol {
   @apply my-4 ml-6;
 }
+
+@layer components {
+  .btn-primary {
+    @apply font-semibold text-[0.95rem] px-5 py-3 rounded-lg border-0 shadow-[0_2px_8px_rgba(255,94,26,0.3)] transition-all duration-200 cursor-pointer;
+    background: linear-gradient(135deg, #FF5E1A, #FF7C2A);
+    color: #fff;
+  }
+  .btn-primary:hover {
+    filter: brightness(1.08);
+  }
+  .btn-secondary {
+    @apply font-medium text-[0.95rem] px-5 py-3 rounded-lg border transition-all duration-200 cursor-pointer;
+    background: transparent;
+    color: #FF5E1A;
+    border: 1px solid #FF5E1A;
+  }
+  .btn-secondary:hover {
+    background: rgba(255, 94, 26, 0.07);
+  }
+  input, textarea {
+    background-color: #1A1A1A;
+    color: #FFFFFF;
+    border: none;
+    border-radius: 8px;
+    box-shadow: inset 0 0 0 1px #333;
+    padding: 0.75rem 1rem;
+    font-size: 0.95rem;
+    transition: all 0.2s ease-in-out;
+  }
+  input:focus, textarea:focus {
+    box-shadow: 0 0 0 2px #FF5E1A;
+    outline: none;
+  }
+}
