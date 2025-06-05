@@ -111,8 +111,8 @@ const RealTimeEngagementDashboard: React.FC = () => {
         {[1, 2, 3].map(i => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-6">
-              <div className="h-4 bg-gray-300 rounded w-1/2 mb-2"></div>
-              <div className="h-8 bg-gray-300 rounded w-1/3"></div>
+              <div className="h-4 bg-brand-muted rounded w-1/2 mb-2"></div>
+              <div className="h-8 bg-brand-muted rounded w-1/3"></div>
             </CardContent>
           </Card>
         ))}
@@ -124,75 +124,75 @@ const RealTimeEngagementDashboard: React.FC = () => {
     <div className="space-y-6">
       {/* Live Metrics */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card className="bg-gradient-to-br from-blue-500 to-blue-600 text-white border-none">
+        <Card className="bg-brand-primary text-brand-text border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-blue-100 text-sm font-medium">Active Takes</p>
+                <p className="text-brand-muted text-sm font-medium">Active Takes</p>
                 <p className="text-3xl font-bold">{liveMetrics.activeTakes}</p>
                 <div className="flex items-center mt-1">
                   {trend > 0 ? (
-                    <TrendingUp className="h-4 w-4 text-green-300 mr-1" />
+                    <TrendingUp className="h-4 w-4 text-brand-success mr-1" />
                   ) : (
-                    <TrendingDown className="h-4 w-4 text-red-300 mr-1" />
+                    <TrendingDown className="h-4 w-4 text-brand-danger mr-1" />
                   )}
-                  <span className="text-xs text-blue-100">
+                  <span className="text-xs text-brand-muted">
                     {Math.abs(trend)} vs last hour
                   </span>
                 </div>
               </div>
-              <Users className="h-8 w-8 text-blue-200" />
+              <Users className="h-8 w-8 text-brand-muted" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-green-500 to-green-600 text-white border-none">
+        <Card className="bg-brand-success text-brand-text border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-green-100 text-sm font-medium">Comments/Hour</p>
+                <p className="text-brand-muted text-sm font-medium">Comments/Hour</p>
                 <p className="text-3xl font-bold">{liveMetrics.commentsPerHour}</p>
-                <p className="text-xs text-green-100 mt-1">Real-time activity</p>
+                <p className="text-xs text-brand-muted mt-1">Real-time activity</p>
               </div>
-              <MessageCircle className="h-8 w-8 text-green-200" />
+              <MessageCircle className="h-8 w-8 text-brand-muted" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-purple-500 to-purple-600 text-white border-none">
+        <Card className="bg-brand-accent text-brand-text border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-purple-100 text-sm font-medium">Engagement Rate</p>
+                <p className="text-brand-muted text-sm font-medium">Engagement Rate</p>
                 <p className="text-3xl font-bold">{liveMetrics.engagementRate}%</p>
                 <Progress value={liveMetrics.engagementRate} className="mt-2 h-2" />
               </div>
-              <Heart className="h-8 w-8 text-purple-200" />
+              <Heart className="h-8 w-8 text-brand-muted" />
             </div>
           </CardContent>
         </Card>
 
-        <Card className="bg-gradient-to-br from-orange-500 to-orange-600 text-white border-none">
+        <Card className="bg-brand-accent text-brand-text border-none">
           <CardContent className="p-6">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-orange-100 text-sm font-medium">Viral Coefficient</p>
+                <p className="text-brand-muted text-sm font-medium">Viral Coefficient</p>
                 <p className="text-3xl font-bold">{liveMetrics.viralCoefficient.toFixed(1)}</p>
-                <p className="text-xs text-orange-100 mt-1">Shares per user</p>
+                <p className="text-xs text-brand-muted mt-1">Shares per user</p>
               </div>
-              <Share className="h-8 w-8 text-orange-200" />
+              <Share className="h-8 w-8 text-brand-muted" />
             </div>
           </CardContent>
         </Card>
       </div>
 
       {/* Trending Prompt */}
-      <Card className="bg-gradient-to-r from-indigo-600 to-purple-600 border-none text-white">
+      <Card className="bg-brand-primary border-none text-brand-text">
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <TrendingUp className="h-5 w-5" />
             <span>Currently Trending</span>
-            <Badge variant="secondary" className="bg-white/20 text-white">
+            <Badge variant="secondary" className="bg-brand-muted text-brand-text">
               Live
             </Badge>
           </CardTitle>
@@ -274,10 +274,10 @@ const RealTimeEngagementDashboard: React.FC = () => {
               { action: 'New take submitted', user: 'jenny_l', time: '1 minute ago', type: 'take' },
               { action: 'Comment added', user: 'david_p', time: '2 minutes ago', type: 'comment' }
             ].map((activity, index) => (
-              <div key={index} className="flex items-center space-x-3 p-2 hover:bg-gray-50 rounded">
+              <div key={index} className="flex items-center space-x-3 p-2 hover:bg-brand-surface/80 rounded">
                 <div className={`w-2 h-2 rounded-full ${
-                  activity.type === 'take' ? 'bg-blue-500' :
-                  activity.type === 'comment' ? 'bg-green-500' : 'bg-orange-500'
+                  activity.type === 'take' ? 'bg-brand-accent' :
+                  activity.type === 'comment' ? 'bg-brand-success' : 'bg-brand-warning'
                 }`} />
                 <div className="flex-1">
                   <span className="font-medium">{activity.user}</span>

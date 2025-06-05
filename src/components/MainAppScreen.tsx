@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button } from '@/components/ui/button';
-import { Users, LogOut } from 'lucide-react';
+import { Users, LogOut, Menu } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
@@ -17,6 +17,9 @@ import TopTakesScreen from './TopTakesScreen';
 import FriendsScreen from './FriendsScreen';
 import AdminScreen from './AdminScreen';
 import PromptRecommendations from './PromptRecommendations';
+import { getTodayPrompt } from '@/lib/supabase';
+import BillingModal from './BillingModal';
+import AccountSettingsModal from './AccountSettingsModal';
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt } = useAppContext();
@@ -27,6 +30,10 @@ const MainAppScreen: React.FC = () => {
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
   const fetchInProgress = useRef(false);
+  const [promptText, setPromptText] = useState('');
+  const [menuOpen, setMenuOpen] = useState(false);
+  const [showBillingModal, setShowBillingModal] = useState(false);
+  const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
 
   if (currentScreen === 'friends') {
     return <FriendsScreen />;
@@ -57,40 +64,50 @@ const MainAppScreen: React.FC = () => {
   const loadTakes = async () => {
     try {
       const today = new Date().toISOString().split('T')[0];
-      
       const { data, error } = await supabase
         .from('takes')
         .select('*')
         .eq('prompt_date', today)
         .order('created_at', { ascending: false });
-
       if (error) {
         console.error('Error loading takes:', error);
         loadFakeTakes();
         return;
       }
-
       const userIds = [...new Set(data.map(take => take.user_id).filter(Boolean))];
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, username')
         .in('id', userIds);
-
       const profileMap = profiles?.reduce((acc, profile) => {
         acc[profile.id] = profile;
         return acc;
       }, {} as Record<string, any>) || {};
-
+      // Fetch all comments for today's takes and count per take
+      const takeIds = data.map(take => take.id);
+      let commentCountMap: Record<string, number> = {};
+      if (takeIds.length > 0) {
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('comments')
+          .select('id, take_id')
+          .in('take_id', takeIds);
+        if (!commentsError && commentsData) {
+          commentCountMap = commentsData.reduce((acc, row) => {
+            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+        }
+      }
       const formattedTakes = data.map(take => ({
         id: take.id,
+        userId: take.user_id,
         content: take.content,
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
         reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
-        commentCount: 0,
+        commentCount: commentCountMap[take.id] || 0,
         timestamp: take.created_at
       }));
-
       setTakes(formattedTakes);
     } catch (error) {
       console.error('Error loading takes:', error);
@@ -112,12 +129,13 @@ const MainAppScreen: React.FC = () => {
     setLoading(false);
   };
 
-  const handleReaction = (takeId: string, reaction: keyof Take['reactions']) => {
+  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
     try {
       if (!user?.hasPostedToday) {
         toast({ title: "🔒 Post today's take first to react!", variant: "destructive" });
         return;
       }
+      // Optimistically update UI
       setTakes(prev => prev.map(t => 
         t.id === takeId ? { 
           ...t, 
@@ -127,6 +145,17 @@ const MainAppScreen: React.FC = () => {
           }
         } : t
       ));
+      // Persist to Supabase
+      const take = takes.find(t => t.id === takeId);
+      if (!take) return;
+      const updatedReactions = {
+        ...take.reactions,
+        [reaction]: take.reactions[reaction] + 1
+      };
+      await supabase
+        .from('takes')
+        .update({ reactions: updatedReactions })
+        .eq('id', takeId);
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
@@ -194,7 +223,7 @@ const MainAppScreen: React.FC = () => {
       return (
         <div className="flex-1 flex flex-col h-full">
           <div className="flex-shrink-0">
-            <TodaysPrompt prompt={currentPrompt} takeCount={takes.length} />
+          <TodaysPrompt prompt={promptText} takeCount={takes.length} loading={loading} />
           </div>
           
           <div className="flex-1 min-h-0">
@@ -208,14 +237,14 @@ const MainAppScreen: React.FC = () => {
             ) : (
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-4">
-                  <h2 className="text-xl font-semibold text-white sticky top-0 bg-gray-900 py-2 z-10">
+                  <h2 className="text-xl font-semibold text-brand-text sticky top-0 bg-brand-surface py-2 z-10">
                     💬 Today's Hot Takes ({takes.length})
                   </h2>
                   {takes.map((take) => (
                     <TakeCard key={take.id} take={take} onReact={handleReaction} />
                   ))}
                   {takes.length === 0 && (
-                    <div className="text-center text-gray-400 py-8">
+                    <div className="text-center text-brand-muted py-8">
                       <p>No takes yet today!</p>
                       <p className="text-sm mt-2">Be the first to share your take</p>
                     </div>
@@ -234,34 +263,38 @@ const MainAppScreen: React.FC = () => {
 
   const showAdminTab = user?.username === 'ljstevens';
 
+  useEffect(() => {
+    const fetchPrompt = async () => {
+      try {
+        const { data, error } = await getTodayPrompt();
+        if (error) {
+          console.error('Error fetching today\'s prompt:', error);
+        } else {
+          setPromptText(data?.prompt_text || '');
+        }
+      } catch (error) {
+        console.error('Error fetching today\'s prompt:', error);
+      }
+    };
+
+    fetchPrompt();
+  }, []);
+
   return (
-    <div className="bg-gray-900 min-h-screen flex flex-col">
+    <div className="bg-brand-background min-h-screen flex flex-col">
       <AppBlocker isBlocked={isAppBlocked} onSubmit={handleUnlock} />
       
       <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
-        <div className="flex-shrink-0 p-4 border-b border-gray-700">
+        <div className="flex-shrink-0 p-4 border-b border-brand-border">
           <div className="max-w-2xl mx-auto flex justify-between items-center">
+            <button
+              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="w-6 h-6 text-white" />
+            </button>
             <h1 className="text-2xl font-bold text-white">🔥 TopTake</h1>
-            <div className="flex items-center space-x-2">
-              <Button 
-                onClick={() => setCurrentScreen('friends')} 
-                variant="outline" 
-                size="sm"
-                className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
-              >
-                <Users className="w-4 h-4 mr-1" />
-                Friends
-              </Button>
-              <Button 
-                onClick={handleLogout}
-                variant="outline" 
-                size="sm"
-                className="border-red-400 text-red-400 hover:bg-red-400 hover:text-white"
-              >
-                <LogOut className="w-4 h-4 mr-1" />
-                Logout
-              </Button>
-            </div>
           </div>
         </div>
         
@@ -286,6 +319,65 @@ const MainAppScreen: React.FC = () => {
         onClose={() => { setShowAnonymousModal(false); setShowPremiumModal(false); }}
         onPurchase={handlePurchase}
       />
+
+      {/* Hamburger menu overlay */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 bg-brand-background bg-opacity-90 flex">
+          <div className="w-64 bg-brand-surface h-full shadow-lg p-6 flex flex-col">
+            <button
+              className="self-end mb-4 text-brand-muted hover:text-brand-primary"
+              onClick={() => setMenuOpen(false)}
+              aria-label="Close menu"
+            >
+              ×
+            </button>
+            <button
+              className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+              onClick={() => { setCurrentScreen('friends'); setMenuOpen(false); }}
+            >
+              Friends
+            </button>
+            <button
+              className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+              onClick={() => { setCurrentTab('suggestions'); setMenuOpen(false); }}
+            >
+              Suggestions
+            </button>
+            <button
+              className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+              onClick={() => { setShowBillingModal(true); setMenuOpen(false); }}
+            >
+              Billing
+            </button>
+            <button
+              className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+              onClick={() => { setShowAccountSettingsModal(true); setMenuOpen(false); }}
+            >
+              Account Settings
+            </button>
+            <button
+              className="mb-4 w-full text-left text-brand-danger py-2 px-3 rounded hover:bg-brand-danger hover:text-brand-text"
+              onClick={() => { setShowAccountSettingsModal(true); setMenuOpen(false); }}
+            >
+              Delete Account
+            </button>
+            <button
+              className="mt-auto w-full text-left text-brand-danger py-2 px-3 rounded hover:bg-brand-danger hover:text-brand-text"
+              onClick={handleLogout}
+            >
+              Logout
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Modals for Billing and Account Settings */}
+      {showBillingModal && (
+        <BillingModal isOpen={showBillingModal} onClose={() => setShowBillingModal(false)} />
+      )}
+      {showAccountSettingsModal && (
+        <AccountSettingsModal isOpen={showAccountSettingsModal} onClose={() => setShowAccountSettingsModal(false)} />
+      )}
     </div>
   );
 };

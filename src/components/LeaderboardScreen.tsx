@@ -5,6 +5,7 @@ import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
+import { Flame, User } from 'lucide-react';
 
 interface LeaderboardUser {
   id: string;
@@ -106,11 +107,11 @@ const LeaderboardScreen: React.FC = () => {
     setCurrentScreen('profile');
   };
 
-  const getRankEmoji = (index: number) => {
-    if (index === 0) return '🥇';
-    if (index === 1) return '🥈';
-    if (index === 2) return '🥉';
-    return `#${index + 1}`;
+  const getRankIcon = (index: number) => {
+    if (index === 0) return <Flame className="w-6 h-6 text-brand-primary" title="Top Streak" />;
+    if (index === 1) return <Flame className="w-6 h-6 text-brand-accent" title="Second Place" />;
+    if (index === 2) return <Flame className="w-6 h-6 text-brand-muted" title="Third Place" />;
+    return <User className="w-6 h-6 text-brand-muted" title={`Rank ${index + 1}`} />;
   };
 
   if (loading) {
@@ -125,18 +126,17 @@ const LeaderboardScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-gray-900">
-      <div className="sticky top-0 bg-gray-900 z-10 p-4 border-b border-gray-700">
+    <div className="flex-1 flex flex-col h-full bg-brand-background">
+      <div className="sticky top-0 bg-brand-background z-10 p-4 border-b border-brand-border">
         <div className="flex justify-between items-center">
           <div>
-            <h1 className="text-2xl font-bold text-white">🔥 Streak Leaderboard</h1>
-            <p className="text-gray-400 text-sm mt-1">{leaderboard.length} active users</p>
+            <h1 className="text-2xl font-bold text-brand-text flex items-center gap-2"><Flame className="w-6 h-6 text-brand-primary" />Streak Leaderboard</h1>
+            <p className="text-brand-muted text-sm mt-1">{leaderboard.length} active users</p>
           </div>
           <Button 
             onClick={() => setCurrentScreen('feed')}
-            variant="outline"
             size="sm"
-            className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
+            className="btn-secondary"
           >
             Back
           </Button>
@@ -148,34 +148,33 @@ const LeaderboardScreen: React.FC = () => {
           {leaderboard.map((user, index) => (
             <Card 
               key={user.id} 
-              className={`bg-gray-800/80 border-gray-700 transition-all duration-200 cursor-pointer hover:bg-gray-750 hover:border-purple-500 ${
-                index < 3 ? 'ring-2 ring-yellow-500/30' : ''
-              }`}
+              className={`bg-brand-surface border-brand-border transition-all duration-200 cursor-pointer hover:bg-brand-background hover:border-brand-primary ${index < 3 ? 'ring-2 ring-brand-primary/30' : ''}`}
               onClick={() => handleUserClick(user)}
             >
               <CardContent className="p-3">
                 <div className="flex justify-between items-center">
                   <div className="flex items-center space-x-3 flex-1 min-w-0">
-                    <div className="text-xl font-bold text-yellow-400 min-w-[2.5rem] flex-shrink-0">
-                      {getRankEmoji(index)}
+                    <div className="min-w-[2.5rem] flex-shrink-0 flex items-center justify-center">
+                      {getRankIcon(index)}
                     </div>
                     <Avatar className="h-8 w-8 flex-shrink-0">
                       <AvatarImage src={user.avatar_url} />
-                      <AvatarFallback className="bg-purple-600 text-white text-sm">
+                      <AvatarFallback className="bg-brand-primary text-brand-text text-sm">
                         {user.username.charAt(0).toUpperCase()}
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <span className="text-white font-medium truncate block hover:text-purple-300">
+                      <span className="text-brand-text font-medium truncate block hover:text-brand-primary">
                         {user.username}
                       </span>
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <div className="text-orange-400 font-bold text-lg">
-                      🔥 {user.current_streak}
+                    <div className="flex items-center gap-1 text-brand-primary font-bold text-lg">
+                      <Flame className="w-4 h-4 text-brand-primary" />
+                      {user.current_streak}
                     </div>
-                    <div className="text-gray-400 text-xs">
+                    <div className="text-brand-muted text-xs">
                       {user.current_streak === 1 ? 'day' : 'days'}
                     </div>
                   </div>
@@ -186,7 +185,7 @@ const LeaderboardScreen: React.FC = () => {
         </div>
         
         {leaderboard.length === 0 && (
-          <div className="text-center text-gray-400 py-8">
+          <div className="text-center text-brand-muted py-8">
             <p>No users found.</p>
             <p className="text-sm mt-2">Start posting to build your streak!</p>
           </div>

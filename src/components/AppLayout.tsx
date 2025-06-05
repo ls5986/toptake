@@ -69,14 +69,14 @@ const AppLayout: React.FC = () => {
   if (isAdminMode) {
     return (
       <div className="min-h-screen flex flex-col">
-        <div className="bg-gradient-to-r from-purple-600 to-blue-600 text-white p-3 text-center">
+        <div className="bg-brand-primary text-brand-text p-3 text-center">
           <div className="flex items-center justify-center space-x-4">
             <span className="text-lg font-semibold">
-              {isSuperAdmin ? '👑 SUPER ADMIN MODE' : '🚀 AI-POWERED ADMIN HUB'}
+              {isSuperAdmin ? 'SUPER ADMIN MODE' : 'AI-POWERED ADMIN HUB'}
             </span>
             <button 
               onClick={handleExitAdmin}
-              className="bg-white/20 hover:bg-white/30 px-4 py-1 rounded-full text-sm transition-colors"
+              className="btn-secondary px-4 py-1 rounded-full text-sm"
             >
               Exit Admin
             </button>

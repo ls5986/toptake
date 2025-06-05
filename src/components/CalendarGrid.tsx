@@ -40,7 +40,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
     <>
       <div className="grid grid-cols-7 gap-1 mb-4">
         {dayNames.map(day => (
-          <div key={day} className="p-2 text-center text-sm font-medium text-gray-500">
+          <div key={day} className="p-2 text-center text-sm font-medium text-brand-muted">
             {day}
           </div>
         ))}
@@ -51,11 +51,11 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
             key={index}
             className={`
               p-2 min-h-[100px] border rounded-lg relative group transition-colors
-              ${day.isToday ? 'bg-blue-50 border-blue-200' : ''}
-              ${day.isPast ? 'bg-gray-50' : ''}
-              ${day.prompt ? 'border-purple-200 bg-purple-50' : 'border-gray-200'}
+              ${day.isToday ? 'bg-brand-accent/10 border-brand-accent' : ''}
+              ${day.isPast ? 'bg-brand-surface' : ''}
+              ${day.prompt ? 'border-brand-accent bg-brand-accent/5' : 'border-brand-border'}
               ${!day.isCurrentMonth ? 'opacity-50' : ''}
-              hover:bg-gray-50
+              hover:bg-brand-surface/80'
             `}
           >
             <div className="text-sm font-medium mb-1">
@@ -83,7 +83,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                       <Button
                         size="sm"
                         variant="ghost"
-                        className="h-6 w-6 p-0 text-red-600"
+                        className="h-6 w-6 p-0 text-brand-danger"
                         onClick={() => onDeletePrompt(day.prompt!.id)}
                       >
                         <Trash2 className="w-3 h-3" />
@@ -91,7 +91,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                     </div>
                   )}
                 </div>
-                <div className="text-xs text-gray-600 line-clamp-3">
+                <div className="text-xs text-brand-muted line-clamp-3">
                   {day.prompt.prompt_text.length > 60 
                     ? `${day.prompt.prompt_text.substring(0, 60)}...`
                     : day.prompt.prompt_text
@@ -99,7 +99,7 @@ const CalendarGrid: React.FC<CalendarGridProps> = ({
                 </div>
               </div>
             ) : (
-              <div className="text-xs text-gray-400">No prompt</div>
+              <div className="text-xs text-brand-muted">No prompt</div>
             )}
           </div>
         ))}

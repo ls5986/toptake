@@ -200,14 +200,14 @@ Generated for Rork iOS App Creator`;
           <CardContent className="space-y-4">
             <div>
               <h3 className="text-xl font-semibold mb-2">{generatedPrompt.title}</h3>
-              <p className="text-gray-600">{generatedPrompt.description}</p>
+              <p className="text-brand-muted">{generatedPrompt.description}</p>
             </div>
             
             <div>
               <h4 className="font-medium mb-2">Key Features:</h4>
               <ul className="space-y-1">
                 {generatedPrompt.features.map((feature, index) => (
-                  <li key={index} className="text-sm text-gray-600">• {feature}</li>
+                  <li key={index} className="text-sm text-brand-muted">• {feature}</li>
                 ))}
               </ul>
             </div>

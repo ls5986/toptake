@@ -11,6 +11,8 @@ export interface User {
   boost_uses_remaining?: number;
   history_unlocked?: boolean;
   extra_takes_remaining?: number;
+  is_admin?: boolean;
+  hasPostedToday?: boolean;
 }
 
 export interface Take {

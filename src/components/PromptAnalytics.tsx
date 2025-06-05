@@ -31,6 +31,7 @@ const PromptAnalytics: React.FC = () => {
   const [onlineToday, setOnlineToday] = useState(0);
   const [loading, setLoading] = useState(true);
   const { toast } = useToast();
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     loadPromptAnalytics();
@@ -97,6 +98,7 @@ const PromptAnalytics: React.FC = () => {
     } catch (error) {
       console.error('Error loading analytics:', error);
       toast({ title: 'Error loading analytics', description: 'Failed to load prompt analytics', variant: 'destructive' });
+      setError(error instanceof Error ? error.message : 'An error occurred');
     } finally {
       setLoading(false);
     }
@@ -148,6 +150,22 @@ const PromptAnalytics: React.FC = () => {
     return (
       <div className="flex items-center justify-center p-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400"></div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-red-500">{error}</div>
+      </div>
+    );
+  }
+
+  if (!prompts || prompts.length === 0) {
+    return (
+      <div className="flex items-center justify-center p-8">
+        <div className="text-gray-500">No analytics data available.</div>
       </div>
     );
   }

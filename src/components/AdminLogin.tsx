@@ -34,11 +34,11 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onAdminLogin }) => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md">
+    <div className="min-h-screen bg-gradient-to-br from-brand-background via-brand-surface to-brand-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-brand-surface border-brand-border">
         <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold">🔐 Admin Access</CardTitle>
-          <p className="text-gray-600">Enter credentials to continue</p>
+          <CardTitle className="text-2xl font-bold text-brand-text">Admin Access</CardTitle>
+          <p className="text-brand-muted">Enter credentials to continue</p>
         </CardHeader>
         <CardContent className="space-y-4">
           <Input
@@ -46,6 +46,7 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onAdminLogin }) => {
             placeholder="Email address"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
           />
           <Input
             type="password"
@@ -53,15 +54,16 @@ const AdminLogin: React.FC<AdminLoginProps> = ({ onAdminLogin }) => {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
+            className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
           />
           <Button 
             onClick={handleLogin} 
             disabled={loading || !email || !password}
-            className="w-full"
+            className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text"
           >
             {loading ? 'Verifying...' : 'Access Admin Panel'}
           </Button>
-          <div className="text-xs text-gray-500 text-center space-y-1">
+          <div className="text-xs text-brand-muted text-center space-y-1">
             <p>Super Admin: lindsey@letsclink.com / superadmin123</p>
             <p>Regular Admin: any email / admin123</p>
           </div>

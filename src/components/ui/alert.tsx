@@ -4,19 +4,19 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const alertVariants = cva(
-  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-foreground shadow-sm",
+  "relative w-full rounded-lg border p-4 [&>svg~*]:pl-7 [&>svg+div]:translate-y-[-3px] [&>svg]:absolute [&>svg]:left-4 [&>svg]:top-4 [&>svg]:text-brand-text shadow-sm",
   {
     variants: {
       variant: {
-        default: "bg-background text-foreground",
+        default: "bg-brand-surface text-brand-text border-brand-border",
         destructive:
-          "border-destructive/50 text-destructive dark:border-destructive [&>svg]:text-destructive",
+          "border-brand-danger/50 text-brand-danger [&>svg]:text-brand-danger",
         success:
-          "border-green-500/50 text-green-600 dark:text-green-400 [&>svg]:text-green-600 dark:[&>svg]:text-green-400 bg-green-50 dark:bg-green-950/20",
+          "border-brand-success/50 text-brand-success [&>svg]:text-brand-success bg-brand-success/10",
         warning:
-          "border-yellow-500/50 text-yellow-600 dark:text-yellow-400 [&>svg]:text-yellow-600 dark:[&>svg]:text-yellow-400 bg-yellow-50 dark:bg-yellow-950/20",
+          "border-brand-warning/50 text-brand-warning [&>svg]:text-brand-warning bg-brand-warning/10",
         info:
-          "border-primary/50 text-primary dark:text-primary-foreground [&>svg]:text-primary bg-primary/10 dark:bg-primary/20",
+          "border-brand-accent/50 text-brand-accent [&>svg]:text-brand-accent bg-brand-accent/10",
       },
     },
     defaultVariants: {

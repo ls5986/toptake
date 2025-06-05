@@ -150,8 +150,8 @@ const EnhancedPromptRecommendations: React.FC = () => {
         {[1, 2, 3].map(i => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-6">
-              <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-              <div className="h-4 bg-gray-300 rounded w-1/2"></div>
+              <div className="h-4 bg-brand-muted rounded w-3/4 mb-2"></div>
+              <div className="h-4 bg-brand-muted rounded w-1/2"></div>
             </CardContent>
           </Card>
         ))}
@@ -232,7 +232,7 @@ const EnhancedPromptRecommendations: React.FC = () => {
                     </div>
                   </div>
 
-                  <div className="bg-gray-50 rounded-lg p-4">
+                  <div className="bg-brand-surface rounded-lg p-4">
                     <h4 className="font-medium text-sm mb-2">AI Analysis</h4>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                       <div>

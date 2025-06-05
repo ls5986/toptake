@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings } from 'lucide-react';
+import { Settings, Flame, MessageSquare, Lock } from 'lucide-react';
 import { TakeCard } from './TakeCard';
 import ProfileEditModal from './ProfileEditModal';
 import { useAppContext } from '@/contexts/AppContext';
@@ -111,7 +111,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
     }
   };
 
-  const handleReaction = (takeId: string, reaction: keyof Take['reactions']) => {
+  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
     setUserTakes(prev => prev.map(t => 
       t.id === takeId ? { 
         ...t, 
@@ -121,7 +121,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
         }
       } : t
     ));
-    
     setTakesWithPrompts(prev => prev.map(item => 
       item.take.id === takeId ? {
         ...item,
@@ -134,6 +133,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
         }
       } : item
     ));
+    const take = userTakes.find(t => t.id === takeId);
+    if (!take) return;
+    const updatedReactions = {
+      ...take.reactions,
+      [reaction]: take.reactions[reaction] + 1
+    };
+    await supabase
+      .from('takes')
+      .update({ reactions: updatedReactions })
+      .eq('id', takeId);
   };
 
   const handleProfileUpdate = (updatedProfile: any) => {
@@ -154,38 +163,41 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
 
   return (
     <div className="space-y-6">
-      <Card className="bg-gray-800 border-gray-700">
+      <Card className="bg-brand-surface border-brand-border">
         <CardHeader className="text-center">
           <div className="flex flex-col items-center space-y-4">
             <Avatar className="w-20 h-20">
               {currentUser.avatar_url ? (
                 <AvatarImage src={currentUser.avatar_url} alt={currentUser.username} />
               ) : (
-                <AvatarFallback className="bg-purple-600 text-white text-2xl">
+                <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
                   {(currentUser.username || 'U')[0].toUpperCase()}
                 </AvatarFallback>
               )}
             </Avatar>
             <div>
-              <CardTitle className="text-2xl text-white">
+              <CardTitle className="text-2xl text-brand-text">
                 {currentUser.username || 'Unknown User'}
               </CardTitle>
               {currentUser.full_name && (
-                <p className="text-gray-400 mt-1">{currentUser.full_name}</p>
+                <p className="text-brand-muted mt-1">{currentUser.full_name}</p>
               )}
               {currentUser.bio && (
-                <p className="text-gray-300 mt-2 text-sm max-w-md mx-auto">{currentUser.bio}</p>
+                <p className="text-brand-muted mt-2 text-sm max-w-md mx-auto">{currentUser.bio}</p>
               )}
               <div className="flex justify-center space-x-4 mt-3">
-                <Badge variant="outline" className="text-purple-400 border-purple-400">
-                  🔥 {currentUser.streak || 0} day streak
+                <Badge variant="outline" className="text-brand-primary border-brand-primary flex items-center gap-1">
+                  <Flame className="w-4 h-4 text-brand-primary" />
+                  {currentUser.streak || 0} day streak
                 </Badge>
-                <Badge variant="outline" className="text-purple-400 border-purple-400">
-                  📝 {userTakes.length} takes
+                <Badge variant="outline" className="text-brand-accent border-brand-accent flex items-center gap-1">
+                  <MessageSquare className="w-4 h-4 text-brand-accent" />
+                  {userTakes.length} takes
                 </Badge>
                 {isPrivate && (
-                  <Badge variant="outline" className="text-yellow-400 border-yellow-400">
-                    🔒 Private
+                  <Badge variant="outline" className="text-brand-muted border-brand-muted flex items-center gap-1">
+                    <Lock className="w-4 h-4 text-brand-muted" />
+                    Private
                   </Badge>
                 )}
               </div>
@@ -194,7 +206,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
                   onClick={() => setIsEditModalOpen(true)}
                   variant="outline"
                   size="sm"
-                  className="mt-4 border-gray-600 text-gray-300 hover:bg-gray-700"
+                  className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
                 >
                   <Settings className="w-4 h-4 mr-2" />
                   Edit Profile
@@ -206,19 +218,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
       </Card>
 
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-white">
+        <h3 className="text-xl font-semibold text-brand-text">
           {isOwnProfile ? '📝 Your Takes' : `📝 ${currentUser.username}'s Takes`}
         </h3>
         {isPrivate ? (
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-brand-surface border-brand-border">
             <CardContent className="text-center py-8">
-              <p className="text-gray-400">🔒 This profile is private</p>
+              <p className="text-brand-muted">🔒 This profile is private</p>
             </CardContent>
           </Card>
         ) : takesWithPrompts.length === 0 ? (
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-brand-surface border-brand-border">
             <CardContent className="text-center py-8">
-              <p className="text-gray-400">
+              <p className="text-brand-muted">
                 {isOwnProfile ? "You haven't posted any takes yet!" : "No takes posted yet."}
               </p>
             </CardContent>

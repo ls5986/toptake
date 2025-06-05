@@ -14,14 +14,14 @@ export const PromptDisplay: React.FC<PromptDisplayProps> = ({
   className = '' 
 }) => {
   return (
-    <Card className={`bg-gradient-to-r from-purple-600 to-blue-600 border-none ${className}`}>
+    <Card className={`bg-card-gradient ${className}`}>
       <CardContent className="p-4">
         <div className="flex items-start space-x-3">
-          <Badge className="bg-white/20 text-white border-none">
+          <Badge className="bg-brand-surface text-brand-primary">
             Day {dayNumber}
           </Badge>
           <div className="flex-1">
-            <p className="text-white font-medium leading-relaxed">
+            <p className="text-brand-text font-medium leading-relaxed">
               {prompt}
             </p>
           </div>

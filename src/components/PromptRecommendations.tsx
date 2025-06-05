@@ -118,50 +118,40 @@ const PromptRecommendations: React.FC = () => {
   };
 
   const approveAndSchedule = async (recommendation: PromptRecommendation) => {
-    if (!scheduleDate) {
-      toast({ title: 'Please select a date', variant: 'destructive' });
+    // Ask for date
+    const scheduleDate = prompt('Enter date to schedule this prompt (YYYY-MM-DD):');
+    if (!scheduleDate) return;
+    // Check for duplicate
+    const { data: existing, error: fetchError } = await supabase
+      .from('daily_prompts')
+      .select('id')
+      .eq('prompt_date', scheduleDate)
+      .single();
+    if (existing) {
+      toast({ title: 'A prompt for this date already exists. Please choose another date.', variant: 'destructive' });
       return;
     }
-
-    try {
-      const { data: existing } = await supabase
-        .from('daily_prompts')
-        .select('id')
-        .eq('prompt_date', scheduleDate)
-        .single();
-
-      if (existing) {
-        toast({ title: 'Date already has a scheduled prompt', variant: 'destructive' });
-        return;
-      }
-
-      const promptText = recommendation.cleaned_text || recommendation.prompt_text;
-      const { error: scheduleError } = await supabase
-        .from('daily_prompts')
-        .insert({
-          prompt_text: promptText,
-          prompt_date: scheduleDate,
-          is_active: false,
-          source: 'user_recommendation',
-          source_user_id: recommendation.user_id
-        });
-      
-      if (scheduleError) throw scheduleError;
-      
-      const { error: updateError } = await supabase
-        .from('prompt_recommendations')
-        .update({ status: 'approved' })
-        .eq('id', recommendation.id);
-      
-      if (updateError) throw updateError;
-      
-      loadRecommendations();
-      loadUserSubmissions();
-      toast({ title: `Prompt scheduled for ${scheduleDate}!` });
-    } catch (error) {
-      console.error('Error scheduling prompt:', error);
+    // Schedule prompt
+    const { error } = await supabase
+      .from('daily_prompts')
+      .insert({
+        prompt_text: recommendation.prompt_text,
+        prompt_date: scheduleDate,
+        is_active: true,
+        source: 'recommendation'
+      });
+    if (error) {
       toast({ title: 'Error scheduling prompt', variant: 'destructive' });
+      return;
     }
+    // Mark recommendation as scheduled
+    await supabase
+      .from('prompt_recommendations')
+      .update({ status: 'scheduled' })
+      .eq('id', recommendation.id);
+    toast({ title: 'Prompt scheduled!' });
+    loadRecommendations();
+    loadUserSubmissions();
   };
 
   const rejectRecommendation = async (id: string) => {
@@ -184,21 +174,21 @@ const PromptRecommendations: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'approved': return 'bg-green-600';
-      case 'rejected': return 'bg-red-600';
-      default: return 'bg-yellow-600';
+      case 'approved': return 'bg-brand-success';
+      case 'rejected': return 'bg-brand-danger';
+      default: return 'bg-brand-warning';
     }
   };
 
   if (loading) {
-    return <div className="text-center py-4 text-gray-300">Loading recommendations...</div>;
+    return <div className="text-center py-4 text-brand-muted">Loading recommendations...</div>;
   }
 
   return (
-    <div className="space-y-4 bg-gray-900 min-h-screen p-4">
-      <Card className="bg-gray-800 border-gray-700">
+    <div className="space-y-4 bg-brand-background min-h-screen p-4">
+      <Card className="bg-brand-surface border-brand-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
+          <CardTitle className="flex items-center gap-2 text-brand-text">
             <Plus className="w-5 h-5" />
             Suggest a Prompt
           </CardTitle>
@@ -209,21 +199,21 @@ const PromptRecommendations: React.FC = () => {
             value={newPrompt}
             onChange={(e) => setNewPrompt(e.target.value)}
             rows={3}
-            className="bg-gray-700 border-gray-600 text-white placeholder:text-gray-400"
+            className=""
           />
           <Button 
             onClick={submitRecommendation}
             disabled={!newPrompt.trim() || submitting}
-            className="w-full bg-blue-600 hover:bg-blue-700"
+            className="btn-primary w-full"
           >
             {submitting ? 'Submitting...' : 'Submit Suggestion'}
           </Button>
         </CardContent>
       </Card>
 
-      <Card className="bg-gray-800 border-gray-700">
+      <Card className="bg-brand-surface border-brand-border">
         <CardHeader>
-          <CardTitle className="flex items-center gap-2 text-white">
+          <CardTitle className="flex items-center gap-2 text-brand-text">
             <User className="w-5 h-5" />
             Your Submissions ({userSubmissions.length})
           </CardTitle>
@@ -232,23 +222,23 @@ const PromptRecommendations: React.FC = () => {
           <ScrollArea className="h-64">
             <div className="space-y-3">
               {userSubmissions.map((sub) => (
-                <div key={sub.id} className="p-4 border border-gray-700 rounded-lg bg-gray-750">
+                <div key={sub.id} className="p-4 border border-border rounded-lg bg-brand-surface">
                   <div className="flex justify-between items-start mb-2">
-                    <div className="text-sm text-gray-400">
+                    <div className="text-sm text-brand-muted">
                       {new Date(sub.created_at).toLocaleDateString()}
                     </div>
-                    <Badge className={`${getStatusColor(sub.status)} text-white`}>
+                    <Badge className={`${getStatusColor(sub.status)} text-brand-text`}>
                       {sub.status}
                     </Badge>
                   </div>
-                  <div className="bg-gray-700 p-3 rounded text-gray-200">
+                  <div className="bg-brand-surface p-3 rounded text-brand-text">
                     <p className="text-sm">{sub.prompt_text}</p>
                   </div>
                 </div>
               ))}
               
               {userSubmissions.length === 0 && (
-                <div className="text-center text-gray-500 py-8">
+                <div className="text-center text-brand-muted py-8">
                   No submissions yet
                 </div>
               )}
@@ -259,9 +249,9 @@ const PromptRecommendations: React.FC = () => {
       
       {isAdmin && (
         <>
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-brand-surface border-brand-border">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2 text-white">
+              <CardTitle className="flex items-center gap-2 text-brand-text">
                 <Calendar className="w-5 h-5" />
                 Schedule Date
               </CardTitle>
@@ -272,14 +262,14 @@ const PromptRecommendations: React.FC = () => {
                 value={scheduleDate}
                 onChange={(e) => setScheduleDate(e.target.value)}
                 min={new Date().toISOString().split('T')[0]}
-                className="bg-gray-700 border-gray-600 text-white"
+                className="bg-brand-surface border-brand-border text-brand-text"
               />
             </CardContent>
           </Card>
           
-          <Card className="bg-gray-800 border-gray-700">
+          <Card className="bg-brand-surface border-brand-border">
             <CardHeader>
-              <CardTitle className="text-white">
+              <CardTitle className="text-brand-text">
                 Pending Recommendations ({recommendations.length})
               </CardTitle>
             </CardHeader>
@@ -287,34 +277,33 @@ const PromptRecommendations: React.FC = () => {
               <ScrollArea className="h-96">
                 <div className="space-y-3">
                   {recommendations.map((rec) => (
-                    <div key={rec.id} className="p-4 border border-gray-700 rounded-lg bg-gray-750">
+                    <div key={rec.id} className="p-4 border border-border rounded-lg bg-brand-surface">
                       <div className="flex justify-between items-start mb-2">
                         <div>
-                          <div className="font-medium text-white">{rec.username}</div>
-                          <div className="text-sm text-gray-400">
+                          <div className="font-medium text-brand-text">{rec.username}</div>
+                          <div className="text-sm text-brand-muted">
                             {new Date(rec.created_at).toLocaleDateString()}
                           </div>
                         </div>
-                        <Badge className="bg-yellow-600 text-white">{rec.status}</Badge>
+                        <Badge className="bg-brand-warning text-brand-text">{rec.status}</Badge>
                       </div>
                       
-                      <div className="bg-gray-700 p-3 rounded mb-3">
-                        <p className="text-sm text-gray-200">{rec.prompt_text}</p>
+                      <div className="bg-brand-surface p-3 rounded mb-3">
+                        <p className="text-sm text-brand-text">{rec.prompt_text}</p>
                       </div>
                       
                       <div className="flex gap-2">
                         <Button 
-                          size="sm" 
+                          size="sm"
                           onClick={() => approveAndSchedule(rec)}
-                          className="bg-green-600 hover:bg-green-700"
+                          className="btn-primary"
                         >
                           Approve & Schedule
                         </Button>
                         <Button 
-                          size="sm" 
-                          variant="destructive" 
+                          size="sm"
                           onClick={() => rejectRecommendation(rec.id)}
-                          className="bg-red-600 hover:bg-red-700"
+                          className="btn-secondary"
                         >
                           Decline
                         </Button>
@@ -323,7 +312,7 @@ const PromptRecommendations: React.FC = () => {
                   ))}
                   
                   {recommendations.length === 0 && (
-                    <div className="text-center text-gray-500 py-8">
+                    <div className="text-center text-brand-muted py-8">
                       No pending recommendations
                     </div>
                   )}

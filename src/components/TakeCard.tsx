@@ -123,6 +123,15 @@ export const TakeCard: React.FC<TakeCardProps> = ({
         ? safeUsername.charAt(0).toUpperCase() 
         : 'A');
 
+  // Helper to show comment count (flat for now, can be improved to count nested)
+  const commentCount = take.commentCount || 0;
+
+  // Engagement = sum of all reactions + commentCount, excluding user's own reactions/comments
+  const engagementCount = Object.entries(take.reactions).reduce((sum, [reaction, count]) => {
+    // Optionally, exclude user's own reactions if tracked
+    return sum + (typeof count === 'number' ? count : 0);
+  }, 0) + (take.commentCount || 0);
+
   return (
     <>
       <div className="space-y-3">
@@ -133,14 +142,14 @@ export const TakeCard: React.FC<TakeCardProps> = ({
           />
         )}
         
-        <Card className="bg-gray-800/90 border-gray-700 hover:border-purple-500/50 transition-all duration-200 backdrop-blur-sm">
+        <Card className="bg-brand-surface/90 border-brand-border hover:border-brand-accent transition-all duration-200 backdrop-blur-sm">
           <CardContent className="p-3 sm:p-4">
             <div className="flex items-start space-x-3">
               <Avatar 
-                className={`w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 ${!take.isAnonymous ? 'cursor-pointer hover:ring-2 hover:ring-purple-400' : ''}`}
+                className={`w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 ${!take.isAnonymous ? 'cursor-pointer hover:ring-2 hover:ring-brand-accent' : ''}`}
                 onClick={handleProfileClick}
               >
-                <AvatarFallback className="bg-purple-600 text-white text-sm">
+                <AvatarFallback className="bg-brand-accent text-brand-text text-sm">
                   {userInitial}
                 </AvatarFallback>
               </Avatar>
@@ -149,27 +158,30 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                 <div className="flex items-center justify-between mb-2">
                   <div className="flex items-center space-x-2 flex-wrap">
                     <span 
-                      className={`font-medium text-white text-sm sm:text-base truncate ${
-                        !take.isAnonymous ? 'cursor-pointer hover:text-purple-400' : ''
+                      className={`font-medium text-brand-text text-sm sm:text-base truncate ${
+                        !take.isAnonymous ? 'cursor-pointer hover:text-brand-accent' : ''
                       }`}
                       onClick={handleProfileClick}
                     >
                       {take.isAnonymous ? 'Anonymous' : safeUsername}
                     </span>
                     {take.isAnonymous && (
-                      <Badge variant="outline" className="text-purple-400 border-purple-400 text-xs px-1 py-0">
+                      <Badge variant="outline" className="text-brand-accent border-brand-accent text-xs px-1 py-0">
                         👻
                       </Badge>
                     )}
-                    <span className="text-gray-400 text-xs">{formatTimestamp(take.timestamp)}</span>
+                    <span className="text-brand-muted text-xs">{formatTimestamp(take.timestamp)}</span>
                   </div>
+                  <Badge className="bg-brand-accent text-brand-text text-xs px-2 py-1 flex-shrink-0">
+                    🔥 {engagementCount}
+                  </Badge>
                   
                   {isOwnTake && onDelete && (
                     <Button
                       onClick={handleDelete}
                       variant="ghost"
                       size="sm"
-                      className="text-gray-400 hover:text-red-400 p-1 h-auto"
+                      className="text-brand-muted hover:text-brand-danger p-1 h-auto"
                       title={packUsage.delete_uses_remaining > 0 ? `Delete (${packUsage.delete_uses_remaining} left)` : 'Delete (upgrade needed)'}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -177,7 +189,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                   )}
                 </div>
                 
-                <p className="text-gray-200 mb-3 leading-relaxed text-sm sm:text-base break-words">{take.content}</p>
+                <p className="text-brand-muted mb-3 leading-relaxed text-sm sm:text-base break-words">{take.content}</p>
                 
                 <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 sm:gap-2 mb-3">
                   {Object.entries(take.reactions).map(([reaction, count]) => (
@@ -186,7 +198,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                       onClick={() => handleReaction(reaction as keyof Take['reactions'])}
                       variant="outline"
                       size="sm"
-                      className="border-gray-600 text-gray-300 hover:border-purple-400 hover:text-purple-400 text-xs px-2 py-1 h-auto min-h-[28px] justify-start"
+                      className="border-brand-border text-brand-text hover:border-brand-accent hover:text-brand-accent text-xs px-2 py-1 h-auto min-h-[28px] justify-start"
                       disabled={!canInteract}
                     >
                       <span className="mr-1">{getReactionEmoji(reaction)}</span>
@@ -196,38 +208,16 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                   ))}
                 </div>
                 
-                <div className="flex items-center justify-between text-gray-400">
+                <div className="flex items-center justify-between text-brand-muted">
                   <Button
-                    onClick={() => setShowComments(!showComments)}
                     variant="ghost"
                     size="sm"
-                    className="text-gray-400 hover:text-purple-400 p-1 h-auto text-xs"
-                    disabled={!canInteract}
+                    className="flex items-center text-xs hover:text-brand-accent"
+                    onClick={() => setShowComments(true)}
                   >
-                    <MessageCircle className="w-3 h-3 mr-1" />
-                    {canInteract ? 'Comments' : '🔒'}
+                    <span className="mr-1"><MessageCircle className="w-4 h-4" /></span>
+                    Comments{commentCount > 0 ? ` (${commentCount})` : ''}
                   </Button>
-                  
-                  <div className="flex items-center space-x-1">
-                    <Button
-                      onClick={() => handleReaction('wildTake')}
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-red-400 p-1 h-auto"
-                      disabled={!canInteract}
-                    >
-                      <ThumbsUp className="w-3 h-3" />
-                    </Button>
-                    <Button
-                      onClick={() => handleReaction('mid')}
-                      variant="ghost"
-                      size="sm"
-                      className="text-gray-400 hover:text-yellow-400 p-1 h-auto"
-                      disabled={!canInteract}
-                    >
-                      <ThumbsDown className="w-3 h-3" />
-                    </Button>
-                  </div>
                 </div>
               </div>
             </div>
@@ -235,23 +225,21 @@ export const TakeCard: React.FC<TakeCardProps> = ({
         </Card>
       </div>
       
-      <CommentSection 
-        takeId={take.id} 
-        isOpen={showComments && canInteract}
-        onClose={() => setShowComments(false)}
-      />
+      {showComments && (
+        <CommentSection takeId={take.id} isOpen={showComments} onClose={() => setShowComments(false)} />
+      )}
       
       {showProfile && (
         <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-gray-900 rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+          <div className="bg-brand-surface rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
             <div className="p-4 sm:p-6">
               <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl sm:text-2xl font-bold text-white">Profile</h2>
+                <h2 className="text-xl sm:text-2xl font-bold text-brand-text">Profile</h2>
                 <Button 
                   onClick={() => setShowProfile(false)}
                   variant="ghost"
                   size="sm"
-                  className="text-gray-400 hover:text-white p-1"
+                  className="text-brand-muted hover:text-brand-text p-1"
                 >
                   ✕
                 </Button>

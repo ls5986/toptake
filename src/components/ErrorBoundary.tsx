@@ -29,33 +29,32 @@ class ErrorBoundary extends React.Component<
   render() {
     if (this.state.hasError) {
       return (
-        <div className="min-h-screen bg-gray-900 flex items-center justify-center p-4">
-          <Card className="w-full max-w-md bg-gray-800 border-gray-700">
+        <div className="min-h-screen bg-brand-background flex items-center justify-center p-4">
+          <Card className="w-full max-w-md bg-brand-surface border-brand-border">
             <CardHeader className="text-center">
-              <CardTitle className="text-2xl font-bold text-red-400">
+              <CardTitle className="text-2xl font-bold text-brand-danger">
                 Something went wrong
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-gray-300 text-center">
+              <p className="text-brand-muted text-center">
                 An error occurred while loading the application.
               </p>
               {this.state.error && (
-                <div className="bg-gray-700 p-3 rounded text-sm text-gray-300">
+                <div className="bg-brand-background p-3 rounded text-sm text-brand-muted">
                   <strong>Error:</strong> {this.state.error.message}
                 </div>
               )}
               <div className="flex space-x-2">
                 <Button 
                   onClick={() => window.location.reload()} 
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="btn-primary flex-1"
                 >
                   Refresh Page
                 </Button>
                 <Button 
                   onClick={() => this.setState({ hasError: false })} 
-                  variant="outline"
-                  className="flex-1"
+                  className="btn-secondary flex-1"
                 >
                   Try Again
                 </Button>

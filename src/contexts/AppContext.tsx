@@ -1,18 +1,7 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import LoadingSpinner from '@/components/LoadingSpinner';
-
-interface User {
-  id: string;
-  username: string;
-  email: string;
-  streak: number;
-  dramaScore: number;
-  anonymousCredits: number;
-  hasPostedToday: boolean;
-  profilePicture?: string;
-  timezone_offset?: number;
-}
+import type { User } from '@/types';
 
 interface AppContextType {
   user: User | null;
@@ -223,7 +212,15 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           dramaScore: profile.drama_score || 0,
           anonymousCredits: profile.anonymous_credits || 3,
           hasPostedToday: profile.has_posted_today || false,
-          timezone_offset: profile.timezone_offset || 0
+          timezone_offset: profile.timezone_offset || 0,
+          isPremium: profile.is_premium || false,
+          is_admin: profile.is_admin || false,
+          lastPostDate: profile.last_post_date || undefined,
+          anonymous_uses_remaining: profile.anonymous_uses_remaining,
+          delete_uses_remaining: profile.delete_uses_remaining,
+          boost_uses_remaining: profile.boost_uses_remaining,
+          history_unlocked: profile.history_unlocked,
+          extra_takes_remaining: profile.extra_takes_remaining,
         };
         
         setUser(userObj);

@@ -12,48 +12,50 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { getTodayPrompt } from '@/lib/supabase';
 
 const FeedScreen: React.FC = () => {
-  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, hasPostedToday } = useAppContext();
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const [currentPrompt, setCurrentPrompt] = useState<string>('');
+  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const { toast } = useToast();
+  const [promptText, setPromptText] = useState('');
   const fetchInProgress = useRef(false);
 
   useEffect(() => {
     if (user && !isAppBlocked && !fetchInProgress.current) {
       fetchInProgress.current = true;
-      console.log('FeedScreen: fetching prompt and takes for', selectedDate);
       loadPromptAndTakes().finally(() => {
         fetchInProgress.current = false;
       });
     }
-  }, [user, isAppBlocked, selectedDate]);
+  }, [user, isAppBlocked]);
+
+  const fetchPromptForDate = async () => {
+    const { data, error } = await getTodayPrompt();
+    if (error || !data || !data.prompt_text) return '';
+    return data.prompt_text;
+  };
 
   const loadPromptAndTakes = async () => {
     setLoading(true);
     try {
-      const dateStr = format(selectedDate, 'yyyy-MM-dd');
-      
-      const { data: promptData } = await supabase
-        .from('daily_prompts')
-        .select('prompt_text')
-        .eq('prompt_date', dateStr)
-        .single();
-      
-      setCurrentPrompt(promptData?.prompt_text || 'No prompt available for this date');
-      
-      const { data: takesData } = await supabase
+      const promptText = await fetchPromptForDate();
+      setPromptText(promptText);
+      // Fetch all takes for today
+      const utcDate = new Date(Date.UTC(
+        new Date().getUTCFullYear(),
+        new Date().getUTCMonth(),
+        new Date().getUTCDate()
+      ));
+      const dateStr = utcDate.toISOString().split('T')[0];
+      const { data, error } = await supabase
         .from('takes')
         .select('*')
         .eq('prompt_date', dateStr)
         .order('created_at', { ascending: false });
-
       // Fetch profiles for user_ids
-      const userIds = [...new Set((takesData || []).map(t => t.user_id).filter(Boolean))];
+      const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
       if (userIds.length > 0) {
         const { data: profiles } = await supabase
@@ -65,20 +67,39 @@ const FeedScreen: React.FC = () => {
           return acc;
         }, {} as Record<string, any>);
       }
-
-      const formattedTakes = (takesData || []).map(take => ({
+      if (error) {
+        setTakes([]);
+        setLoading(false);
+        return;
+      }
+      // Fetch all comments for today's takes and count per take
+      const takeIds = (data || []).map(take => take.id);
+      let commentCountMap: Record<string, number> = {};
+      if (takeIds.length > 0) {
+        const { data: commentsData, error: commentsError } = await supabase
+          .from('comments')
+          .select('id, take_id')
+          .in('take_id', takeIds);
+        if (!commentsError && commentsData) {
+          commentCountMap = commentsData.reduce((acc, row) => {
+            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
+            return acc;
+          }, {} as Record<string, number>);
+        }
+      }
+      // Format takes to match Take type
+      const formattedTakes = (data || []).map(take => ({
         id: take.id,
+        userId: take.user_id,
         content: take.content,
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
+        timestamp: take.created_at,
         reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
-        commentCount: 0,
-        timestamp: take.created_at
+        commentCount: commentCountMap[take.id] || 0
       }));
-
       setTakes(formattedTakes);
     } catch (error) {
-      console.error('Error loading data:', error);
       setTakes([]);
     } finally {
       setLoading(false);
@@ -88,40 +109,47 @@ const FeedScreen: React.FC = () => {
 
   const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
     try {
-      const currentTake = takes.find(t => t.id === takeId);
-      if (!currentTake) return;
-
-      const newReactions = {
-        ...currentTake.reactions,
-        [reaction]: (currentTake.reactions[reaction] || 0) + 1
-      };
-
+      if (!user?.hasPostedToday) {
+        return;
+      }
       setTakes(prev => prev.map(t => 
-        t.id === takeId ? { ...t, reactions: newReactions } : t
+        t.id === takeId ? { 
+          ...t, 
+          reactions: {
+            ...t.reactions,
+            [reaction]: t.reactions[reaction] + 1
+          }
+        } : t
       ));
-
+      const take = takes.find(t => t.id === takeId);
+      if (!take) return;
+      const updatedReactions = {
+        ...take.reactions,
+        [reaction]: take.reactions[reaction] + 1
+      };
       await supabase
         .from('takes')
-        .update({ reactions: newReactions })
+        .update({ reactions: updatedReactions })
         .eq('id', takeId);
-
-      toast({ title: `Reacted!`, duration: 1000 });
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
   };
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setRefreshing(true);
-    loadPromptAndTakes().finally(() => {
-      setTimeout(() => setRefreshing(false), 400);
-    });
+    await loadPromptAndTakes();
+    setTimeout(() => setRefreshing(false), 400);
   };
 
   const handleUnlock = async () => {
-    setIsAppBlocked(false);
-    await checkDailyPost();
-    await loadPromptAndTakes();
+    try {
+      setIsAppBlocked(false);
+      await checkDailyPost();
+      await loadPromptAndTakes();
+    } catch (error) {
+      console.error('Error unlocking:', error);
+    }
   };
 
   if (isAppBlocked) {
@@ -131,62 +159,43 @@ const FeedScreen: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-shrink-0">
-        <TodaysPrompt prompt={currentPrompt} takeCount={takes.length} selectedDate={selectedDate} />
+        <TodaysPrompt prompt={promptText} takeCount={takes.length} loading={loading} />
       </div>
-      
       <div className="flex-1 min-h-0">
         {loading ? (
           <div className="flex items-center justify-center h-full">
-            <div className="text-center text-white">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
+            <div className="text-center text-brand-text">
+              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-accent mx-auto mb-4"></div>
               <p>Loading takes...</p>
             </div>
           </div>
         ) : (
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between sticky top-0 bg-gray-900 py-2 z-10">
-                <div className="flex items-center gap-4">
-                  <h2 className="text-xl font-semibold text-white">
-                    💬 Takes ({takes.length})
-                  </h2>
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white">
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {format(selectedDate, 'MMM dd, yyyy')}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
-                        initialFocus
-                        disabled={(date) => date > new Date()}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
+              <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
+                <h2 className="text-xl font-semibold text-brand-text flex items-center gap-2">
+                  💬 Today's Hot Takes ({takes.length})
+                </h2>
                 <Button
                   onClick={handleRefresh}
                   disabled={refreshing}
-                  variant="outline"
                   size="sm"
-                  className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
+                  className="btn-secondary"
                 >
                   <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
-              
-              {takes.map((take) => (
-                <TakeCard key={take.id} take={take} onReact={handleReaction} />
+              {takes.map((take, index) => (
+                <TakeCard 
+                  key={take.id} 
+                  take={take} 
+                  onReact={handleReaction}
+                />
               ))}
-              
               {takes.length === 0 && (
-                <div className="text-center text-gray-400 py-8">
-                  <p>No takes for {format(selectedDate, 'MMM dd, yyyy')}</p>
-                  <p className="text-sm mt-2">Try a different date</p>
+                <div className="text-center text-brand-muted py-8">
+                  <p>No takes yet today!</p>
+                  <p className="text-sm mt-2">Be the first to share your take</p>
                 </div>
               )}
             </div>

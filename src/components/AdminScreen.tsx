@@ -166,7 +166,7 @@ const AdminScreen: React.FC = () => {
   }
 
   return (
-    <div className="flex-1 p-4 bg-gradient-to-br from-gray-900 via-purple-900 to-violet-900">
+    <div className="flex-1 p-4 bg-gradient-to-br from-brand-background via-purple-900 to-violet-900">
       <div className="max-w-6xl mx-auto">
         <h1 className="text-2xl font-bold text-white mb-6">🔧 Admin Dashboard</h1>
         
@@ -321,7 +321,7 @@ const AdminScreen: React.FC = () => {
                       <div key={user.id} className="flex items-center justify-between p-3 border rounded">
                         <div>
                           <div className="font-medium">{user.username}</div>
-                          <div className="text-sm text-gray-500">{user.email}</div>
+                          <div className="text-sm text-brand-muted">{user.email}</div>
                         </div>
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary">Streak: {user.streak}</Badge>

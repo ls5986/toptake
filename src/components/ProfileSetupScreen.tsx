@@ -63,17 +63,17 @@ const ProfileSetupScreen: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex items-center justify-center p-4">
-      <Card className="w-full max-w-md bg-white/10 backdrop-blur-sm border-white/20">
+    <div className="min-h-screen bg-gradient-to-br from-brand-background via-brand-surface to-brand-background flex items-center justify-center p-4">
+      <Card className="w-full max-w-md bg-brand-surface/90 backdrop-blur-sm border-border">
         <CardHeader>
-          <CardTitle className="text-white text-center text-2xl">
+          <CardTitle className="text-brand-text text-center text-2xl">
             Welcome to TopTake!
           </CardTitle>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <Label htmlFor="username" className="text-white mb-2 block">
+              <Label htmlFor="username" className="text-brand-text mb-2 block">
                 Choose a Username
               </Label>
               <Input
@@ -82,7 +82,6 @@ const ProfileSetupScreen: React.FC = () => {
                 placeholder="Enter your username"
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
-                className="bg-white/5 border-white/20 text-white placeholder:text-white/50"
                 maxLength={20}
                 required
               />
@@ -90,7 +89,7 @@ const ProfileSetupScreen: React.FC = () => {
             <Button
               type="submit"
               disabled={!username.trim() || isSubmitting}
-              className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+              className="btn-primary w-full"
             >
               {isSubmitting ? 'Creating Profile...' : 'Get Started'}
             </Button>

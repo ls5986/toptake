@@ -70,7 +70,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="bg-gray-800 border-gray-700 text-white max-w-md">
+      <DialogContent className="bg-brand-surface border-brand-border text-brand-text max-w-md">
         <DialogHeader>
           <DialogTitle className="text-center text-xl font-bold">
             Check Your Email
@@ -78,24 +78,24 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
         </DialogHeader>
         <div className="text-center space-y-4 py-4">
           <div className="flex justify-center">
-            <Mail className="h-16 w-16 text-purple-400" />
+            <Mail className="h-16 w-16 text-brand-accent" />
           </div>
-          <p className="text-gray-300">
+          <p className="text-brand-muted">
             We've sent a verification email to:
           </p>
-          <p className="font-semibold text-purple-400 break-all">
+          <p className="font-semibold text-brand-accent break-all">
             {email}
           </p>
-          <p className="text-sm text-gray-400">
+          <p className="text-sm text-brand-muted">
             Please check your email and click the verification link to continue.
           </p>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-brand-muted">
             Don't forget to check your spam folder!
           </p>
           <div className="space-y-2 pt-4">
             <Button 
               onClick={onContinue}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              className="w-full bg-brand-accent hover:bg-brand-primary"
             >
               I've Verified My Email
             </Button>
@@ -103,7 +103,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
               onClick={handleResendEmail}
               disabled={resending}
               variant="outline"
-              className="w-full border-gray-600 text-gray-300 hover:bg-gray-700"
+              className="w-full border-brand-border text-brand-muted hover:bg-brand-surface/80"
             >
               {resending ? (
                 <>
@@ -117,7 +117,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
             <Button 
               onClick={onClose}
               variant="ghost"
-              className="w-full text-gray-400 hover:text-gray-300 hover:bg-gray-700"
+              className="w-full text-brand-muted hover:text-brand-text hover:bg-brand-surface/80"
             >
               Cancel
             </Button>

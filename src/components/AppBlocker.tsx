@@ -8,6 +8,7 @@ import { Lock } from 'lucide-react';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
+import { getTodayPrompt } from '@/lib/supabase';
 
 interface AppBlockerProps {
   isBlocked: boolean;
@@ -75,7 +76,7 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
             .update({ anonymous_credits: newCredits })
             .eq('id', user.id);
           
-          setUser(prev => prev ? { ...prev, anonymousCredits: newCredits } : null);
+          setUser({ ...user, anonymousCredits: newCredits });
         }
         
         toast({ title: "Take submitted successfully!" });
@@ -92,7 +93,7 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
         
         if (existingTake && existingTake.length > 0) {
           toast({ title: "You've already posted today!", description: "Come back tomorrow for a new prompt.", variant: "default" });
-          setUser(prev => prev ? { ...prev, hasPostedToday: true } : null);
+          setUser({ ...user, hasPostedToday: true });
           onSubmit();
         } else {
           toast({ title: "Failed to submit take", variant: "destructive" });
@@ -113,7 +114,7 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
         .update({ anonymous_credits: newCredits })
         .eq('id', user.id);
       
-      setUser(prev => prev ? { ...prev, anonymousCredits: newCredits } : null);
+      setUser({ ...user, anonymousCredits: newCredits });
     }
     setShowAnonymousModal(false);
     toast({ title: "5 anonymous credits added!" });
@@ -123,27 +124,27 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
 
   return (
     <>
-      <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
-        <div className="bg-gray-900 border border-gray-700 text-white max-w-md w-full rounded-lg p-6">
+      <div className="fixed inset-0 bg-brand-background bg-opacity-80 z-50 flex items-center justify-center p-4">
+        <div className="bg-brand-surface border border-border text-brand-text max-w-md w-full rounded-lg p-6">
           <div className="text-center mb-6">
             <div className="flex items-center justify-center mb-2">
-              <Lock className="w-8 h-8 text-red-400 mr-2" />
-              <h2 className="text-xl font-bold text-red-400">App Locked</h2>
+              <Lock className="w-8 h-8 text-brand-danger mr-2" />
+              <h2 className="text-xl font-bold text-brand-danger">App Locked</h2>
             </div>
-            <p className="text-gray-400">
-              🔒 You haven't posted today — unlock the app by dropping your take
+            <p className="text-brand-muted">
+              You haven't posted today — unlock the app by dropping your take
             </p>
           </div>
           
           <div className="space-y-4">
-            <div className="bg-gray-800 p-4 rounded-lg">
+            <div className="bg-brand-surface p-4 rounded-lg">
               <div className="flex items-center mb-2">
-                <span className="font-semibold text-purple-400">🔥 Today's Prompt</span>
+                <span className="font-semibold text-brand-accent">Today's Prompt</span>
               </div>
               {promptLoading ? (
-                <div className="animate-pulse bg-gray-700 h-4 rounded"></div>
+                <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
               ) : (
-                <p className="text-gray-300">{currentPrompt}</p>
+                <p className="text-brand-muted">{currentPrompt}</p>
               )}
             </div>
             
@@ -151,7 +152,7 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
               value={response}
               onChange={(e) => setResponse(e.target.value.slice(0, 280))}
               placeholder="Share your take... (280 characters max)"
-              className="bg-gray-800 border-gray-600 text-white min-h-24 resize-none"
+              className="min-h-24 resize-none"
             />
             
             <div className="flex items-center justify-between">
@@ -161,26 +162,26 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
                   onCheckedChange={setIsAnonymous}
                   disabled={user?.anonymousCredits === 0}
                 />
-                <span className="text-sm text-gray-300">👻 Post anonymously</span>
+                <span className="text-sm text-brand-muted">👻 Post anonymously</span>
               </div>
-              <Badge variant="outline" className="text-purple-400 border-purple-400">
+              <Badge variant="outline" className="text-brand-accent border-brand-accent">
                 {user?.anonymousCredits || 0} left
               </Badge>
             </div>
             
-            <div className="text-right text-gray-400 text-sm">
+            <div className="text-right text-brand-muted text-sm">
               {response.length}/280
             </div>
             
             <Button 
               onClick={submitResponse} 
-              disabled={loading || !response.trim() || promptLoading}
-              className="w-full bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-700 hover:to-pink-700"
+              disabled={loading || !response.trim()}
+              className="btn-primary w-full"
             >
               {loading ? 'Submitting...' : '🚀 Submit & Unlock App'}
             </Button>
             
-            <p className="text-xs text-gray-400 text-center">
+            <p className="text-xs text-brand-muted text-center">
               You cannot access the app until you respond to today's prompt
             </p>
           </div>
@@ -189,30 +190,29 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
       
       {showAnonymousModal && (
         <Dialog open={showAnonymousModal} onOpenChange={setShowAnonymousModal}>
-          <DialogContent className="bg-gray-800 border-gray-700 max-w-sm">
+          <DialogContent className="bg-brand-surface border-brand-border max-w-sm">
             <DialogHeader>
-              <DialogTitle className="text-white text-center">
+              <DialogTitle className="text-brand-text text-center">
                 👻 Out of Anonymous Posts
               </DialogTitle>
-              <DialogDescription className="text-gray-400 text-center">
+              <DialogDescription className="text-brand-muted text-center">
                 Purchase more anonymous credits to post anonymously.
               </DialogDescription>
             </DialogHeader>
             <div className="space-y-4 text-center">
-              <p className="text-gray-300">
+              <p className="text-brand-muted">
                 You've used all anonymous posts. Buy 5 more for $1.99?
               </p>
               <div className="space-y-2">
                 <Button 
                   onClick={handleBuyCredits}
-                  className="w-full bg-gradient-to-r from-purple-600 to-pink-600"
+                  className="btn-primary w-full"
                 >
-                  💳 Buy 5 Credits - $1.99
+                  Buy 5 Credits - $1.99
                 </Button>
                 <Button 
                   onClick={() => setShowAnonymousModal(false)}
-                  variant="outline"
-                  className="w-full border-gray-600 text-white"
+                  className="btn-secondary w-full"
                 >
                   Cancel
                 </Button>

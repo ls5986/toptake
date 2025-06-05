@@ -4,23 +4,23 @@ import { cva, type VariantProps } from "class-variance-authority"
 import { cn } from "@/lib/utils"
 
 const badgeVariants = cva(
-  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-primary focus:ring-offset-2",
+  "inline-flex items-center rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-all focus:outline-none focus:ring-2 focus:ring-brand-primary focus:ring-offset-2",
   {
     variants: {
       variant: {
         default:
-          "border-transparent bg-primary text-primary-foreground hover:bg-primary/80",
+          "border-transparent bg-brand-primary text-brand-text hover:bg-brand-accent",
         secondary:
-          "border-transparent bg-secondary text-secondary-foreground hover:bg-secondary/80",
+          "border-transparent bg-brand-surface text-brand-primary hover:bg-brand-accent",
         destructive:
-          "border-transparent bg-destructive text-destructive-foreground hover:bg-destructive/80",
-        outline: "text-foreground border-border",
+          "border-transparent bg-brand-danger text-brand-text hover:bg-brand-danger/80",
+        outline: "text-brand-text border-brand-border",
         success:
-          "border-transparent bg-green-500/20 text-green-700 dark:text-green-300 border-green-500/30",
+          "border-transparent bg-brand-success text-brand-success-foreground border-brand-success",
         warning:
-          "border-transparent bg-yellow-500/20 text-yellow-700 dark:text-yellow-300 border-yellow-500/30",
+          "border-transparent bg-brand-warning text-brand-warning-foreground border-brand-warning",
         info:
-          "border-transparent bg-primary/10 text-primary border-primary/30",
+          "border-transparent bg-brand-accent text-brand-accent-foreground border-brand-accent",
       },
       size: {
         default: "px-2.5 py-0.5 text-xs",

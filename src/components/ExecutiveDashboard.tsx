@@ -57,8 +57,8 @@ const ExecutiveDashboard: React.FC = () => {
         {[1, 2, 3].map(i => (
           <Card key={i} className="animate-pulse">
             <CardContent className="p-6">
-              <div className="h-4 bg-gray-300 rounded w-1/2 mb-2"></div>
-              <div className="h-8 bg-gray-300 rounded w-1/3"></div>
+              <div className="h-4 bg-brand-muted rounded w-1/2 mb-2"></div>
+              <div className="h-8 bg-brand-muted rounded w-1/3"></div>
             </CardContent>
           </Card>
         ))}
@@ -89,7 +89,7 @@ const ExecutiveDashboard: React.FC = () => {
         <h2 className="text-2xl font-bold">Executive Dashboard</h2>
         <button 
           onClick={() => setShowRealTime(true)}
-          className="bg-blue-600 text-white px-4 py-2 rounded hover:bg-blue-700"
+          className="bg-brand-primary text-brand-text px-4 py-2 rounded hover:bg-brand-accent"
         >
           View Real-Time Analytics
         </button>
@@ -99,29 +99,29 @@ const ExecutiveDashboard: React.FC = () => {
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Takes</CardTitle>
-            <TrendingUp className="h-4 w-4 text-muted-foreground" />
+            <TrendingUp className="h-4 w-4 text-brand-muted" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.totalTakes.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">+{metrics.weeklyGrowth}% from last week</p>
+            <p className="text-xs text-brand-muted">+{metrics.weeklyGrowth}% from last week</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Users</CardTitle>
-            <Users className="h-4 w-4 text-muted-foreground" />
+            <Users className="h-4 w-4 text-brand-muted" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.activeUsers}</div>
-            <p className="text-xs text-muted-foreground">{metrics.retentionRate}% retention rate</p>
+            <p className="text-xs text-brand-muted">{metrics.retentionRate}% retention rate</p>
           </CardContent>
         </Card>
         
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Avg Engagement</CardTitle>
-            <Calendar className="h-4 w-4 text-muted-foreground" />
+            <Calendar className="h-4 w-4 text-brand-muted" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold">{metrics.avgEngagement}%</div>
@@ -142,7 +142,7 @@ const ExecutiveDashboard: React.FC = () => {
                 <Badge variant="secondary">High Engagement</Badge>
                 <Badge variant="outline">Trending</Badge>
               </div>
-              <p className="text-sm text-muted-foreground">Generated 23% more takes than average</p>
+              <p className="text-sm text-brand-muted">Generated 23% more takes than average</p>
             </div>
           </CardContent>
         </Card>
@@ -157,17 +157,17 @@ const ExecutiveDashboard: React.FC = () => {
           <CardContent>
             <div className="space-y-3">
               <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 rounded-full mt-2 bg-green-500" />
+                <div className="w-2 h-2 rounded-full mt-2 bg-brand-success" />
                 <div className="flex-1">
                   <p className="text-sm">Engagement up 15% this week</p>
-                  <p className="text-xs text-muted-foreground">Best performing day: Wednesday</p>
+                  <p className="text-xs text-brand-muted">Best performing day: Wednesday</p>
                 </div>
               </div>
               <div className="flex items-start space-x-2">
-                <div className="w-2 h-2 rounded-full mt-2 bg-blue-500" />
+                <div className="w-2 h-2 rounded-full mt-2 bg-brand-primary" />
                 <div className="flex-1">
                   <p className="text-sm">New user retention at 78%</p>
-                  <p className="text-xs text-muted-foreground">Above industry average</p>
+                  <p className="text-xs text-brand-muted">Above industry average</p>
                 </div>
               </div>
             </div>
