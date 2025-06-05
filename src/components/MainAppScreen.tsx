@@ -20,12 +20,13 @@ import PromptRecommendations from './PromptRecommendations';
 import { getTodayPrompt } from '@/lib/supabase';
 import BillingModal from './BillingModal';
 import AccountSettingsModal from './AccountSettingsModal';
+import NotificationsScreen from './NotificationsScreen';
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
-  const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions'>('feed');
+  const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications'>('feed');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
@@ -34,6 +35,8 @@ const MainAppScreen: React.FC = () => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
+  const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [focusedTakeId, setFocusedTakeId] = useState<string | null>(null);
 
   if (currentScreen === 'friends') {
     return <FriendsScreen />;
@@ -156,6 +159,18 @@ const MainAppScreen: React.FC = () => {
         .from('takes')
         .update({ reactions: updatedReactions })
         .eq('id', takeId);
+      // Add notification for reaction
+      if (take && user && take.userId !== user.id) {
+        await supabase.from('notifications').insert([{
+          user_id: take.userId,
+          type: 'reaction',
+          actor_id: user.id,
+          takeid: take.id,
+          created_at: new Date().toISOString(),
+          read: false,
+          extra: { reaction }
+        }]);
+      }
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
@@ -179,7 +194,7 @@ const MainAppScreen: React.FC = () => {
     }
   };
 
-  const handleTabChange = (tab: 'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions') => {
+  const handleTabChange = (tab: typeof currentTab) => {
     try {
       if (tab === 'admin' && user?.username !== 'ljstevens') {
         return;
@@ -192,6 +207,21 @@ const MainAppScreen: React.FC = () => {
 
   const handleLogout = () => {
     logout();
+  };
+
+  const updateUnreadNotifications = async () => {
+    if (!user) return;
+    const { data, error } = await supabase
+      .from('notifications')
+      .select('id')
+      .eq('user_id', user.id)
+      .eq('read', false);
+    if (!error && data) setUnreadNotifications(data.length);
+  };
+
+  const handleGoToTake = (takeid: string) => {
+    setCurrentTab('toptakes');
+    setFocusedTakeId(takeid);
   };
 
   const renderContent = () => {
@@ -209,7 +239,7 @@ const MainAppScreen: React.FC = () => {
       }
 
       if (currentTab === 'toptakes') {
-        return <TopTakesScreen />;
+        return <TopTakesScreen focusedTakeId={focusedTakeId} />;
       }
 
       if (currentTab === 'suggestions') {
@@ -218,6 +248,10 @@ const MainAppScreen: React.FC = () => {
             <PromptRecommendations />
           </div>
         );
+      }
+
+      if (currentTab === 'notifications') {
+        return <NotificationsScreen onGoToTake={handleGoToTake} onUpdateUnread={updateUnreadNotifications} />;
       }
 
       return (
@@ -280,6 +314,20 @@ const MainAppScreen: React.FC = () => {
     fetchPrompt();
   }, []);
 
+  useEffect(() => {
+    if (!user) return;
+    // Fetch unread notifications count
+    const fetchUnread = async () => {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('read', false);
+      if (!error && data) setUnreadNotifications(data.length);
+    };
+    fetchUnread();
+  }, [user]);
+
   return (
     <div className="bg-brand-background min-h-screen flex flex-col">
       <AppBlocker isBlocked={isAppBlocked} onSubmit={handleUnlock} />
@@ -300,7 +348,7 @@ const MainAppScreen: React.FC = () => {
         
         <div className="flex-shrink-0">
           <div className="max-w-2xl mx-auto">
-            <MainTabs currentTab={currentTab} onTabChange={handleTabChange} showAdmin={showAdminTab} />
+            <MainTabs currentTab={currentTab} onTabChange={handleTabChange} showAdmin={showAdminTab} unreadNotifications={unreadNotifications} />
           </div>
         </div>
         

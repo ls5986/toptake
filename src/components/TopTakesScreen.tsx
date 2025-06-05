@@ -10,13 +10,19 @@ import { Button } from '@/components/ui/button';
 import { getTodayPrompt } from '@/lib/supabase';
 import { TakeCard } from './TakeCard';
 
-const TopTakesScreen: React.FC = () => {
+interface TopTakesScreenProps {
+  focusedTakeId?: string | null;
+}
+
+const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
   const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
   const [topTakes, setTopTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [promptText, setPromptText] = useState('');
   const fetchInProgress = useRef(false);
+  const takeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const [highlightedTakeId, setHighlightedTakeId] = useState<string | null>(null);
 
   useEffect(() => {
     if (user && !isAppBlocked && !fetchInProgress.current) {
@@ -27,6 +33,14 @@ const TopTakesScreen: React.FC = () => {
       });
     }
   }, [user, isAppBlocked]);
+
+  useEffect(() => {
+    if (focusedTakeId && takeRefs.current[focusedTakeId]) {
+      takeRefs.current[focusedTakeId]?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      setHighlightedTakeId(focusedTakeId);
+      setTimeout(() => setHighlightedTakeId(null), 2000);
+    }
+  }, [focusedTakeId]);
 
   const fetchPromptForDate = async () => {
     const { data, error } = await getTodayPrompt();
@@ -126,6 +140,18 @@ const TopTakesScreen: React.FC = () => {
         .from('takes')
         .update({ reactions: updatedReactions })
         .eq('id', takeId);
+      // Add notification for reaction
+      if (take && user && take.userId !== user.id) {
+        await supabase.from('notifications').insert([{
+          user_id: take.userId,
+          type: 'reaction',
+          actor_id: user.id,
+          takeid: take.id,
+          created_at: new Date().toISOString(),
+          read: false,
+          extra: { reaction }
+        }]);
+      }
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
@@ -168,8 +194,8 @@ const TopTakesScreen: React.FC = () => {
         ) : (
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between sticky top-0 bg-gray-900 py-2 z-10">
-                <h2 className="text-xl font-semibold text-white flex items-center gap-2">
+              <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
+                <h2 className="text-xl font-semibold text-brand-text flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-400" />
                   Today's Top Takes ({topTakes.length})
                 </h2>
@@ -178,9 +204,8 @@ const TopTakesScreen: React.FC = () => {
                   disabled={refreshing}
                   variant="outline"
                   size="sm"
-                  className="border-purple-400 text-purple-400 hover:bg-purple-400 hover:text-white"
                 >
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  <RefreshCw className={`w-4 h-4 text-brand-accent ${refreshing ? 'animate-spin' : ''}`} />
                 </Button>
               </div>
               
@@ -192,11 +217,16 @@ const TopTakesScreen: React.FC = () => {
                   return engagementB - engagementA;
                 })
                 .map((take, index) => (
-                  <TakeCard 
-                    key={take.id} 
-                    take={take} 
-                    onReact={handleReaction}
-                  />
+                  <div
+                    key={take.id}
+                    ref={el => (takeRefs.current[take.id] = el)}
+                    className={highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}
+                  >
+                    <TakeCard 
+                      take={take} 
+                      onReact={handleReaction}
+                    />
+                  </div>
                 ))}
               
               {topTakes.length === 0 && (
