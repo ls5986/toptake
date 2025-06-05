@@ -95,7 +95,7 @@ const PromptAnalytics: React.FC = () => {
       
       setPrompts(promptsWithCounts);
       generateRecommendations(promptsWithCounts);
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error loading analytics:', error);
       toast({ title: 'Error loading analytics', description: 'Failed to load prompt analytics', variant: 'destructive' });
       setError(error instanceof Error ? error.message : 'An error occurred');

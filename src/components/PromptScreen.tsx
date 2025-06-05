@@ -6,12 +6,22 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Send } from 'lucide-react';
+import { hasFeatureCredit } from '@/lib/featureCredits';
+import BillingModal from './BillingModal';
+import { useToast } from '@/hooks/use-toast';
 
 const PromptScreen: React.FC = () => {
   const { currentPrompt, submitTake, setCurrentScreen, hasPostedToday, user } = useAppContext();
   const [takeContent, setTakeContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [showLateSubmitModal, setShowLateSubmitModal] = useState(false);
+  const [showPurchaseModal, setShowPurchaseModal] = useState(false);
+  const { toast } = useToast();
+
+  // Helper: is prompt expired?
+  const isPromptExpired = currentPrompt && new Date(currentPrompt.expiry) < new Date();
+  const canLateSubmit = user && hasFeatureCredit(user, 'late_submit');
 
   const handleSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
@@ -28,6 +38,28 @@ const PromptScreen: React.FC = () => {
       setCurrentScreen('main');
     } else {
       alert('Failed to submit take. You may have already posted today.');
+    }
+    setIsSubmitting(false);
+  };
+
+  const handleLateSubmit = async () => {
+    if (!takeContent.trim() || isSubmitting) return;
+    setIsSubmitting(true);
+    // Insert take with is_late_submit = true and backdate created_at
+    const takeData = {
+      content: takeContent,
+      is_anonymous: isAnonymous,
+      is_late_submit: true,
+      created_at: currentPrompt?.created_at, // backdate
+      prompt_id: currentPrompt?.id,
+      user_id: user.id,
+    };
+    const { error } = await supabase.from('takes').insert([takeData]);
+    if (!error) {
+      toast({ title: 'Late Take Submitted', description: 'Your take was submitted and backdated to the prompt date.' });
+      setCurrentScreen('main');
+    } else {
+      alert('Failed to submit late take.');
     }
     setIsSubmitting(false);
   };
@@ -120,9 +152,45 @@ const PromptScreen: React.FC = () => {
                 </>
               )}
             </Button>
+
+            {isPromptExpired && !hasPostedToday && (
+              canLateSubmit ? (
+                <Button
+                  onClick={() => setShowLateSubmitModal(true)}
+                  className="w-full bg-yellow-400 text-yellow-900 hover:bg-yellow-500 mt-4"
+                >
+                  ⏰ Late Submit (use credit)
+                </Button>
+              ) : (
+                <Button
+                  onClick={() => setShowPurchaseModal(true)}
+                  className="w-full bg-yellow-200 text-yellow-900 hover:bg-yellow-300 mt-4"
+                >
+                  Buy Late Submit Credit
+                </Button>
+              )
+            )}
           </CardContent>
         </Card>
       </div>
+
+      {/* Late Submit Modal */}
+      <BillingModal isOpen={showPurchaseModal} onClose={() => setShowPurchaseModal(false)} />
+      {/* Confirm Late Submit Modal */}
+      {showLateSubmitModal && (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
+          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
+            <h2 className="text-lg font-bold mb-2">Confirm Late Submit</h2>
+            <p className="mb-4">This will use 1 Late Submit credit and backdate your take to the prompt date.</p>
+            <div className="flex space-x-2">
+              <Button onClick={() => setShowLateSubmitModal(false)} variant="outline">Cancel</Button>
+              <Button onClick={handleLateSubmit} className="bg-yellow-400 text-yellow-900 hover:bg-yellow-500">
+                Confirm & Submit
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

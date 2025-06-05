@@ -71,7 +71,7 @@ export const handleAuthError = (error: any): string => {
 };
 
 export const getTodayPrompt = async () => {
-  const today = new Date().toISOString().split('T')[0];
+  const today = new Date().toLocaleDateString('en-CA');
   const { data, error } = await supabase
     .from('daily_prompts')
     .select('prompt_text')

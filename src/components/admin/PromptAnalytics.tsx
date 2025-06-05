@@ -51,7 +51,7 @@ const PromptAnalytics: React.FC = () => {
         .order('prompt_date', { ascending: false });
       if (promptsError) throw promptsError;
       const analytics: AnalyticsRow[] = await Promise.all(
-        (prompts || []).map(async (p: any) => {
+        (prompts || []).map(async (p: { prompt_text: string; prompt_date: string; }) => {
           // Takes
           const { count: takesCount } = await supabase
             .from('takes')
@@ -67,9 +67,9 @@ const PromptAnalytics: React.FC = () => {
             .from('takes')
             .select('reactions')
             .eq('prompt_date', p.prompt_date);
-          const totalReactions = (takes || []).reduce((sum: number, t: any) => {
+          const totalReactions = (takes || []).reduce((sum: number, t: { reactions?: Record<string, number> }) => {
             const r = t.reactions || {};
-            return sum + Object.values(r).reduce((a: number, b: any) => a + (b as number), 0);
+            return sum + Object.values(r).reduce((a: number, b: number) => a + b, 0);
           }, 0);
           return {
             prompt: p.prompt_text,
@@ -82,8 +82,8 @@ const PromptAnalytics: React.FC = () => {
         })
       );
       setRows(analytics);
-    } catch (err: any) {
-      setError(err.message || 'Failed to load analytics');
+    } catch (err: unknown) {
+      setError((err as Error).message || 'Failed to load analytics');
       setRows([]);
     } finally {
       setLoading(false);
@@ -110,7 +110,7 @@ const PromptAnalytics: React.FC = () => {
       .from('prompt_suggestions')
       .select('user_id');
     const userStats: Record<string, LeaderboardUser> = {};
-    profiles.forEach((p: any) => {
+    profiles.forEach((p: { id: string; username?: string; avatar_url?: string }) => {
       userStats[p.id] = {
         id: p.id,
         username: p.username || p.id,
@@ -120,9 +120,9 @@ const PromptAnalytics: React.FC = () => {
         suggestions: 0,
       };
     });
-    (takes || []).forEach((t: any) => { if (userStats[t.user_id]) userStats[t.user_id].takes += 1; });
-    (comments || []).forEach((c: any) => { if (userStats[c.user_id]) userStats[c.user_id].comments += 1; });
-    (suggestions || []).forEach((s: any) => { if (userStats[s.user_id]) userStats[s.user_id].suggestions += 1; });
+    (takes || []).forEach((t: { user_id: string }) => { if (userStats[t.user_id]) userStats[t.user_id].takes += 1; });
+    (comments || []).forEach((c: { user_id: string }) => { if (userStats[c.user_id]) userStats[c.user_id].comments += 1; });
+    (suggestions || []).forEach((s: { user_id: string }) => { if (userStats[s.user_id]) userStats[s.user_id].suggestions += 1; });
     const arr = Object.values(userStats).filter(u => u.takes > 0 || u.comments > 0 || u.suggestions > 0);
     arr.sort((a, b) => (b.takes + b.comments + b.suggestions) - (a.takes + a.comments + a.suggestions));
     setLeaderboard(arr.slice(0, 10));
@@ -140,7 +140,7 @@ const PromptAnalytics: React.FC = () => {
     return vB - vA;
   });
 
-  const exportToCSV = (filename: string, rows: any[], columns: string[]) => {
+  const exportToCSV = (filename: string, rows: Record<string, unknown>[], columns: string[]) => {
     const csv = [columns.join(',')].concat(
       rows.map(row => columns.map(col => JSON.stringify(row[col] ?? '')).join(','))
     ).join('\n');

@@ -8,6 +8,7 @@ import { supabase, handleAuthError, isValidEmail } from '@/lib/supabase';
 import EmailVerificationModal from './EmailVerificationModal';
 import { UsernameModal } from './UsernameModal';
 import WelcomeCarousel from './WelcomeCarousel';
+import { User as AppUser } from '@/types';
 
 const AuthScreen: React.FC = () => {
   const { setUser, setCurrentScreen, setShouldShowCarousel } = useAppContext();
@@ -21,6 +22,9 @@ const AuthScreen: React.FC = () => {
   const [showCarousel, setShowCarousel] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const { toast } = useToast();
+  // --- Onboarding State ---
+  const [onboardingStep, setOnboardingStep] = useState<'none'|'verify'|'username'|'carousel'>('none');
+  const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
   // Create test user for development
   const createTestUser = async () => {
@@ -58,16 +62,16 @@ const AuthScreen: React.FC = () => {
     try {
       // Try test credentials first for development
       if (email.toLowerCase() === 'test@example.com' && password === 'testpass123') {
-        const testUser = {
+        const testUser: AppUser = {
           id: 'test-user-id',
           username: 'testuser',
           email: 'test@example.com',
           streak: 5,
           dramaScore: 100,
           anonymousCredits: 3,
+          isPremium: false,
           hasPostedToday: false,
-          timezone_offset: 0
-        };
+        } as AppUser;
         
         setUser(testUser);
         setCurrentScreen('main');
@@ -92,6 +96,13 @@ const AuthScreen: React.FC = () => {
       }
 
       if (data.user) {
+        setPendingUserId(data.user.id);
+        // Check if email is verified
+        if (!data.user.email_confirmed_at) {
+          setPendingEmail(cleanEmail);
+          setOnboardingStep('verify');
+          return;
+        }
         // Check if user has a profile with username
         const { data: profile } = await supabase
           .from('profiles')
@@ -116,11 +127,10 @@ const AuthScreen: React.FC = () => {
           setCurrentScreen('main');
           toast({ title: `Welcome back, ${profile.username}!` });
         } else {
-          // User exists but needs to complete profile setup
-          setShowUsernameModal(true);
+          setOnboardingStep('username');
         }
       }
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Login failed:', error);
       toast({ 
         title: 'Login failed', 
@@ -185,19 +195,15 @@ const AuthScreen: React.FC = () => {
       }
 
       if (data.user) {
-        // Skip email verification for development and proceed to username setup
-        setShowUsernameModal(true);
-        toast({ 
-          title: 'Registration Successful!', 
-          description: 'Please choose your username.' 
-        });
-        
+        setPendingUserId(data.user.id);
+        setPendingEmail(cleanEmail);
+        setOnboardingStep('verify');
         setEmail('');
         setPassword('');
         setConfirmPassword('');
       }
       
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Registration failed:', error);
       toast({ 
         title: 'Registration Failed', 
@@ -209,19 +215,72 @@ const AuthScreen: React.FC = () => {
     }
   };
 
-  const handleUsernameComplete = async () => {
-    setShowUsernameModal(false);
-    setShowCarousel(true);
+  const handleUsernameComplete = () => {
+    setOnboardingStep('carousel');
   };
 
   const handleCarouselComplete = () => {
-    setShowCarousel(false);
     setShouldShowCarousel(false);
     setCurrentScreen('main');
+    setOnboardingStep('none');
   };
 
-  if (showCarousel) {
-    return <WelcomeCarousel onComplete={handleCarouselComplete} />;
+  // Handler for when user clicks "I've Verified My Email"
+  const handleVerified = async () => {
+    if (!pendingUserId) return;
+    // Re-fetch user
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser && authUser.email_confirmed_at) {
+      // Check if user has a profile with username
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+      if (profile && profile.username) {
+        setUser({
+          id: profile.id,
+          username: profile.username,
+          email: profile.email || authUser.email || '',
+          streak: profile.streak || 0,
+          dramaScore: profile.drama_score || 0,
+          anonymousCredits: profile.anonymous_credits || 3,
+          hasPostedToday: profile.has_posted_today || false,
+          timezone_offset: profile.timezone_offset || 0
+        });
+        setCurrentScreen('main');
+        setOnboardingStep('none');
+      } else {
+        setOnboardingStep('username');
+      }
+    } else {
+      toast({ title: 'Email not verified yet', description: 'Please check your inbox and click the verification link.', variant: 'destructive' });
+    }
+  };
+
+  if (onboardingStep === 'verify') {
+    return (
+      <EmailVerificationModal
+        isOpen={true}
+        email={pendingEmail}
+        onClose={() => {}}
+        onContinue={handleVerified}
+      />
+    );
+  }
+  if (onboardingStep === 'username') {
+    return (
+      <UsernameModal
+        isOpen={true}
+        onClose={() => {}}
+        onComplete={handleUsernameComplete}
+      />
+    );
+  }
+  if (onboardingStep === 'carousel') {
+    return (
+      <WelcomeCarousel onComplete={handleCarouselComplete} />
+    );
   }
 
   return (
@@ -275,12 +334,6 @@ const AuthScreen: React.FC = () => {
           </CardContent>
         </Card>
       </div>
-      
-      <UsernameModal
-        isOpen={showUsernameModal}
-        onClose={() => {}}
-        onComplete={handleUsernameComplete}
-      />
     </>
   );
 };

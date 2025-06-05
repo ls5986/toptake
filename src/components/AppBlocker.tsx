@@ -9,6 +9,8 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
 import { getTodayPrompt } from '@/lib/supabase';
+import { hasFeatureCredit } from '@/lib/featureCredits';
+import { MonetizationModals } from './MonetizationModals';
 
 interface AppBlockerProps {
   isBlocked: boolean;
@@ -27,20 +29,12 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
   const [currentPrompt, setCurrentPrompt] = useState('');
   const [promptLoading, setPromptLoading] = useState(true);
 
+  const canPostAnonymously = user && hasFeatureCredit(user, 'anonymous');
+
   useEffect(() => {
     const fetchPrompt = async () => {
       setPromptLoading(true);
-      // Always use UTC date
-      const today = new Date(Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
-      )).toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('daily_prompts')
-        .select('prompt_text')
-        .eq('prompt_date', today)
-        .single();
+      const { data, error } = await getTodayPrompt();
       setCurrentPrompt(data?.prompt_text || '');
       setPromptLoading(false);
     };
@@ -106,18 +100,8 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
     }
   };
 
-  const handleBuyCredits = async () => {
-    if (user) {
-      const newCredits = user.anonymousCredits + 5;
-      await supabase
-        .from('profiles')
-        .update({ anonymous_credits: newCredits })
-        .eq('id', user.id);
-      
-      setUser({ ...user, anonymousCredits: newCredits });
-    }
-    setShowAnonymousModal(false);
-    toast({ title: "5 anonymous credits added!" });
+  const handleBuyCredits = () => {
+    setShowAnonymousModal(true);
   };
 
   if (!isBlocked) return null;
@@ -160,7 +144,7 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
                 <Switch
                   checked={isAnonymous}
                   onCheckedChange={setIsAnonymous}
-                  disabled={user?.anonymousCredits === 0}
+                  disabled={!canPostAnonymously}
                 />
                 <span className="text-sm text-brand-muted">👻 Post anonymously</span>
               </div>
@@ -188,39 +172,14 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
         </div>
       </div>
       
-      {showAnonymousModal && (
-        <Dialog open={showAnonymousModal} onOpenChange={setShowAnonymousModal}>
-          <DialogContent className="bg-brand-surface border-brand-border max-w-sm">
-            <DialogHeader>
-              <DialogTitle className="text-brand-text text-center">
-                👻 Out of Anonymous Posts
-              </DialogTitle>
-              <DialogDescription className="text-brand-muted text-center">
-                Purchase more anonymous credits to post anonymously.
-              </DialogDescription>
-            </DialogHeader>
-            <div className="space-y-4 text-center">
-              <p className="text-brand-muted">
-                You've used all anonymous posts. Buy 5 more for $1.99?
-              </p>
-              <div className="space-y-2">
-                <Button 
-                  onClick={handleBuyCredits}
-                  className="btn-primary w-full"
-                >
-                  Buy 5 Credits - $1.99
-                </Button>
-                <Button 
-                  onClick={() => setShowAnonymousModal(false)}
-                  className="btn-secondary w-full"
-                >
-                  Cancel
-                </Button>
-              </div>
-            </div>
-          </DialogContent>
-        </Dialog>
-      )}
+      <MonetizationModals
+        showAnonymousModal={showAnonymousModal}
+        showStreakModal={false}
+        showPremiumModal={false}
+        showBoostModal={false}
+        onClose={() => setShowAnonymousModal(false)}
+        onPurchase={() => {}}
+      />
     </>
   );
 };

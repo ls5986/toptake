@@ -80,8 +80,8 @@ const PromptCalendar: React.FC = () => {
         setError('No prompts found');
         console.error('Failed to load monthly prompts');
       }
-    } catch (err: any) {
-      const errorMsg = err.message || 'Failed to load calendar data';
+    } catch (err: unknown) {
+      const errorMsg = (err as Error).message || 'Failed to load calendar data';
       setError(errorMsg);
       console.error('Error loading monthly prompts:', err);
       toast({ 
@@ -153,11 +153,11 @@ const PromptCalendar: React.FC = () => {
       setEditText('');
       await loadMonthlyPrompts();
       toast({ title: 'Prompt updated successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error updating prompt:', error);
       toast({ 
         title: 'Error updating prompt', 
-        description: error.message || 'Failed to update prompt',
+        description: (error as Error).message || 'Failed to update prompt',
         variant: 'destructive' 
       });
     } finally {
@@ -178,11 +178,11 @@ const PromptCalendar: React.FC = () => {
       
       await loadMonthlyPrompts();
       toast({ title: 'Prompt deleted successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error deleting prompt:', error);
       toast({ 
         title: 'Error deleting prompt', 
-        description: error.message || 'Failed to delete prompt',
+        description: (error as Error).message || 'Failed to delete prompt',
         variant: 'destructive' 
       });
     }
@@ -212,11 +212,11 @@ const PromptCalendar: React.FC = () => {
       setDialogOpen(false);
       await loadMonthlyPrompts();
       toast({ title: 'Success', description: 'Prompt added successfully' });
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error('Error adding prompt:', error);
       toast({ 
         title: 'Error adding prompt', 
-        description: error.message || 'Failed to add prompt',
+        description: (error as Error).message || 'Failed to add prompt',
         variant: 'destructive' 
       });
     } finally {

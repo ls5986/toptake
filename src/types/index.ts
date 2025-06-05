@@ -13,6 +13,7 @@ export interface User {
   extra_takes_remaining?: number;
   is_admin?: boolean;
   hasPostedToday?: boolean;
+  theme_id?: string;
 }
 
 export interface Take {

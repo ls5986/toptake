@@ -7,15 +7,23 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 
+// Define a Prompt type for this component
+interface Prompt {
+  id: string;
+  prompt_text: string;
+  prompt_date: string;
+  is_active: boolean;
+}
+
 interface PromptManagementProps {
-  prompts: any[];
+  prompts: Prompt[];
   onPromptsUpdate: () => void;
 }
 
 const PromptManagement: React.FC<PromptManagementProps> = ({ prompts, onPromptsUpdate }) => {
   const [newPrompt, setNewPrompt] = useState('');
   const [selectedDate, setSelectedDate] = useState('');
-  const [editingPrompt, setEditingPrompt] = useState<any>(null);
+  const [editingPrompt, setEditingPrompt] = useState<Prompt | null>(null);
   const [editText, setEditText] = useState('');
   const { toast } = useToast();
 
@@ -44,7 +52,7 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ prompts, onPromptsU
       setSelectedDate('');
       onPromptsUpdate();
       toast({ title: 'Prompt scheduled successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error adding prompt:', error);
       toast({ title: 'Error scheduling prompt', variant: 'destructive' });
     }
@@ -65,7 +73,7 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ prompts, onPromptsU
       setEditText('');
       onPromptsUpdate();
       toast({ title: 'Prompt updated successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error updating prompt:', error);
       toast({ title: 'Error updating prompt', variant: 'destructive' });
     }
@@ -82,13 +90,13 @@ const PromptManagement: React.FC<PromptManagementProps> = ({ prompts, onPromptsU
       
       onPromptsUpdate();
       toast({ title: 'Prompt deleted successfully' });
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error deleting prompt:', error);
       toast({ title: 'Error deleting prompt', variant: 'destructive' });
     }
   };
 
-  const startEdit = (prompt: any) => {
+  const startEdit = (prompt: Prompt) => {
     setEditingPrompt(prompt);
     setEditText(prompt.prompt_text);
   };

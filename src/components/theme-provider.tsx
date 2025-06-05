@@ -3,8 +3,9 @@
 import * as React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { ThemeProviderProps } from "next-themes/dist/types"
+import { useAppContext } from '@/contexts/AppContext'
 
-type Theme = "dark" | "light" | "system"
+type Theme = "dark" | "light" | "system" | "orange_glow"
 
 type ThemeContextType = {
   theme: Theme
@@ -19,10 +20,11 @@ export function ThemeProvider({
   value: _value,
   ...props
 }: ThemeProviderProps) {
+  const { user } = useAppContext?.() || {}
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("theme")
-      return (savedTheme && (savedTheme === "dark" || savedTheme === "light" || savedTheme === "system")
+      return (savedTheme && ["dark", "light", "system", "orange_glow"].includes(savedTheme)
         ? savedTheme
         : defaultTheme) as Theme
     }
@@ -30,8 +32,14 @@ export function ThemeProvider({
   })
 
   useEffect(() => {
+    if (user?.theme_id && ["dark", "light", "system", "orange_glow"].includes(user.theme_id)) {
+      setTheme(user.theme_id as Theme)
+    }
+  }, [user?.theme_id])
+
+  useEffect(() => {
     const root = window.document.documentElement
-    root.classList.remove("light", "dark")
+    root.classList.remove("light", "dark", "orange_glow")
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
@@ -66,4 +74,8 @@ export const useTheme = (): ThemeContextType => {
     throw new Error("useTheme must be used within a ThemeProvider")
   }
   return context
+}
+
+export function isPremiumTheme(themeId: string) {
+  return themeId === 'orange_glow'
 }
