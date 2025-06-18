@@ -115,7 +115,6 @@ const MainAppScreen: React.FC = () => {
         content: take.content,
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
-        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
         commentCount: commentCountMap[take.id] || 0,
         timestamp: take.created_at
       }));
@@ -146,28 +145,7 @@ const MainAppScreen: React.FC = () => {
         toast({ title: "🔒 Post today's take first to react!", variant: "destructive" });
         return;
       }
-      // Optimistically update UI
-      setTakes(prev => prev.map(t => 
-        t.id === takeId ? { 
-          ...t, 
-          reactions: {
-            ...t.reactions,
-            [reaction]: t.reactions[reaction] + 1
-          }
-        } : t
-      ));
       // Persist to Supabase
-      const take = takes.find(t => t.id === takeId);
-      if (!take) return;
-      const updatedReactions = {
-        ...take.reactions,
-        [reaction]: take.reactions[reaction] + 1
-      };
-      await supabase
-        .from('takes')
-        .update({ reactions: updatedReactions })
-        .eq('id', takeId);
-      // Log the reaction event
       await supabase.from('take_reactions').upsert({
         take_id: takeId,
         actor_id: user.id,
@@ -405,7 +383,6 @@ const MainAppScreen: React.FC = () => {
         content: take.content,
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
-        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
         commentCount: commentCountMap[take.id] || 0,
         timestamp: take.created_at
       }));
@@ -453,6 +430,71 @@ const MainAppScreen: React.FC = () => {
     }
   }, [hasPostedForSelectedDate, selectedDate, today]);
 
+  const checkLateSubmissionEligibility = async (date: Date) => {
+    if (!user) return false;
+
+    try {
+      // Convert date to user's timezone
+      const userDate = new Date(date.getTime() + (user.timezone_offset * 60000));
+      const promptDate = userDate.toISOString().split('T')[0];
+
+      // Check if user has already submitted for this date
+      const { data: existingTake } = await supabase
+        .from('takes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('prompt_date', promptDate)
+        .single();
+
+      if (existingTake) {
+        setHasPostedForSelectedDate(true);
+        return false;
+      }
+
+      // Check if user has already paid for late submission
+      const { data: hasPaid } = await supabase
+        .rpc('has_paid_late_submission', {
+          user_id: user.id,
+          prompt_date: promptDate
+        });
+
+      if (hasPaid) {
+        setHasPostedForSelectedDate(false);
+        return true;
+      }
+
+      // Check if prompt exists for this date
+      const { data: prompt } = await supabase
+        .from('daily_prompts')
+        .select('id')
+        .eq('prompt_date', promptDate)
+        .single();
+
+      if (!prompt) {
+        toast({ 
+          title: "No prompt found", 
+          description: "There was no prompt for this date.",
+          variant: "destructive" 
+        });
+        return false;
+      }
+
+      setHasPostedForSelectedDate(false);
+      return true;
+    } catch (error) {
+      console.error('Error checking late submission eligibility:', error);
+      return false;
+    }
+  };
+
+  const handleDateSelect = async (date: Date) => {
+    setSelectedDate(date);
+    const isEligible = await checkLateSubmissionEligibility(date);
+    if (isEligible) {
+      setShowLateSubmit(true);
+    }
+  };
+
   if (currentScreen === 'friends') {
     return <FriendsScreen />;
   }
@@ -495,11 +537,7 @@ const MainAppScreen: React.FC = () => {
                   <Calendar
                     mode="single"
                     selected={selectedDate}
-                    onSelect={date => {
-                      if (date > today) return;
-                      setSelectedDate(date);
-                      setCalendarOpen(false);
-                    }}
+                    onSelect={handleDateSelect}
                     initialFocus
                     toDate={today}
                   />

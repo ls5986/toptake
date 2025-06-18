@@ -1,6 +1,9 @@
+import { Configuration, OpenAIApi } from 'openai';
+
+const apiKey = import.meta.env.VITE_OPENAI_API_KEY;
+
 // Utility to call OpenAI API for prompt improvement
 export async function fixPromptWithAI(promptText: string): Promise<string> {
-  const apiKey = import.meta.env.OPENAI_API_KEY || process.env.OPENAI_API_KEY;
   if (!apiKey) throw new Error('Missing OpenAI API key');
 
   const systemPrompt =

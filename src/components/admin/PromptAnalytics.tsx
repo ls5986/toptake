@@ -67,10 +67,7 @@ const PromptAnalytics: React.FC = () => {
             .from('takes')
             .select('reactions')
             .eq('prompt_date', p.prompt_date);
-          const totalReactions = (takes || []).reduce((sum: number, t: { reactions?: Record<string, number> }) => {
-            const r = t.reactions || {};
-            return sum + Object.values(r).reduce((a: number, b: number) => a + b, 0);
-          }, 0);
+          const totalReactions = await calculateTotalReactions(takes);
           return {
             prompt: p.prompt_text,
             date: p.prompt_date,
@@ -88,6 +85,27 @@ const PromptAnalytics: React.FC = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const calculateTotalReactions = async (takes: any[]) => {
+    if (!takes || takes.length === 0) return 0;
+    
+    // Get all take IDs
+    const takeIds = takes.map(t => t.id);
+    
+    // Query take_reactions table
+    const { data: reactions, error } = await supabase
+      .from('take_reactions')
+      .select('take_id, reaction_type')
+      .in('take_id', takeIds);
+      
+    if (error) {
+      console.error('Error fetching reactions:', error);
+      return 0;
+    }
+    
+    // Count total reactions
+    return reactions?.length || 0;
   };
 
   const loadLeaderboard = async () => {

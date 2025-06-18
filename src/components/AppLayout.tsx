@@ -6,16 +6,25 @@ import EnhancedAdminScreen from './EnhancedAdminScreen';
 import SuperAdminScreen from './SuperAdminScreen';
 import AdminLogin from './AdminLogin';
 import TakePage from './TakePage';
+import { AppBlocker } from './AppBlocker';
 
 // Lazy load components to improve initial load time
 const AuthScreen = React.lazy(() => import('./AuthScreen'));
-const ProfileSetupScreen = React.lazy(() => import('./ProfileSetupScreen'));
 const WelcomeCarousel = React.lazy(() => import('./WelcomeCarousel'));
 const MainAppScreen = React.lazy(() => import('./MainAppScreen'));
 const FriendsScreen = React.lazy(() => import('./FriendsScreen'));
 
 const AppLayout: React.FC = () => {
-  const { currentScreen, isAuthenticated, user, shouldShowCarousel, setCurrentScreen, currentTakeId } = useAppContext();
+  const { 
+    currentScreen, 
+    isAuthenticated, 
+    user, 
+    shouldShowCarousel, 
+    setCurrentScreen, 
+    currentTakeId,
+    hasPostedToday,
+    submitTake
+  } = useAppContext();
   const [isAdminMode, setIsAdminMode] = React.useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [showAdminLogin, setShowAdminLogin] = React.useState(false);
@@ -106,8 +115,9 @@ const AppLayout: React.FC = () => {
       }
 
       // If authenticated but no username (needs profile setup)
-      if (currentScreen === 'profileSetup' || (user && !user.username)) {
-        return <ProfileSetupScreen />;
+      if (user && !user.username) {
+        setCurrentScreen('welcome');
+        return <WelcomeCarousel />;
       }
 
       // If user is on friends screen
@@ -128,9 +138,66 @@ const AppLayout: React.FC = () => {
     }
   };
 
+  // If user is authenticated and hasn't posted today, show AppBlocker
+  const shouldBlock = isAuthenticated && user && !hasPostedToday && !isAdminMode;
+
+  // Debug logging
+  console.log('AppLayout Debug:', {
+    isAuthenticated,
+    userId: user?.id,
+    hasPostedToday,
+    isAdminMode,
+    shouldBlock,
+    user,
+    currentScreen,
+    shouldShowCarousel,
+    // Add more detailed state
+    userState: {
+      id: user?.id,
+      username: user?.username,
+      hasPostedToday: user?.hasPostedToday,
+      last_post_date: user?.last_post_date
+    },
+    blockingState: {
+      isAuthenticated,
+      hasUser: !!user,
+      hasNotPostedToday: !hasPostedToday,
+      isNotAdmin: !isAdminMode,
+      shouldBlock
+    }
+  });
+
+  // Force block if user is authenticated but hasn't posted
+  const forceBlock = isAuthenticated && user && !hasPostedToday;
+
+  console.log('AppBlocker Render State:', {
+    forceBlock,
+    isAuthenticated,
+    hasUser: !!user,
+    hasNotPostedToday: !hasPostedToday,
+    willRender: forceBlock
+  });
+
   return (
     <Suspense fallback={<LoadingSpinner />}>
-      {renderScreen()}
+      {forceBlock ? (
+        <>
+          {console.log('Rendering AppBlocker')}
+          <AppBlocker 
+            isBlocked={true}
+            onSubmit={() => {
+              console.log('AppBlocker onSubmit called');
+              // After successful submission, refresh the app state
+              window.location.reload();
+            }}
+          />
+        </>
+      ) : (
+        <>
+          {console.log('Rendering main content')}
+          {renderScreen()}
+        </>
+      )}
     </Suspense>
   );
 };

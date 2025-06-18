@@ -5,32 +5,39 @@ import { Take } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { RefreshCw, Trophy } from 'lucide-react';
+import { RefreshCw, Trophy, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodayPrompt } from '@/lib/supabase';
 import { TakeCard } from './TakeCard';
-import { hasFeatureCredit } from '@/lib/featureCredits';
 import BillingModal from './BillingModal';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { usePromptForDate } from '@/hooks/usePromptForDate';
+import { spendCredits } from '@/lib/credits';
+import { getReactionCounts, addReaction, ReactionType } from '@/lib/reactions';
 
 interface TopTakesScreenProps {
   focusedTakeId?: string | null;
 }
 
 const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
-  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
+  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, userCredits, setUserCredits } = useAppContext();
   const [topTakes, setTopTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [promptText, setPromptText] = useState('');
   const fetchInProgress = useRef(false);
   const takeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightedTakeId, setHighlightedTakeId] = useState<string | null>(null);
   const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
   const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
   const { toast } = useToast();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, Record<ReactionType, number>>>({});
 
-  const canSneakPeek = user && hasFeatureCredit(user, 'sneak_peek');
+  const canSneakPeek = user && userCredits.sneak_peek > 0;
 
   useEffect(() => {
     if (user && !isAppBlocked && !fetchInProgress.current) {
@@ -40,7 +47,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
         fetchInProgress.current = false;
       });
     }
-  }, [user, isAppBlocked]);
+  }, [user, isAppBlocked, selectedDate]);
 
   useEffect(() => {
     if (focusedTakeId && takeRefs.current[focusedTakeId]) {
@@ -50,22 +57,26 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
     }
   }, [focusedTakeId]);
 
-  const fetchPromptForDate = async () => {
-    const { data, error } = await getTodayPrompt();
-    if (error || !data || !data.prompt_text) return '';
-    return data.prompt_text;
-  };
+  useEffect(() => {
+    async function fetchAllReactions() {
+      const counts: Record<string, Record<ReactionType, number>> = {};
+      for (const take of topTakes) {
+        counts[take.id] = await getReactionCounts(take.id);
+      }
+      setReactionCounts(counts);
+    }
+    if (topTakes.length > 0) fetchAllReactions();
+  }, [topTakes]);
 
   const loadPromptAndTopTakes = async () => {
     setLoading(true);
     try {
-      const promptText = await fetchPromptForDate();
-      setPromptText(promptText);
-      // Fetch all takes for today (using correct date)
+      // Fetch all takes for selected date
+      const dateStr = selectedDate.toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('takes')
         .select('*')
-        .eq('prompt_date', new Date().toISOString().split('T')[0]);
+        .eq('prompt_date', dateStr);
       // Fetch profiles for user_ids
       const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
@@ -107,12 +118,14 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
         timestamp: take.created_at,
-        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
-        commentCount: commentCountMap[take.id] || 0
+        prompt_id: take.prompt_id,
+        reactionsCount: 0, // Placeholder, can be updated if needed
+        commentCount: commentCountMap[take.id] || 0,
+        isBoosted: take.is_boosted || false,
       }));
       const sortedTakes = formattedTakes.sort((a, b) => {
-        const aTotal = Object.values(a.reactions).reduce((sum, val) => sum + val, 0);
-        const bTotal = Object.values(b.reactions).reduce((sum, val) => sum + val, 0);
+        const aTotal = Object.values(reactionCounts[a.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof a.commentCount === 'number' ? a.commentCount : 0);
+        const bTotal = Object.values(reactionCounts[b.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof b.commentCount === 'number' ? b.commentCount : 0);
         return bTotal - aTotal;
       });
       setTopTakes(sortedTakes);
@@ -124,40 +137,15 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
     }
   };
 
-  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
-    try {
-      if (!user?.hasPostedToday) {
-        return;
-      }
-      setTopTakes(prev => prev.map(t => 
-        t.id === takeId ? { 
-          ...t, 
-          reactions: {
-            ...t.reactions,
-            [reaction]: t.reactions[reaction] + 1
-          }
-        } : t
-      ));
-      const take = topTakes.find(t => t.id === takeId);
-      if (!take) return;
-      const updatedReactions = {
-        ...take.reactions,
-        [reaction]: take.reactions[reaction] + 1
-      };
-      await supabase
-        .from('takes')
-        .update({ reactions: updatedReactions })
-        .eq('id', takeId);
-      // Log the reaction event
-      await supabase.from('take_reactions').upsert({
-        take_id: takeId,
-        actor_id: user.id,
-        reaction_type: reaction,
-        created_at: new Date().toISOString(),
-      });
-    } catch (error) {
-      console.error('Error handling reaction:', error);
-    }
+  const handleReaction = async (takeId: string, reaction: ReactionType) => {
+    if (!user) return;
+    await addReaction(takeId, user.id, reaction);
+    // Refetch reaction counts for this take
+    const counts = await getReactionCounts(takeId);
+    setReactionCounts(prev => ({
+      ...prev,
+      [takeId]: counts
+    }));
   };
 
   const handleRefresh = async () => {
@@ -188,9 +176,18 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
       return;
     }
     setUnlockingTakeId(take.id);
+    const spent = await spendCredits(user.id, 'sneak_peek', 1);
+    if (!spent) {
+      alert('Not enough sneak peek credits!');
+      setUnlockingTakeId(null);
+      return;
+    }
+    setUserCredits({ ...userCredits, sneak_peek: userCredits.sneak_peek - 1 });
+    // Insert into sneak_peeks and decrement credit
     await supabase.from('sneak_peeks').insert({ user_id: user.id, take_id: take.id, created_at: new Date().toISOString() });
     toast({ title: 'Sneak Peek Unlocked', description: 'You have unlocked a future take!' });
     setUnlockingTakeId(null);
+    // Optionally, refetch or optimistically update UI to reveal take
   };
 
   if (isAppBlocked) {
@@ -200,7 +197,12 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-shrink-0">
-        <TodaysPrompt prompt={promptText} takeCount={topTakes.length} loading={loading} />
+        <TodaysPrompt 
+          prompt={promptText} 
+          takeCount={topTakes.length} 
+          loading={promptLoading}
+          selectedDate={selectedDate}
+        />
       </div>
       
       <div className="flex-1 min-h-0">
@@ -211,29 +213,51 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
               <p>Loading top takes...</p>
             </div>
           </div>
+        ) : !promptText ? (
+          <div className="text-center text-brand-danger py-8">
+            <p>No prompt found for today's topic!</p>
+          </div>
         ) : (
           <ScrollArea className="h-full">
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
                 <h2 className="text-xl font-semibold text-brand-text flex items-center gap-2">
                   <Trophy className="w-5 h-5 text-yellow-400" />
-                  Today's Top Takes ({topTakes.length})
+                  {format(selectedDate, 'MMM dd, yyyy')} Top Takes ({topTakes.length})
                 </h2>
-                <Button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  variant="outline"
-                  size="sm"
-                >
-                  <RefreshCw className={`w-4 h-4 text-brand-accent ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <CalendarIcon className="h-4 w-4" />
+                        {format(selectedDate, 'MMM dd, yyyy')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    variant="outline"
+                    size="sm"
+                  >
+                    <RefreshCw className={`w-4 h-4 text-brand-accent ${refreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </div>
               
               {topTakes
                 .slice()
                 .sort((a, b) => {
-                  const engagementA = Object.values(a.reactions || {}).reduce((sum, c) => sum + (typeof c === 'number' ? c : 0), 0) + (a.commentCount || 0);
-                  const engagementB = Object.values(b.reactions || {}).reduce((sum, c) => sum + (typeof c === 'number' ? c : 0), 0) + (b.commentCount || 0);
+                  const engagementA = Object.values(reactionCounts[a.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof a.commentCount === 'number' ? a.commentCount : 0);
+                  const engagementB = Object.values(reactionCounts[b.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof b.commentCount === 'number' ? b.commentCount : 0);
                   return engagementB - engagementA;
                 })
                 .map((take, index) => {
@@ -260,6 +284,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
                         <TakeCard 
                           take={take} 
                           onReact={handleReaction}
+                          reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
                         />
                       </div>
                     </div>

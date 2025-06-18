@@ -13,20 +13,21 @@ import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { getTodayPrompt } from '@/lib/supabase';
-import { hasFeatureCredit } from '@/lib/featureCredits';
+import { spendCredits } from '@/lib/credits';
 import BillingModal from './BillingModal';
+import { usePromptForDate } from '@/hooks/usePromptForDate';
 
 const FeedScreen: React.FC = () => {
-  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
+  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, userCredits, setUserCredits } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
-  const [promptText, setPromptText] = useState('');
   const fetchInProgress = useRef(false);
   const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
   const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
 
   useEffect(() => {
     if (user && !isAppBlocked && !fetchInProgress.current) {
@@ -35,26 +36,13 @@ const FeedScreen: React.FC = () => {
         fetchInProgress.current = false;
       });
     }
-  }, [user, isAppBlocked]);
-
-  const fetchPromptForDate = async () => {
-    const { data, error } = await getTodayPrompt();
-    if (error || !data || !data.prompt_text) return '';
-    return data.prompt_text;
-  };
+  }, [user, isAppBlocked, selectedDate]);
 
   const loadPromptAndTakes = async () => {
     setLoading(true);
     try {
-      const promptText = await fetchPromptForDate();
-      setPromptText(promptText);
-      // Fetch all takes for today
-      const utcDate = new Date(Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
-      ));
-      const dateStr = utcDate.toISOString().split('T')[0];
+      // Fetch all takes for selected date
+      const dateStr = selectedDate.toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('takes')
         .select('*')
@@ -165,7 +153,7 @@ const FeedScreen: React.FC = () => {
     return takeDate > today;
   };
 
-  const canSneakPeek = user && hasFeatureCredit(user, 'sneak_peek');
+  const canSneakPeek = user && userCredits.sneak_peek > 0;
 
   const handleSneakPeekUnlock = async (take) => {
     if (!canSneakPeek) {
@@ -173,6 +161,13 @@ const FeedScreen: React.FC = () => {
       return;
     }
     setUnlockingTakeId(take.id);
+    const spent = await spendCredits(user.id, 'sneak_peek', 1);
+    if (!spent) {
+      alert('Not enough sneak peek credits!');
+      setUnlockingTakeId(null);
+      return;
+    }
+    setUserCredits({ ...userCredits, sneak_peek: userCredits.sneak_peek - 1 });
     // Insert into sneak_peeks and decrement credit
     await supabase.from('sneak_peeks').insert({ user_id: user.id, take_id: take.id, created_at: new Date().toISOString() });
     toast({ title: 'Sneak Peek Unlocked', description: 'You have unlocked a future take!' });
@@ -187,7 +182,12 @@ const FeedScreen: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex-shrink-0">
-        <TodaysPrompt prompt={promptText} takeCount={takes.length} loading={loading} />
+        <TodaysPrompt 
+          prompt={promptText} 
+          takeCount={takes.length} 
+          loading={promptLoading}
+          selectedDate={selectedDate}
+        />
       </div>
       <div className="flex-1 min-h-0">
         {loading ? (
@@ -202,16 +202,34 @@ const FeedScreen: React.FC = () => {
             <div className="p-4 space-y-4">
               <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
                 <h2 className="text-xl font-semibold text-brand-text flex items-center gap-2">
-                  💬 Today's Hot Takes ({takes.length})
+                  💬 {format(selectedDate, 'MMM dd, yyyy')} Takes ({takes.length})
                 </h2>
-                <Button
-                  onClick={handleRefresh}
-                  disabled={refreshing}
-                  size="sm"
-                  className="btn-secondary"
-                >
-                  <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
-                </Button>
+                <div className="flex items-center gap-2">
+                  <Popover>
+                    <PopoverTrigger asChild>
+                      <Button variant="outline" size="sm" className="gap-2">
+                        <CalendarIcon className="h-4 w-4" />
+                        {format(selectedDate, 'MMM dd, yyyy')}
+                      </Button>
+                    </PopoverTrigger>
+                    <PopoverContent className="w-auto p-0" align="end">
+                      <Calendar
+                        mode="single"
+                        selected={selectedDate}
+                        onSelect={(date) => date && setSelectedDate(date)}
+                        initialFocus
+                      />
+                    </PopoverContent>
+                  </Popover>
+                  <Button
+                    onClick={handleRefresh}
+                    disabled={refreshing}
+                    size="sm"
+                    className="btn-secondary"
+                  >
+                    <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  </Button>
+                </div>
               </div>
               {takes.map((take, index) => {
                 const futureTake = isFutureTake(take);

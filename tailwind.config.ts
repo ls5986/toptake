@@ -1,6 +1,18 @@
 import type { Config } from "tailwindcss";
 import animate from "tailwindcss-animate";
 import typography from "@tailwindcss/typography";
+import { themes } from "./src/lib/themes";
+
+const themeColors = themes.reduce((acc, theme) => {
+  acc[theme.id] = {
+    background: theme.preview.background,
+    primary: theme.preview.primary,
+    secondary: theme.preview.secondary,
+    accent: theme.preview.accent,
+    text: theme.preview.text,
+  };
+  return acc;
+}, {} as Record<string, any>);
 
 export default {
   darkMode: ["class"],
@@ -33,60 +45,50 @@ export default {
     },
     extend: {
       colors: {
-        border: '#232323',
-        input: '#232323',
-        ring: '#FF5E1A',
-        background: '#181818',
-        foreground: '#fff',
+        border: 'var(--border)',
+        input: 'var(--input)',
+        ring: 'var(--ring)',
+        background: 'var(--background)',
+        foreground: 'var(--foreground)',
         primary: {
-          DEFAULT: '#FF5E1A',
-          foreground: '#fff',
+          DEFAULT: 'var(--primary)',
+          foreground: 'var(--primary-foreground)',
         },
         secondary: {
-          DEFAULT: '#FF7C2A',
-          foreground: '#fff',
+          DEFAULT: 'var(--secondary)',
+          foreground: 'var(--secondary-foreground)',
         },
         destructive: {
-          DEFAULT: '#FF3B30',
-          foreground: '#fff',
+          DEFAULT: 'var(--destructive)',
+          foreground: 'var(--destructive-foreground)',
         },
         muted: {
-          DEFAULT: '#232323',
-          foreground: '#B0B0B0',
+          DEFAULT: 'var(--muted)',
+          foreground: 'var(--muted-foreground)',
         },
         accent: {
-          DEFAULT: '#fff',
-          foreground: '#181818',
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
         },
         popover: {
-          DEFAULT: '#232323',
-          foreground: '#fff',
+          DEFAULT: 'var(--popover)',
+          foreground: 'var(--popover-foreground)',
         },
         card: {
-          DEFAULT: '#232323',
-          foreground: '#fff',
-        },
-        sidebar: {
-          DEFAULT: '#181818',
-          foreground: '#fff',
-          primary: '#FF5E1A',
-          'primary-foreground': '#fff',
-          accent: '#FF7C2A',
-          'accent-foreground': '#fff',
-          border: '#232323',
-          ring: '#FF5E1A',
+          DEFAULT: 'var(--card)',
+          foreground: 'var(--card-foreground)',
         },
         brand: {
-          primary: '#FF5E1A',
-          secondary: '#FF7C2A',
-          accent: '#fff',
-          background: '#181818',
-          surface: '#232323',
-          border: 'transparent',
-          text: '#fff',
-          muted: '#B0B0B0',
-          danger: '#FF3B30',
-          success: '#2ED573',
+          primary: 'var(--brand-primary)',
+          secondary: 'var(--brand-secondary)',
+          accent: 'var(--brand-accent)',
+          background: 'var(--brand-background)',
+          surface: 'var(--brand-surface)',
+          border: 'var(--brand-border)',
+          text: 'var(--brand-text)',
+          muted: 'var(--brand-muted)',
+          danger: 'var(--brand-danger)',
+          success: 'var(--brand-success)',
         },
       },
       fontFamily: {
@@ -139,15 +141,15 @@ export default {
         },
       },
       boxShadow: {
-        glow: '0 0 8px 2px #FF5E1A99',
-        'button-glow': '0 2px 16px 0 #FF5E1A66',
-        'card': '0 2px 24px 0 #FF5E1A22',
+        glow: '0 0 8px 2px var(--brand-primary-99)',
+        'button-glow': '0 2px 16px 0 var(--brand-primary-66)',
+        'card': '0 2px 24px 0 var(--brand-primary-22)',
         'surface-inset': 'inset 0 1px 4px 0 #00000066',
       },
       backgroundImage: {
-        'button-gradient': 'linear-gradient(135deg, #FF5E1A 0%, #FF7C2A 100%)',
-        'card-gradient': 'linear-gradient(135deg, #232323 60%, #181818 100%)',
-        'brand-gradient': 'linear-gradient(135deg, #FF5E1A 0%, #FFB26B 100%)',
+        'button-gradient': 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-secondary) 100%)',
+        'card-gradient': 'linear-gradient(135deg, var(--brand-surface) 60%, var(--brand-background) 100%)',
+        'brand-gradient': 'linear-gradient(135deg, var(--brand-primary) 0%, var(--brand-accent) 100%)',
       },
     }
   },

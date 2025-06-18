@@ -4,12 +4,12 @@ import * as React from "react"
 import { createContext, useContext, useEffect, useState } from "react"
 import { ThemeProviderProps } from "next-themes/dist/types"
 import { useAppContext } from '@/contexts/AppContext'
-
-type Theme = "dark" | "light" | "system" | "orange_glow"
+import { Theme, themes, getThemeClass, getThemeTransition } from '@/lib/themes'
 
 type ThemeContextType = {
   theme: Theme
   setTheme: (theme: Theme) => void
+  availableThemes: typeof themes
 }
 
 const ThemeContext = createContext<ThemeContextType | null>(null)
@@ -24,7 +24,7 @@ export function ThemeProvider({
   const [theme, setTheme] = useState<Theme>(() => {
     if (typeof window !== "undefined") {
       const savedTheme = localStorage.getItem("theme")
-      return (savedTheme && ["dark", "light", "system", "orange_glow"].includes(savedTheme)
+      return (savedTheme && themes.some(t => t.id === savedTheme)
         ? savedTheme
         : defaultTheme) as Theme
     }
@@ -32,25 +32,26 @@ export function ThemeProvider({
   })
 
   useEffect(() => {
-    if (user?.theme_id && ["dark", "light", "system", "orange_glow"].includes(user.theme_id)) {
+    if (user?.theme_id && themes.some(t => t.id === user.theme_id)) {
       setTheme(user.theme_id as Theme)
     }
   }, [user?.theme_id])
 
   useEffect(() => {
     const root = window.document.documentElement
-    root.classList.remove("light", "dark", "orange_glow")
+    root.classList.remove(...themes.map(t => `theme-${t.id}`))
+    root.classList.add(getThemeTransition())
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
         ? "dark"
         : "light"
-      root.classList.add(systemTheme)
+      root.classList.add(getThemeClass(systemTheme as Theme))
       return
     }
 
-    root.classList.add(theme)
+    root.classList.add(getThemeClass(theme))
   }, [theme])
 
   const value: ThemeContextType = {
@@ -59,6 +60,7 @@ export function ThemeProvider({
       localStorage.setItem("theme", theme)
       setTheme(theme)
     },
+    availableThemes: themes
   }
 
   return (

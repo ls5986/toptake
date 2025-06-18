@@ -13,16 +13,18 @@ import { useToast } from '@/hooks/use-toast';
 import { usePackSystem } from '@/hooks/usePackSystem';
 import ProfileView from './ProfileView';
 import { supabase } from '@/lib/supabase';
+import { ReactionType } from '@/lib/reactions';
 
 interface TakeCardProps {
   take: Take;
-  onReact: (takeId: string, reaction: keyof Take['reactions']) => void;
+  onReact: (takeId: string, reaction: ReactionType) => void;
   onDelete?: (takeId: string) => void;
   showPrompt?: boolean;
   promptText?: string;
   dayNumber?: number;
   isOwnTake?: boolean;
   selectedDate?: string;
+  reactionCounts: Record<ReactionType, number>;
 }
 
 export const TakeCard: React.FC<TakeCardProps> = ({ 
@@ -33,7 +35,8 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   promptText = '', 
   dayNumber = 1,
   isOwnTake = false,
-  selectedDate
+  selectedDate,
+  reactionCounts
 }) => {
   const { user, hasPostedToday } = useAppContext();
   const { packUsage, consumeUse } = usePackSystem(user?.id);
@@ -41,7 +44,6 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const [showProfile, setShowProfile] = useState(false);
   const [showUpgradeModal, setShowUpgradeModal] = useState<'delete' | null>(null);
   const { toast } = useToast();
-  const [reactions, setReactions] = useState<{ [key: string]: number }>({});
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [reactionTypes, setReactionTypes] = useState<{ name: string; emoji: string }[]>([]);
 
@@ -69,7 +71,6 @@ export const TakeCard: React.FC<TakeCardProps> = ({
         counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
         if (r.actor_id === user?.id) userReact = r.reaction_type;
       });
-      setReactions(counts);
       setUserReaction(userReact);
     };
     if (take.id && user?.id) fetchReactions();
@@ -98,7 +99,6 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     (data || []).forEach((r: any) => {
       counts[r.reaction_type] = (counts[r.reaction_type] || 0) + 1;
     });
-    setReactions(counts);
   };
 
   const handleDelete = async () => {
@@ -178,7 +178,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const commentCount = take.commentCount || 0;
 
   // Engagement = sum of all reactions + commentCount
-  const engagementCount = Object.values(reactions).reduce((sum, count) => sum + count, 0) + (take.commentCount || 0);
+  const engagementCount = Object.values(reactionCounts).reduce((sum, count) => sum + count, 0) + (take.commentCount || 0);
 
   return (
     <>
@@ -256,7 +256,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                     >
                       <span className="mr-1">{rt.emoji}</span>
                       <span className="truncate">{getReactionLabel(rt.name)}</span>
-                      {reactions[rt.name] > 0 && <span className="ml-1 font-bold">{reactions[rt.name]}</span>}
+                      {reactionCounts[rt.name as ReactionType] > 0 && <span className="ml-1 font-bold">{reactionCounts[rt.name as ReactionType]}</span>}
                     </Button>
                   ))}
                 </div>

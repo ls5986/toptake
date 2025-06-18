@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings, Flame, MessageSquare, Lock } from 'lucide-react';
+import { Settings, Flame, MessageSquare, Lock, CalendarIcon } from 'lucide-react';
 import { TakeCard } from './TakeCard';
 import ProfileEditModal from './ProfileEditModal';
 import { useAppContext } from '@/contexts/AppContext';
@@ -12,6 +12,10 @@ import { User as AppUser, Take as AppTake } from '@/types';
 import { isPremiumTheme } from './theme-provider';
 import { MonetizationModals } from './MonetizationModals';
 import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { Calendar } from '@/components/ui/calendar';
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
+import { usePromptForDate } from '@/hooks/usePromptForDate';
 
 interface ProfileViewProps {
   userId?: string;
@@ -26,22 +30,16 @@ type ProfileData = AppUser & {
   theme_id?: string;
 };
 
-type TakeWithPrompt = {
-  take: AppTake;
-  prompt: string;
-  dayNumber: number;
-};
-
 const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
   const { user } = useAppContext();
-  const [userTakes, setUserTakes] = useState<AppTake[]>([]);
   const [profileData, setProfileData] = useState<ProfileData | null>(null);
   const [loading, setLoading] = useState(true);
-  const [takesWithPrompts, setTakesWithPrompts] = useState<TakeWithPrompt[]>([]);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const { toast } = useToast();
+  const [selectedDate, setSelectedDate] = useState(new Date());
+  const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
+  const [userTake, setUserTake] = useState<AppTake | null>(null);
 
   const isOwnProfile = !userId || userId === user?.id;
   const displayUser = isOwnProfile ? (profileData || user) : profileData;
@@ -50,17 +48,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
     loadUserData();
   }, [userId, username]);
 
+  useEffect(() => {
+    if (!displayUser?.id) return;
+    const fetchUserTake = async () => {
+      const dateStr = selectedDate.toISOString().split('T')[0];
+      const { data: takeData } = await supabase
+        .from('takes')
+        .select('*')
+        .eq('user_id', displayUser.id)
+        .eq('prompt_date', dateStr)
+        .single();
+      setUserTake(takeData || null);
+    };
+    fetchUserTake();
+  }, [selectedDate, displayUser]);
+
   const loadUserData = async () => {
+    setLoading(true);
     try {
       let targetUserId = userId;
-      
       if (!targetUserId && username) {
         const { data: profile } = await supabase
           .from('profiles')
           .select('*')
           .eq('username', username)
           .single();
-        
         if (profile) {
           targetUserId = profile.id;
           setProfileData(profile);
@@ -80,50 +92,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
           .single();
         setProfileData(profile);
       }
-
-      if (!targetUserId) {
-        targetUserId = user?.id;
-      }
-
-      if (!targetUserId) return;
-
-      const { data: takes } = await supabase
-        .from('takes')
-        .select('*')
-        .eq('user_id', targetUserId)
-        .order('created_at', { ascending: false });
-
-      const formattedTakes = takes?.map(take => ({
-        id: take.id,
-        content: take.content,
-        username: take.is_anonymous ? 'Anonymous' : (displayUser?.username || username || 'Unknown'),
-        isAnonymous: take.is_anonymous,
-        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
-        commentCount: 0,
-        timestamp: take.created_at,
-        prompt_date: take.prompt_date
-      })) || [];
-
-      const promptDates = [...new Set(formattedTakes.map(t => t.prompt_date))];
-      const { data: prompts } = await supabase
-        .from('daily_prompts')
-        .select('prompt_date, prompt_text')
-        .in('prompt_date', promptDates);
-      const promptMap = (prompts || []).reduce((acc, p) => {
-        acc[p.prompt_date] = p.prompt_text;
-        return acc;
-      }, {} as Record<string, string>);
-      const takesWithPromptData = formattedTakes.map((take, index) => {
-        const dayNumber = formattedTakes.length - index;
-        return {
-          take,
-          prompt: promptMap[take.prompt_date] || '',
-          dayNumber
-        };
-      });
-
-      setUserTakes(formattedTakes);
-      setTakesWithPrompts(takesWithPromptData);
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
@@ -132,38 +100,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
   };
 
   const handleReaction = async (takeId: string, reaction: keyof AppTake['reactions']) => {
-    setUserTakes(prev => prev.map(t => 
-      t.id === takeId ? { 
-        ...t, 
-        reactions: {
-          ...t.reactions,
-          [reaction]: t.reactions[reaction] + 1
-        }
-      } : t
-    ));
-    setTakesWithPrompts(prev => prev.map(item => 
-      item.take.id === takeId ? {
-        ...item,
-        take: {
-          ...item.take,
-          reactions: {
-            ...item.take.reactions,
-            [reaction]: item.take.reactions[reaction] + 1
-          }
-        }
-      } : item
-    ));
-    const take = userTakes.find(t => t.id === takeId);
-    if (!take) return;
+    if (!userTake) return;
+    setUserTake(prev => prev ? {
+      ...prev,
+      reactions: {
+        ...prev.reactions,
+        [reaction]: prev.reactions[reaction] + 1
+      }
+    } : prev);
     const updatedReactions = {
-      ...take.reactions,
-      [reaction]: take.reactions[reaction] + 1
+      ...userTake.reactions,
+      [reaction]: userTake.reactions[reaction] + 1
     };
     await supabase
       .from('takes')
       .update({ reactions: updatedReactions })
       .eq('id', takeId);
-    // Log the reaction event
     if (user) {
       await supabase.from('take_reactions').upsert({
         take_id: takeId,
@@ -189,14 +141,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
       setShowPremiumModal(true);
       return;
     }
-    // Update theme_id in Supabase and local state
     await supabase.from('profiles').update({ theme_id: themeId }).eq('id', currentUser.id);
     setProfileData((prev: ProfileData | null) => ({ ...prev, theme_id: themeId }));
     toast({ title: 'Theme Changed', description: `Theme set to ${themeId.replace('_', ' ')}` });
   };
 
   const handlePremiumPurchase = async () => {
-    // Update isPremium in Supabase and local state
     await supabase.from('profiles').update({ is_premium: true }).eq('id', currentUser.id);
     setProfileData((prev: ProfileData | null) => ({ ...prev, isPremium: true }));
     toast({ title: 'Premium Unlocked!', description: 'You now have access to all premium features and themes.' });
@@ -245,7 +195,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
                 </Badge>
                 <Badge variant="outline" className="text-brand-accent border-brand-accent flex items-center gap-1">
                   <MessageSquare className="w-4 h-4 text-brand-accent" />
-                  {userTakes.length} takes
+                  {/* Only show take count for selected date if take exists */}
+                  {userTake ? 1 : 0} takes
                 </Badge>
                 {isPrivate && (
                   <Badge variant="outline" className="text-brand-muted border-brand-muted flex items-center gap-1">
@@ -298,36 +249,60 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
         </CardHeader>
       </Card>
 
+      {/* Date Picker and Prompt/Take for selected date */}
       <div className="space-y-4">
-        <h3 className="text-xl font-semibold text-brand-text">
-          {isOwnProfile ? '📝 Your Takes' : `📝 ${currentUser.username}'s Takes`}
-        </h3>
-        {isPrivate ? (
-          <Card className="bg-brand-surface border-brand-border">
-            <CardContent className="text-center py-8">
-              <p className="text-brand-muted">🔒 This profile is private</p>
-            </CardContent>
-          </Card>
-        ) : takesWithPrompts.length === 0 ? (
-          <Card className="bg-brand-surface border-brand-border">
-            <CardContent className="text-center py-8">
-              <p className="text-brand-muted">
-                {isOwnProfile ? "You haven't posted any takes yet!" : "No takes posted yet."}
-              </p>
-            </CardContent>
-          </Card>
-        ) : (
-          takesWithPrompts.map((item) => (
-            <TakeCard 
-              key={item.take.id} 
-              take={item.take} 
-              onReact={handleReaction}
-              showPrompt={true}
-              promptText={item.prompt}
-              dayNumber={item.dayNumber}
-            />
-          ))
-        )}
+        <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
+          <h3 className="text-xl font-semibold text-brand-text flex items-center gap-2">
+            <CalendarIcon className="h-5 w-5" />
+            {format(selectedDate, 'MMM dd, yyyy')}
+          </h3>
+          <Popover>
+            <PopoverTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2">
+                <CalendarIcon className="h-4 w-4" />
+                {format(selectedDate, 'MMM dd, yyyy')}
+              </Button>
+            </PopoverTrigger>
+            <PopoverContent className="w-auto p-0" align="end">
+              <Calendar
+                mode="single"
+                selected={selectedDate}
+                onSelect={(date) => date && setSelectedDate(date)}
+                initialFocus
+              />
+            </PopoverContent>
+          </Popover>
+        </div>
+        <Card className="bg-card-gradient">
+          <CardContent className="p-6">
+            <div className="mb-4">
+              <span className="font-semibold text-brand-accent">Prompt</span>
+              <div className="mt-2 text-brand-text">
+                {promptLoading ? (
+                  <span>Loading prompt...</span>
+                ) : promptText ? (
+                  promptText
+                ) : (
+                  <span className="text-brand-danger">No prompt found for this date!</span>
+                )}
+              </div>
+            </div>
+            <div>
+              <span className="font-semibold text-brand-accent">Your Take</span>
+              <div className="mt-2">
+                {userTake ? (
+                  <TakeCard 
+                    take={userTake} 
+                    onReact={handleReaction}
+                    showPrompt={false}
+                  />
+                ) : (
+                  <div className="text-brand-muted">No take posted for this prompt.</div>
+                )}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
       </div>
 
       <ProfileEditModal

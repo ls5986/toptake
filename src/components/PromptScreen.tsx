@@ -6,12 +6,12 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Send } from 'lucide-react';
-import { hasFeatureCredit } from '@/lib/featureCredits';
+import { spendCredits } from '@/lib/credits';
 import BillingModal from './BillingModal';
 import { useToast } from '@/hooks/use-toast';
 
 const PromptScreen: React.FC = () => {
-  const { currentPrompt, submitTake, setCurrentScreen, hasPostedToday, user } = useAppContext();
+  const { currentPrompt, submitTake, setCurrentScreen, hasPostedToday, user, userCredits, setUserCredits } = useAppContext();
   const [takeContent, setTakeContent] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -21,19 +21,30 @@ const PromptScreen: React.FC = () => {
 
   // Helper: is prompt expired?
   const isPromptExpired = currentPrompt && new Date(currentPrompt.expiry) < new Date();
-  const canLateSubmit = user && hasFeatureCredit(user, 'late_submit');
+  const canPostAnonymously = user && userCredits.anonymous > 0;
+  const canLateSubmit = user && userCredits.late_submit > 0;
 
   const handleSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
-    
     if (hasPostedToday) {
       alert('You have already posted today!');
       return;
     }
-
+    if (isAnonymous && userCredits.anonymous <= 0) {
+      setShowPurchaseModal(true);
+      return;
+    }
     setIsSubmitting(true);
+    if (isAnonymous) {
+      const spent = await spendCredits(user.id, 'anonymous', 1);
+      if (!spent) {
+        alert('Not enough anonymous credits!');
+        setIsSubmitting(false);
+        return;
+      }
+      setUserCredits({ ...userCredits, anonymous: userCredits.anonymous - 1 });
+    }
     const success = await submitTake(takeContent, isAnonymous);
-    
     if (success) {
       setCurrentScreen('main');
     } else {
@@ -44,7 +55,18 @@ const PromptScreen: React.FC = () => {
 
   const handleLateSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
+    if (userCredits.late_submit <= 0) {
+      setShowPurchaseModal(true);
+      return;
+    }
     setIsSubmitting(true);
+    const spent = await spendCredits(user.id, 'late_submit', 1);
+    if (!spent) {
+      alert('Not enough late submit credits!');
+      setIsSubmitting(false);
+      return;
+    }
+    setUserCredits({ ...userCredits, late_submit: userCredits.late_submit - 1 });
     // Insert take with is_late_submit = true and backdate created_at
     const takeData = {
       content: takeContent,
@@ -131,10 +153,10 @@ const PromptScreen: React.FC = () => {
                 id="anonymous"
                 checked={isAnonymous}
                 onCheckedChange={setIsAnonymous}
-                disabled={!user?.anonymousCredits || user.anonymousCredits <= 0}
+                disabled={!canPostAnonymously}
               />
               <Label htmlFor="anonymous" className="text-white">
-                Post Anonymously ({user?.anonymousCredits || 0} credits left)
+                Post Anonymously ({userCredits.anonymous} credits left)
               </Label>
             </div>
 

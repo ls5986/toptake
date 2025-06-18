@@ -1,0 +1,6 @@
+{
+  "check-expired-credits": {
+    "schedule": "0 0 * * *",
+    "function": "check-expired-credits"
+  }
+} 

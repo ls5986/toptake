@@ -290,13 +290,6 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
               <span className="text-xs text-brand-muted">{formatTime(take.created_at)}</span>
             </div>
             <div className="text-brand-text text-lg mb-2">{take.content}</div>
-            <div className="flex gap-2 mb-2">
-              {Object.entries(take.reactions).map(([reaction, count]) => (
-                <span key={reaction} className="text-xs text-brand-muted bg-brand-muted/10 rounded px-2 py-1">
-                  {reaction}: {count}
-                </span>
-              ))}
-            </div>
             <div className="text-xs text-brand-accent font-semibold">Engagement: {engagement}</div>
           </CardContent>
         </Card>

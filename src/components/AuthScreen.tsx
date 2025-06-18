@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -22,34 +22,59 @@ const AuthScreen: React.FC = () => {
   const [showCarousel, setShowCarousel] = useState(false);
   const [pendingEmail, setPendingEmail] = useState('');
   const { toast } = useToast();
-  // --- Onboarding State ---
   const [onboardingStep, setOnboardingStep] = useState<'none'|'verify'|'username'|'carousel'>('none');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
 
-  // Create test user for development
-  const createTestUser = async () => {
+  const handleAuthSuccess = async (authUser: any) => {
     try {
-      const { data, error } = await supabase.auth.signUp({
-        email: 'test@example.com',
-        password: 'testpass123',
-        options: {
-          data: {
-            username: 'testuser'
-          }
-        }
-      });
-      
-      if (data.user && !error) {
-        console.log('Test user created successfully');
+      // Check if user has a profile with username
+      const { data: profile, error: profileError } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', authUser.id)
+        .maybeSingle();
+
+      if (profileError) {
+        console.error('Profile error:', profileError);
+        setCurrentScreen('profileSetup');
+        return;
+      }
+
+      if (profile && profile.username) {
+        // User has complete profile - redirect to main app
+        const userProfile = {
+          id: profile.id,
+          username: profile.username,
+          bio: profile.bio || '',
+          full_name: profile.full_name || '',
+          avatar_url: profile.avatar_url || '',
+          is_premium: profile.is_premium || false,
+          is_private: profile.is_private || false,
+          is_banned: profile.is_banned || false,
+          is_admin: profile.is_admin || false,
+          is_verified: profile.is_verified || false,
+          current_streak: profile.current_streak || 0,
+          longest_streak: profile.longest_streak || 0,
+          last_post_date: profile.last_post_date || null,
+          last_active_at: profile.last_active_at || null,
+          theme_id: profile.theme_id || undefined
+        };
+        
+        setUser(userProfile);
+        setCurrentScreen('main');
+        toast({ title: `Welcome back, ${profile.username}!` });
+      } else {
+        setOnboardingStep('username');
       }
     } catch (error) {
-      console.log('Test user may already exist');
+      console.error('Error handling authenticated user:', error);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to load user profile. Please try again.',
+        variant: 'destructive' 
+      });
     }
   };
-
-  useEffect(() => {
-    createTestUser();
-  }, []);
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) {
@@ -57,43 +82,25 @@ const AuthScreen: React.FC = () => {
       return;
     }
 
+    if (!isValidEmail(email)) {
+      toast({ 
+        title: 'Invalid Email', 
+        description: 'Please enter a valid email address',
+        variant: 'destructive' 
+      });
+      return;
+    }
+
     setLoading(true);
     
     try {
-      // Try test credentials first for development
-      if (email.toLowerCase() === 'test@example.com' && password === 'testpass123') {
-        const testUser: AppUser = {
-          id: 'test-user-id',
-          username: 'testuser',
-          email: 'test@example.com',
-          streak: 5,
-          dramaScore: 100,
-          anonymousCredits: 3,
-          isPremium: false,
-          hasPostedToday: false,
-        } as AppUser;
-        
-        setUser(testUser);
-        setCurrentScreen('main');
-        toast({ title: 'Welcome back, testuser!' });
-        return;
-      }
-
       const cleanEmail = email.trim().toLowerCase();
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: password.trim()
       });
 
-      if (error) {
-        console.error('Login error:', error);
-        toast({ 
-          title: 'Login Error', 
-          description: handleAuthError(error),
-          variant: 'destructive' 
-        });
-        return;
-      }
+      if (error) throw error;
 
       if (data.user) {
         setPendingUserId(data.user.id);
@@ -103,32 +110,7 @@ const AuthScreen: React.FC = () => {
           setOnboardingStep('verify');
           return;
         }
-        // Check if user has a profile with username
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', data.user.id)
-          .maybeSingle();
-
-        if (profile && profile.username) {
-          // User has complete profile - redirect to main app
-          const userProfile = {
-            id: profile.id,
-            username: profile.username,
-            email: profile.email || data.user.email || '',
-            streak: profile.streak || 0,
-            dramaScore: profile.drama_score || 0,
-            anonymousCredits: profile.anonymous_credits || 3,
-            hasPostedToday: profile.has_posted_today || false,
-            timezone_offset: profile.timezone_offset || 0
-          };
-          
-          setUser(userProfile);
-          setCurrentScreen('main');
-          toast({ title: `Welcome back, ${profile.username}!` });
-        } else {
-          setOnboardingStep('username');
-        }
+        await handleAuthSuccess(data.user);
       }
     } catch (error: unknown) {
       console.error('Login failed:', error);
@@ -184,15 +166,7 @@ const AuthScreen: React.FC = () => {
         password: password.trim()
       });
 
-      if (error) {
-        console.error('Registration error:', error);
-        toast({ 
-          title: 'Registration Error', 
-          description: handleAuthError(error),
-          variant: 'destructive' 
-        });
-        return;
-      }
+      if (error) throw error;
 
       if (data.user) {
         setPendingUserId(data.user.id);
@@ -225,36 +199,28 @@ const AuthScreen: React.FC = () => {
     setOnboardingStep('none');
   };
 
-  // Handler for when user clicks "I've Verified My Email"
   const handleVerified = async () => {
     if (!pendingUserId) return;
-    // Re-fetch user
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser && authUser.email_confirmed_at) {
-      // Check if user has a profile with username
-      const { data: profile } = await supabase
-        .from('profiles')
-        .select('*')
-        .eq('id', authUser.id)
-        .maybeSingle();
-      if (profile && profile.username) {
-        setUser({
-          id: profile.id,
-          username: profile.username,
-          email: profile.email || authUser.email || '',
-          streak: profile.streak || 0,
-          dramaScore: profile.drama_score || 0,
-          anonymousCredits: profile.anonymous_credits || 3,
-          hasPostedToday: profile.has_posted_today || false,
-          timezone_offset: profile.timezone_offset || 0
-        });
-        setCurrentScreen('main');
-        setOnboardingStep('none');
+    
+    try {
+      // Re-fetch user
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (authUser && authUser.email_confirmed_at) {
+        await handleAuthSuccess(authUser);
       } else {
-        setOnboardingStep('username');
+        toast({ 
+          title: 'Email not verified yet', 
+          description: 'Please check your inbox and click the verification link.', 
+          variant: 'destructive' 
+        });
       }
-    } else {
-      toast({ title: 'Email not verified yet', description: 'Please check your inbox and click the verification link.', variant: 'destructive' });
+    } catch (error) {
+      console.error('Error handling verified user:', error);
+      toast({ 
+        title: 'Error', 
+        description: 'Failed to verify email. Please try again.',
+        variant: 'destructive' 
+      });
     }
   };
 
@@ -268,6 +234,7 @@ const AuthScreen: React.FC = () => {
       />
     );
   }
+
   if (onboardingStep === 'username') {
     return (
       <UsernameModal
@@ -277,6 +244,7 @@ const AuthScreen: React.FC = () => {
       />
     );
   }
+
   if (onboardingStep === 'carousel') {
     return (
       <WelcomeCarousel onComplete={handleCarouselComplete} />
@@ -284,57 +252,55 @@ const AuthScreen: React.FC = () => {
   }
 
   return (
-    <>
-      <div className="w-full h-full min-h-screen bg-gradient-to-br from-brand-background via-brand-surface to-brand-background flex items-center justify-center p-4 sm:p-6">
-        <Card className="w-full max-w-md bg-brand-surface border-brand-border">
-          <CardHeader className="text-center">
-            <CardTitle className="text-2xl font-bold text-brand-text">
-              {isLogin ? 'Welcome Back' : 'Join TopTake'}
-            </CardTitle>
-            <p className="text-brand-muted mt-2">
-              {isLogin ? 'Sign in to your account' : 'Create your account to get started'}
-            </p>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <Input
-              type="email"
-              placeholder="Email address"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
-            />
+    <div className="min-h-screen flex items-center justify-center p-4">
+      <Card className="w-full max-w-md">
+        <CardHeader>
+          <CardTitle className="text-2xl text-center">
+            {isLogin ? 'Welcome Back' : 'Create Account'}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <Input
+            type="email"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            disabled={loading}
+          />
+          <Input
+            type="password"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            disabled={loading}
+          />
+          {!isLogin && (
             <Input
               type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleLogin()}
-              className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
+              placeholder="Confirm Password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              disabled={loading}
             />
-            {isLogin ? null : (
-              <Input
-                type="password"
-                placeholder="Confirm Password"
-                value={confirmPassword}
-                onChange={(e) => setConfirmPassword(e.target.value)}
-                className="bg-brand-background border-brand-border text-brand-text placeholder:text-brand-muted"
-              />
-            )}
-            <Button 
-              onClick={isLogin ? handleLogin : handleRegister} 
-              disabled={loading || !email || !password || (!isLogin && !confirmPassword)}
-              className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text"
-            >
-              {loading ? (isLogin ? 'Signing in...' : 'Registering...') : (isLogin ? 'Sign In' : 'Register')}
-            </Button>
-            <div className="text-xs text-brand-muted text-center space-y-1">
-              <p>Super Admin: lindsey@letsclink.com / superadmin123</p>
-              <p>Regular Admin: any email / admin123</p>
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-    </>
+          )}
+          <Button
+            onClick={isLogin ? handleLogin : handleRegister}
+            className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+            disabled={loading}
+          >
+            {loading ? (isLogin ? 'Logging in...' : 'Creating account...') : (isLogin ? 'Login' : 'Sign Up')}
+          </Button>
+          <Button
+            variant="ghost"
+            onClick={() => setIsLogin(!isLogin)}
+            className="w-full"
+            disabled={loading}
+          >
+            {isLogin ? 'Need an account? Sign up' : 'Already have an account? Login'}
+          </Button>
+        </CardContent>
+      </Card>
+    </div>
   );
 };
 

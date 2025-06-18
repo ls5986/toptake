@@ -29,7 +29,7 @@ const SuperAdminScreen: React.FC = () => {
       // Load users with more detailed query
       const usersRes = await supabase
         .from('profiles')
-        .select('id, username, email, created_at, streak, drama_score, is_banned')
+        .select('id, username, email, created_at, streak, is_banned')
         .order('created_at', { ascending: false });
       
       console.log('Users query result:', usersRes);

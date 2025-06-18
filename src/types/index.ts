@@ -1,18 +1,18 @@
 export interface User {
   id: string;
   username: string;
-  streak: number;
-  dramaScore: number;
-  anonymousCredits: number;
-  isPremium: boolean;
-  lastPostDate?: string;
-  anonymous_uses_remaining?: number;
-  delete_uses_remaining?: number;
-  boost_uses_remaining?: number;
-  history_unlocked?: boolean;
-  extra_takes_remaining?: number;
-  is_admin?: boolean;
-  hasPostedToday?: boolean;
+  bio?: string;
+  full_name?: string;
+  avatar_url?: string;
+  is_premium: boolean;
+  is_private: boolean;
+  is_banned: boolean;
+  is_admin: boolean;
+  is_verified: boolean;
+  current_streak: number;
+  longest_streak: number;
+  last_post_date?: string;
+  last_active_at?: string;
   theme_id?: string;
 }
 
@@ -23,16 +23,18 @@ export interface Take {
   content: string;
   isAnonymous: boolean;
   timestamp: string;
-  reactions: Reactions;
+  prompt_id: string;
+  reactionsCount: number;
   commentCount: number;
   isBoosted?: boolean;
 }
 
-export interface Reactions {
-  wildTake: number;
-  fairPoint: number;
-  mid: number;
-  thatYou: number;
+export interface TakeReaction {
+  id: string;
+  take_id: string;
+  user_id: string;
+  reaction_type: 'wildTake' | 'fairPoint' | 'mid' | 'thatYou';
+  created_at: string;
 }
 
 export interface DailyPrompt {
@@ -65,7 +67,6 @@ export interface FeaturePack {
 }
 
 export interface PackUsage {
-  anonymous_uses_remaining: number;
   delete_uses_remaining: number;
   boost_uses_remaining: number;
   history_unlocked: boolean;

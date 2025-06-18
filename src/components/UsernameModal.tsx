@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { useAppContext } from '@/contexts/AppContext';
+import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { supabase, handleAuthError } from '@/lib/supabase';
+import { handleAuthError } from '@/lib/supabase';
+import { CreditType } from '@/lib/credits';
 
 interface UsernameModalProps {
   isOpen: boolean;
@@ -28,7 +29,6 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
     setLoading(true);
     
     try {
-      console.log('Getting current user...');
       const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
       
       if (authError || !authUser) {
@@ -37,10 +37,7 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
         return;
       }
 
-      console.log('Current user:', authUser.id, authUser.email);
-
       // Check if username exists
-      console.log('Checking if username exists:', username.trim().toLowerCase());
       const { data: existingUser, error: checkError } = await supabase
         .from('profiles')
         .select('username')
@@ -49,6 +46,7 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
 
       if (checkError) {
         console.error('Username check error:', checkError);
+        throw checkError;
       }
 
       if (existingUser) {
@@ -56,9 +54,10 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
         return;
       }
 
+      // Get user's timezone offset in minutes
       const timezoneOffset = new Date().getTimezoneOffset();
       
-      // Check if profile already exists first
+      // Check if profile already exists
       const { data: existingProfile } = await supabase
         .from('profiles')
         .select('*')
@@ -69,11 +68,11 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
       
       if (existingProfile) {
         // Update existing profile
-        console.log('Updating existing profile...');
         const { data: updatedProfile, error: updateError } = await supabase
           .from('profiles')
           .update({ 
             username: username.trim().toLowerCase(),
+            timezone_offset: timezoneOffset,
             updated_at: new Date().toISOString()
           })
           .eq('id', authUser.id)
@@ -93,23 +92,28 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
         profile = updatedProfile;
       } else {
         // Create new profile
-        console.log('Creating new profile...');
-        const profileData = {
+        const newProfile = {
           id: authUser.id,
           username: username.trim().toLowerCase(),
           email: authUser.email,
-          streak: 0,
-          drama_score: 0,
-          anonymous_credits: 3,
-          has_posted_today: false,
+          current_streak: 0,
           timezone_offset: timezoneOffset,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString()
+          is_premium: false,
+          is_private: false,
+          is_banned: false,
+          is_admin: false,
+          is_verified: false,
+          longest_streak: 0,
+          last_post_date: null,
+          last_active_at: new Date().toISOString(),
+          full_name: '',
+          bio: '',
+          avatar_url: ''
         };
 
-        const { data: newProfile, error: profileError } = await supabase
+        const { data: newProfileData, error: profileError } = await supabase
           .from('profiles')
-          .insert(profileData)
+          .insert(newProfile)
           .select()
           .single();
 
@@ -123,20 +127,57 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
           return;
         }
         
-        profile = newProfile;
+        profile = newProfileData;
+
+        // Initialize all credit types for new users
+        const creditTypes: CreditType[] = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
+        const initialCredits = {
+          anonymous: 3,
+          late_submit: 0,
+          sneak_peek: 0,
+          boost: 0,
+          extra_takes: 0,
+          delete: 0
+        };
+
+        // Create credit entries for each type
+        const { error: creditsError } = await supabase
+          .from('user_credits')
+          .insert(
+            creditTypes.map(type => ({
+              user_id: authUser.id,
+              credit_type: type,
+              balance: initialCredits[type]
+            }))
+          );
+
+        if (creditsError) {
+          console.error('Credit initialization error:', creditsError);
+          toast({ 
+            title: "Warning", 
+            description: "Profile created but failed to initialize credits. Please contact support.",
+            variant: "destructive"
+          });
+        }
       }
 
       if (profile) {
-        console.log('Profile operation successful:', profile);
         const userProfile = {
           id: profile.id,
           username: profile.username,
-          email: profile.email || authUser.email || '',
-          streak: profile.streak || 0,
-          dramaScore: profile.drama_score || 0,
-          anonymousCredits: profile.anonymous_credits || 3,
-          hasPostedToday: profile.has_posted_today || false,
-          timezone_offset: profile.timezone_offset || 0
+          bio: profile.bio || '',
+          full_name: profile.full_name || '',
+          avatar_url: profile.avatar_url || '',
+          is_premium: profile.is_premium || false,
+          is_private: profile.is_private || false,
+          is_banned: profile.is_banned || false,
+          is_admin: profile.is_admin || false,
+          is_verified: profile.is_verified || false,
+          current_streak: profile.current_streak || 0,
+          longest_streak: profile.longest_streak || 0,
+          last_post_date: profile.last_post_date || null,
+          last_active_at: profile.last_active_at || null,
+          theme_id: profile.theme_id || undefined
         };
         
         setUser(userProfile);
@@ -158,40 +199,28 @@ export const UsernameModal: React.FC<UsernameModalProps> = ({ isOpen, onClose, o
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-brand-background bg-opacity-80 flex items-center justify-center p-6 z-50">
-      <Card className="w-full max-w-md bg-brand-surface border-brand-border">
-        <CardHeader className="text-center">
-          <CardTitle className="text-2xl font-bold text-brand-text">
-            Choose Your Username
-          </CardTitle>
-          <p className="text-brand-muted">This will be your unique identifier</p>
-        </CardHeader>
-        <CardContent className="space-y-4">
+    <Dialog open={isOpen} onOpenChange={onClose}>
+      <DialogContent>
+        <DialogHeader>
+          <DialogTitle>Choose Your Username</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-4">
           <Input
-            type="text"
-            placeholder="Enter username"
+            placeholder="Username"
             value={username}
             onChange={(e) => setUsername(e.target.value)}
             className="bg-brand-surface border-brand-border text-brand-text"
-            maxLength={20}
-            onKeyPress={(e) => e.key === 'Enter' && handleSubmit()}
+            disabled={loading}
           />
-          
-          <div className="text-center">
-            <Badge variant="outline" className="text-brand-accent border-brand-accent">
-              You get 3 anonymous posts to start
-            </Badge>
-          </div>
-          
           <Button 
-            onClick={handleSubmit}
-            disabled={loading || !username.trim() || username.length < 3}
-            className="w-full bg-brand-primary hover:bg-brand-accent text-brand-text"
+            onClick={handleSubmit} 
+            className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+            disabled={loading}
           >
             {loading ? 'Setting Username...' : 'Continue'}
           </Button>
-        </CardContent>
-      </Card>
-    </div>
+        </div>
+      </DialogContent>
+    </Dialog>
   );
 };

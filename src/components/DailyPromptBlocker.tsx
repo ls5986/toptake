@@ -1,16 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
-import { Badge } from '@/components/ui/badge';
 import { Switch } from '@/components/ui/switch';
-import { Lock } from 'lucide-react';
+import { Label } from '@/components/ui/label';
+import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
-import { useAppContext } from '@/contexts/AppContext';
-import TodayPrompt from './TodayPrompt';
-import { getTodayPrompt } from '@/lib/supabase';
-import { hasFeatureCredit } from '@/lib/featureCredits';
 import { MonetizationModals } from './MonetizationModals';
 
 interface DailyPromptBlockerProps {
@@ -19,7 +15,7 @@ interface DailyPromptBlockerProps {
 }
 
 export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerProps) => {
-  const { user, updateStreak, setCurrentScreen, setUser, setIsAppBlocked } = useAppContext();
+  const { user, updateStreak, setCurrentScreen, setUser, setIsAppBlocked, userCredits } = useAppContext();
   const [promptText, setPromptText] = useState('');
   const [response, setResponse] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -28,14 +24,14 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
   const { toast } = useToast();
   const [displayPrompt, setDisplayPrompt] = useState("What's one thing you believe but others don't?");
 
-  const canPostAnonymously = user && hasFeatureCredit(user, 'anonymous');
+  const canPostAnonymously = user && userCredits.anonymous > 0;
 
   useEffect(() => {
     const fetchPrompt = async () => {
       const today = new Date().toISOString().split('T')[0];
       const { data } = await supabase
         .from('daily_prompts')
-        .select('prompt_text')
+        .select('prompt_text, id')
         .eq('prompt_date', today)
         .single();
       if (data && data.prompt_text) {
@@ -48,107 +44,131 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
   }, []);
 
   const submitResponse = async () => {
-    if (!response.trim()) {
-      toast({ title: 'Please write a response', variant: 'destructive' });
-      return;
-    }
+    if (!user) return;
 
-    if (!user) {
-      toast({ title: 'Please log in', variant: 'destructive' });
-      return;
-    }
-
-    if (!user.username || user.username === 'User') {
-      toast({ title: 'Please choose your username first', variant: 'destructive' });
-      setCurrentScreen('profileSetup');
-      return;
-    }
-
-    if (isAnonymous && user.anonymousCredits <= 0) {
-      setShowAnonymousModal(true);
+    // Validate content length
+    const trimmedContent = response.trim();
+    if (trimmedContent.length < 1 || trimmedContent.length > 2000) {
+      toast({ 
+        title: "Invalid content length", 
+        description: "Your take must be between 1 and 2000 characters.",
+        variant: "destructive" 
+      });
       return;
     }
 
     setLoading(true);
     
     try {
-      // Always use UTC date for prompt_date
-      const today = new Date(Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
-      )).toISOString().split('T')[0];
-      
-      // Get or create today's daily prompt
-      let { data: dailyPrompt } = await supabase
+      const today = new Date().toISOString().split('T')[0];
+
+      // Get today's prompt
+      const { data: dailyPrompt, error: promptError } = await supabase
         .from('daily_prompts')
         .select('id')
         .eq('prompt_date', today)
-        .eq('is_active', true)
         .single();
-      
-      if (!dailyPrompt) {
-        // Create today's prompt if it doesn't exist
-        const { data: newPrompt, error: promptError } = await supabase
-          .from('daily_prompts')
-          .insert({
-            prompt_text: displayPrompt,
-            prompt_date: today,
-            is_active: true,
-            category: 'daily',
-            type: 'global'
-          })
-          .select('id')
-          .single();
-        
-        if (promptError) {
-          console.error('Error creating daily prompt:', promptError);
-          toast({ title: "Failed to create prompt", variant: "destructive" });
-          return;
-        }
-        dailyPrompt = newPrompt;
-      }
-      
-      const { error } = await supabase
-        .from('takes')
-        .insert({
-          user_id: user.id,
-          content: response.trim(),
-          is_anonymous: isAnonymous,
-          prompt_date: today,
-          daily_prompt_id: dailyPrompt.id,
-          reactions: { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }
-        });
 
-      if (error) {
-        if (error.message.includes('unique_user_daily_take')) {
-          toast({ title: "You've already posted today!", description: "Come back tomorrow for a new prompt.", variant: "default" });
-          setUser({ ...user, hasPostedToday: true });
-          setIsAppBlocked(false);
-          onSubmit();
-          return;
-        }
-        console.error('Take submission error:', error);
-        toast({ title: "Failed to submit take", description: error.message, variant: "destructive" });
+      if (promptError) {
+        console.error('Error fetching prompt:', promptError);
+        toast({ title: "Error fetching prompt", variant: "destructive" });
         return;
       }
 
-      if (isAnonymous) {
-        const newCredits = user.anonymousCredits - 1;
-        await supabase
-          .from('profiles')
-          .update({ anonymous_credits: newCredits, has_posted_today: true })
-          .eq('id', user.id);
-        
-        setUser({ ...user, anonymousCredits: newCredits, hasPostedToday: true });
-      } else {
-        await supabase
-          .from('profiles')
-          .update({ has_posted_today: true })
-          .eq('id', user.id);
-        
-        setUser({ ...user, hasPostedToday: true });
+      // Check if user has already posted today
+      const { data: existingTake } = await supabase
+        .from('takes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('prompt_date', today)
+        .single();
+
+      if (existingTake) {
+        toast({ 
+          title: "You've already posted today!", 
+          description: "Come back tomorrow for a new prompt.", 
+          variant: "default" 
+        });
+        setUser({ ...user, last_post_date: today });
+        setIsAppBlocked(false);
+        onSubmit();
+        return;
       }
+
+      // Start a transaction
+      const { error: takeError } = await supabase
+        .from('takes')
+        .insert({
+          user_id: user.id,
+          content: trimmedContent,
+          is_anonymous: isAnonymous,
+          prompt_date: today,
+          daily_prompt_id: dailyPrompt.id,
+          created_at: new Date().toISOString()
+        });
+
+      if (takeError) {
+        console.error('Take submission error:', takeError);
+        toast({ 
+          title: "Failed to submit take", 
+          description: takeError.message, 
+          variant: "destructive" 
+        });
+        return;
+      }
+
+      // Record engagement analytics
+      const { error: analyticsError } = await supabase
+        .from('engagement_analytics')
+        .insert({
+          user_id: user.id,
+          action_type: 'submit_take',
+          metadata: {
+            prompt_id: dailyPrompt.id,
+            prompt_date: today,
+            is_anonymous: isAnonymous
+          },
+          created_at: new Date().toISOString()
+        });
+
+      if (analyticsError) {
+        console.error('Analytics error:', analyticsError);
+      }
+
+      // Handle anonymous credit usage
+      if (isAnonymous) {
+        const { error: creditError } = await supabase
+          .from('user_credits')
+          .update({ balance: userCredits.anonymous - 1 })
+          .eq('user_id', user.id)
+          .eq('credit_type', 'anonymous');
+
+        if (creditError) {
+          console.error('Credit update error:', creditError);
+        }
+      }
+
+      // Update user's last post date and streak
+      const { error: profileError } = await supabase
+        .from('profiles')
+        .update({ 
+          last_post_date: today,
+          current_streak: user.current_streak + 1,
+          longest_streak: Math.max(user.current_streak + 1, user.longest_streak || 0)
+        })
+        .eq('id', user.id);
+
+      if (profileError) {
+        console.error('Profile update error:', profileError);
+      }
+
+      // Update local state
+      setUser({ 
+        ...user, 
+        last_post_date: today,
+        current_streak: user.current_streak + 1,
+        longest_streak: Math.max(user.current_streak + 1, user.longest_streak || 0)
+      });
       
       await updateStreak();
       setIsAppBlocked(false);
@@ -171,51 +191,53 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
   return (
     <>
       <Dialog open={isBlocked} onOpenChange={() => {}}>
-        <DialogContent className="bg-brand-surface border-border text-brand-text max-w-md">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
-            <DialogTitle className="flex items-center text-brand-danger">
-              <Lock className="w-6 h-6 mr-2" />
-              App Locked
-            </DialogTitle>
-            <DialogDescription className="text-brand-muted">
-              You haven't posted today — unlock the app by dropping your take
-            </DialogDescription>
+            <DialogTitle>Today's Prompt</DialogTitle>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="bg-brand-surface p-4 rounded-lg">
-              <div className="flex items-center mb-2">
-                <span className="font-semibold text-brand-accent">Today's Prompt</span>
+            <div className="p-4 bg-brand-surface rounded-lg">
+              <p className="text-brand-text">{displayPrompt}</p>
+            </div>
+            
+            <div className="space-y-2">
+              <Textarea
+                placeholder="Write your take..."
+                value={response}
+                onChange={(e) => setResponse(e.target.value)}
+                className="min-h-[150px] bg-brand-surface border-brand-border text-brand-text"
+                maxLength={2000}
+              />
+              <div className="text-xs text-brand-muted text-right">
+                {response.length}/2000 characters
               </div>
-              <p className="text-brand-muted">
-                {displayPrompt}
-              </p>
             </div>
-            <Textarea
-              value={response}
-              onChange={(e) => setResponse(e.target.value.slice(0, 280))}
-              placeholder="Share your take... (280 characters max)"
-              className="min-h-24 resize-none"
-            />
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={isAnonymous}
-                  onCheckedChange={setIsAnonymous}
-                  disabled={!canPostAnonymously}
-                />
-                <span className="text-sm text-brand-muted">Post anonymously</span>
-              </div>
-              <Badge variant="outline" className="text-brand-accent border-brand-accent">
-                {user?.anonymousCredits || 0} left
-              </Badge>
+
+            <div className="flex items-center space-x-2">
+              <Switch
+                id="anonymous"
+                checked={isAnonymous}
+                onCheckedChange={setIsAnonymous}
+                disabled={!canPostAnonymously}
+              />
+              <Label htmlFor="anonymous" className="text-sm">
+                Post anonymously {!canPostAnonymously && "(No credits remaining)"}
+              </Label>
+              {!canPostAnonymously && (
+                <Button
+                  variant="link"
+                  onClick={handleBuyCredits}
+                  className="text-sm text-brand-primary"
+                >
+                  Buy credits
+                </Button>
+              )}
             </div>
-            <div className="text-right text-brand-muted text-sm">
-              {response.length}/280
-            </div>
+            
             <Button 
               onClick={submitResponse}
               disabled={loading || !response.trim()}
-              className="btn-primary w-full"
+              className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
             >
               {loading ? 'Submitting...' : 'Submit & Unlock App'}
             </Button>

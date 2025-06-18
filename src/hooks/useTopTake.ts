@@ -36,8 +36,6 @@ export const useTopTake = () => {
     id: '1',
     username: 'user123',
     streak: 5,
-    dramaScore: 42,
-    anonymousCredits: 3,
     isPremium: false
   });
   
@@ -63,10 +61,6 @@ export const useTopTake = () => {
     
     setTakes(prev => [newTake, ...prev]);
     setHasPostedToday(true);
-    
-    if (isAnonymous && user.anonymousCredits > 0) {
-      setUser(prev => ({ ...prev, anonymousCredits: prev.anonymousCredits - 1 }));
-    }
   };
 
   return {

@@ -19,7 +19,6 @@ interface AdminUser {
   username: string;
   email: string;
   streak: number;
-  drama_score: number;
   created_at: string;
 }
 
@@ -65,7 +64,6 @@ const EnhancedAdminScreen: React.FC = () => {
           username: newUsername.trim(),
           email: `${newUsername.trim()}@fake.com`,
           streak: 0,
-          drama_score: 0,
           anonymous_credits: 3
         });
       
@@ -280,9 +278,6 @@ const EnhancedAdminScreen: React.FC = () => {
                         <div className="flex items-center gap-3">
                           <Badge variant="secondary" className="bg-purple-600/20 text-purple-200">
                             Streak: {user.streak}
-                          </Badge>
-                          <Badge variant="outline" className="border-white/20 text-white/70">
-                            Score: {user.drama_score}
                           </Badge>
                         </div>
                       </div>

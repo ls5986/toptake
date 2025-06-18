@@ -9,27 +9,33 @@ import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { useAppContext } from '@/contexts/AppContext';
 import { getTodayPrompt } from '@/lib/supabase';
-import { hasFeatureCredit } from '@/lib/featureCredits';
+import { useCredits } from '@/lib/credits';
 import { MonetizationModals } from './MonetizationModals';
+import { useNavigate } from 'react-router-dom';
+import { Checkbox } from '@/components/ui/checkbox';
 
 interface AppBlockerProps {
   isBlocked: boolean;
   onSubmit: () => void;
+  message?: string;
 }
 
-export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
+export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) => {
   const { user, updateStreak, setUser, submitTake } = useAppContext();
+  const { userCredits = { anonymous: 0, late_submit: 0, sneak_peek: 0, boost: 0, extra_takes: 0, delete: 0 } } = useCredits();
   const [response, setResponse] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
+  const navigate = useNavigate();
 
   // Prompt state
   const [currentPrompt, setCurrentPrompt] = useState('');
   const [promptLoading, setPromptLoading] = useState(true);
 
-  const canPostAnonymously = user && hasFeatureCredit(user, 'anonymous');
+  const canPostAnonymously = user && (userCredits?.anonymous ?? 0) > 0;
 
   useEffect(() => {
     const fetchPrompt = async () => {
@@ -41,145 +47,133 @@ export const AppBlocker = ({ isBlocked, onSubmit }: AppBlockerProps) => {
     fetchPrompt();
   }, []);
 
-  const submitResponse = async () => {
-    if (!response.trim()) {
-      toast({ title: 'Please write a response', variant: 'destructive' });
-      return;
-    }
-
-    if (!user) {
-      toast({ title: 'Please log in', variant: 'destructive' });
-      return;
-    }
-
-    if (isAnonymous && user.anonymousCredits <= 0) {
-      setShowAnonymousModal(true);
-      return;
-    }
-
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault(); // Prevent default form submission
     setLoading(true);
-    
+    setError(null);
+
     try {
-      const success = await submitTake(response.trim(), isAnonymous);
-      
-      if (success) {
-        if (isAnonymous) {
-          const newCredits = user.anonymousCredits - 1;
-          await supabase
-            .from('profiles')
-            .update({ anonymous_credits: newCredits })
-            .eq('id', user.id);
-          
-          setUser({ ...user, anonymousCredits: newCredits });
-        }
-        
-        toast({ title: "Take submitted successfully!" });
-        onSubmit();
-      } else {
-        // Check if user has already posted today
-        const today = new Date().toISOString().split('T')[0];
-        const { data: existingTake } = await supabase
-          .from('takes')
-          .select('id')
-          .eq('user_id', user.id)
-          .eq('prompt_date', today)
-          .limit(1);
-        
-        if (existingTake && existingTake.length > 0) {
-          toast({ title: "You've already posted today!", description: "Come back tomorrow for a new prompt.", variant: "default" });
-          setUser({ ...user, hasPostedToday: true });
-          onSubmit();
-        } else {
-          toast({ title: "Failed to submit take", variant: "destructive" });
-        }
+      if (!response.trim()) {
+        setError('Please enter your take before submitting.');
+        setLoading(false);
+        return;
       }
+
+      console.log('Starting take submission...');
+      const success = await submitTake(response, isAnonymous);
+      console.log('Take submission result:', success);
+
+      if (!success) {
+        setError('Failed to submit take. Please try again.');
+        setLoading(false);
+        return;
+      }
+
+      // Only redirect on success
+      navigate('/');
     } catch (err) {
-      toast({ title: "An error occurred", variant: "destructive" });
-    } finally {
+      console.error('Error submitting take:', err);
+      setError('An unexpected error occurred. Please try again.');
       setLoading(false);
     }
-  };
-
-  const handleBuyCredits = () => {
-    setShowAnonymousModal(true);
   };
 
   if (!isBlocked) return null;
 
   return (
     <>
-      <div className="fixed inset-0 bg-brand-background bg-opacity-80 z-50 flex items-center justify-center p-4">
-        <div className="bg-brand-surface border border-border text-brand-text max-w-md w-full rounded-lg p-6">
-          <div className="text-center mb-6">
-            <div className="flex items-center justify-center mb-2">
-              <Lock className="w-8 h-8 text-brand-danger mr-2" />
-              <h2 className="text-xl font-bold text-brand-danger">App Locked</h2>
-            </div>
-            <p className="text-brand-muted">
-              You haven't posted today — unlock the app by dropping your take
-            </p>
-          </div>
-          
-          <div className="space-y-4">
-            <div className="bg-brand-surface p-4 rounded-lg">
-              <div className="flex items-center mb-2">
-                <span className="font-semibold text-brand-accent">Today's Prompt</span>
+      <Dialog open={isBlocked} onOpenChange={() => {}}>
+        <DialogContent className="sm:max-w-[600px] p-0 bg-brand-surface border-brand-border">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <DialogHeader>
+              <DialogTitle className="text-center">
+                <div className="flex items-center justify-center mb-2">
+                  <Lock className="w-8 h-8 text-brand-danger mr-2" />
+                  <h2 className="text-xl font-bold text-brand-danger">App Locked</h2>
+                </div>
+              </DialogTitle>
+              <DialogDescription className="text-brand-muted text-center">
+                You haven't posted today — unlock the app by dropping your take
+              </DialogDescription>
+            </DialogHeader>
+            
+            <div className="space-y-4">
+              <div className="bg-brand-surface p-4 rounded-lg">
+                <div className="flex items-center mb-2">
+                  <span className="font-semibold text-brand-accent">Today's Prompt</span>
+                </div>
+                {promptLoading ? (
+                  <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
+                ) : (
+                  <p className="text-brand-muted">{currentPrompt}</p>
+                )}
               </div>
-              {promptLoading ? (
-                <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
-              ) : (
-                <p className="text-brand-muted">{currentPrompt}</p>
-              )}
-            </div>
-            
-            <Textarea
-              value={response}
-              onChange={(e) => setResponse(e.target.value.slice(0, 280))}
-              placeholder="Share your take... (280 characters max)"
-              className="min-h-24 resize-none"
-            />
-            
-            <div className="flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Switch
-                  checked={isAnonymous}
-                  onCheckedChange={setIsAnonymous}
-                  disabled={!canPostAnonymously}
+              
+              <div className="relative">
+                <Textarea
+                  value={response}
+                  onChange={(e) => setResponse(e.target.value.slice(0, 280))}
+                  placeholder="Share your take... (280 characters max)"
+                  className="min-h-24 resize-none"
+                  maxLength={280}
+                  disabled={loading}
                 />
-                <span className="text-sm text-brand-muted">👻 Post anonymously</span>
+                <div className="text-right text-brand-muted text-sm">
+                  {response.length}/280
+                </div>
               </div>
-              <Badge variant="outline" className="text-brand-accent border-brand-accent">
-                {user?.anonymousCredits || 0} left
-              </Badge>
+              
+              {error && (
+                <div className="text-red-500 text-sm mt-2">
+                  {error}
+                </div>
+              )}
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center space-x-2">
+                  <Switch
+                    checked={isAnonymous}
+                    onCheckedChange={setIsAnonymous}
+                    disabled={!canPostAnonymously}
+                  />
+                  <span className="text-sm text-brand-muted">👻 Post anonymously</span>
+                </div>
+                <Badge variant="outline" className="text-brand-accent border-brand-accent">
+                  {userCredits?.anonymous ?? 0} left
+                </Badge>
+              </div>
             </div>
             
-            <div className="text-right text-brand-muted text-sm">
-              {response.length}/280
+            <div className="flex justify-end gap-3 px-6 pb-6">
+              <Button
+                type="button"
+                variant="outline"
+                onClick={() => navigate('/')}
+                disabled={loading}
+              >
+                Cancel
+              </Button>
+              <Button 
+                type="submit"
+                disabled={loading || !response.trim()}
+              >
+                {loading ? 'Submitting...' : 'Submit Take'}
+              </Button>
             </div>
-            
-            <Button 
-              onClick={submitResponse} 
-              disabled={loading || !response.trim()}
-              className="btn-primary w-full"
-            >
-              {loading ? 'Submitting...' : '🚀 Submit & Unlock App'}
-            </Button>
-            
-            <p className="text-xs text-brand-muted text-center">
-              You cannot access the app until you respond to today's prompt
-            </p>
-          </div>
-        </div>
-      </div>
+          </form>
+        </DialogContent>
+      </Dialog>
       
-      <MonetizationModals
-        showAnonymousModal={showAnonymousModal}
-        showStreakModal={false}
-        showPremiumModal={false}
-        showBoostModal={false}
-        onClose={() => setShowAnonymousModal(false)}
-        onPurchase={() => {}}
-      />
+      {showAnonymousModal && (
+        <MonetizationModals
+          onClose={() => setShowAnonymousModal(false)}
+          onSuccess={() => {
+            setShowAnonymousModal(false);
+            // Refresh credits after purchase
+            window.location.reload();
+          }}
+        />
+      )}
     </>
   );
 };

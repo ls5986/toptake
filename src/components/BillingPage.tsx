@@ -6,10 +6,15 @@ import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
 import { FeaturePack } from '@/types';
 
+const { userCredits } = useAppContext();
+
 const packages = [
-  { name: 'Anonymous Credits', description: 'Post anonymously with credits', price: '$2.99 for 10', id: 'anon' },
-  { name: 'Delete Uses', description: 'Delete your takes', price: '$1.99 for 5', id: 'delete' },
-  { name: 'Boosts', description: 'Boost your take to the top', price: '$4.99 for 3', id: 'boost' },
+  { name: 'Anonymous Credits', description: 'Post anonymously with credits', price: '$2.99 for 10', id: 'anonymous' },
+  { name: 'Late Submit Credits', description: 'Submit takes late with credits', price: '$1.99 for 5', id: 'late_submit' },
+  { name: 'Sneak Peek Credits', description: 'Unlock future takes with credits', price: '$3.99 for 5', id: 'sneak_peek' },
+  { name: 'Boost Credits', description: 'Boost your take to the top', price: '$4.99 for 3', id: 'boost' },
+  { name: 'Extra Takes Credits', description: 'Submit additional takes per day', price: '$2.99 for 5', id: 'extra_takes' },
+  { name: 'Delete Credits', description: 'Delete your takes', price: '$1.99 for 5', id: 'delete' },
 ];
 
 // Define a local Purchase type based on usage

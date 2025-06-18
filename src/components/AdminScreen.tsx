@@ -19,8 +19,7 @@ interface AdminUser {
   id: string;
   username: string;
   email: string;
-  streak: number;
-  drama_score: number;
+  current_streak: number;
   created_at: string;
 }
 
@@ -105,20 +104,34 @@ const AdminScreen: React.FC = () => {
 
   const addNonAuthUser = async () => {
     if (!newUsername.trim()) return;
-    
     try {
-      const { error } = await supabase
+      const { data: profileData, error } = await supabase
         .from('profiles')
         .insert({
           username: newUsername.trim(),
           email: `${newUsername.trim()}@fake.com`,
-          streak: 0,
-          drama_score: 0,
-          anonymous_credits: 3
-        });
-      
+          current_streak: 0,
+          is_premium: false,
+          is_private: false,
+          is_banned: false,
+          is_admin: false,
+          is_verified: false,
+          longest_streak: 0,
+          last_post_date: null,
+          last_active_at: new Date().toISOString(),
+          full_name: '',
+          bio: '',
+          avatar_url: ''
+        })
+        .select()
+        .single();
       if (error) throw error;
-      
+      // Insert user_credits entry for anonymous credits
+      await supabase.from('user_credits').insert({
+        user_id: profileData.id,
+        credit_type: 'anonymous',
+        balance: 3
+      });
       setNewUsername('');
       loadAdminData();
       calculateActiveUsers();
@@ -135,7 +148,7 @@ const AdminScreen: React.FC = () => {
     try {
       const { error } = await supabase
         .from('profiles')
-        .update({ streak: parseInt(editStreak) })
+        .update({ current_streak: parseInt(editStreak) })
         .eq('id', selectedUser.id);
       
       if (error) throw error;
@@ -211,7 +224,7 @@ const AdminScreen: React.FC = () => {
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">
-                    {users.length > 0 ? Math.round(users.reduce((sum, u) => sum + u.streak, 0) / users.length) : 0}
+                    {users.length > 0 ? Math.round(users.reduce((sum, u) => sum + u.current_streak, 0) / users.length) : 0}
                   </div>
                 </CardContent>
               </Card>
@@ -286,7 +299,7 @@ const AdminScreen: React.FC = () => {
                     onChange={(e) => {
                       const user = users.find(u => u.id === e.target.value);
                       setSelectedUser(user || null);
-                      setEditStreak(user?.streak.toString() || '');
+                      setEditStreak(user?.current_streak.toString() || '');
                     }}
                   >
                     <option value="">Select user...</option>
@@ -324,8 +337,7 @@ const AdminScreen: React.FC = () => {
                           <div className="text-sm text-brand-muted">{user.email}</div>
                         </div>
                         <div className="flex items-center gap-2">
-                          <Badge variant="secondary">Streak: {user.streak}</Badge>
-                          <Badge variant="outline">Score: {user.drama_score}</Badge>
+                          <Badge variant="secondary">Streak: {user.current_streak}</Badge>
                         </div>
                       </div>
                     ))}

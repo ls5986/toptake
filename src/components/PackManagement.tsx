@@ -7,31 +7,37 @@ import { Badge } from '@/components/ui/badge';
 import { supabase } from '@/lib/supabase';
 import { useToast } from '@/hooks/use-toast';
 import { Trash2, UserX, Zap, History, Plus, Gift } from 'lucide-react';
+import { useAppContext } from '@/contexts/AppContext';
+import { CreditType } from '@/lib/credits';
 
 interface User {
   id: string;
   username: string;
-  anonymous_uses_remaining: number;
-  delete_uses_remaining: number;
-  boost_uses_remaining: number;
-  history_unlocked: boolean;
-  extra_takes_remaining: number;
+  user_credits: {
+    anonymous: number;
+    late_submit: number;
+    sneak_peek: number;
+    boost: number;
+    extra_takes: number;
+    delete: number;
+  };
 }
 
 export const PackManagement: React.FC = () => {
   const [users, setUsers] = useState<User[]>([]);
   const [selectedUser, setSelectedUser] = useState('');
-  const [packType, setPackType] = useState('');
-  const [packUses, setPackUses] = useState(1);
+  const [creditType, setCreditType] = useState<CreditType>('anonymous');
+  const [amount, setAmount] = useState(1);
   const [loading, setLoading] = useState(false);
   const { toast } = useToast();
 
-  const packTypes = [
-    { value: 'anonymous', label: 'Anonymous Posts', icon: UserX },
-    { value: 'delete', label: 'Delete Uses', icon: Trash2 },
-    { value: 'boost', label: 'Boost Uses', icon: Zap },
-    { value: 'history', label: 'History Access', icon: History },
-    { value: 'extra_take', label: 'Extra Takes', icon: Plus }
+  const creditTypes: { value: CreditType; label: string; icon: any }[] = [
+    { value: 'anonymous', label: 'Anonymous Credits', icon: UserX },
+    { value: 'late_submit', label: 'Late Submit Credits', icon: History },
+    { value: 'sneak_peek', label: 'Sneak Peek Credits', icon: Gift },
+    { value: 'boost', label: 'Boost Credits', icon: Zap },
+    { value: 'extra_takes', label: 'Extra Takes', icon: Plus },
+    { value: 'delete', label: 'Delete Credits', icon: Trash2 }
   ];
 
   useEffect(() => {
@@ -42,7 +48,18 @@ export const PackManagement: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('profiles')
-        .select('id, username, anonymous_uses_remaining, delete_uses_remaining, boost_uses_remaining, history_unlocked, extra_takes_remaining')
+        .select(`
+          id,
+          username,
+          user_credits (
+            anonymous,
+            late_submit,
+            sneak_peek,
+            boost,
+            extra_takes,
+            delete
+          )
+        `)
         .order('username');
 
       if (error) throw error;
@@ -53,58 +70,40 @@ export const PackManagement: React.FC = () => {
     }
   };
 
-  const grantPack = async () => {
-    if (!selectedUser || !packType || packUses < 1) {
+  const handleAddCredits = async () => {
+    if (!selectedUser || !creditType || amount <= 0) {
       toast({ title: 'Please fill all fields', variant: 'destructive' });
       return;
     }
 
     setLoading(true);
     try {
-      const fieldMap = {
-        anonymous: 'anonymous_uses_remaining',
-        delete: 'delete_uses_remaining',
-        boost: 'boost_uses_remaining',
-        extra_take: 'extra_takes_remaining',
-        history: 'history_unlocked'
-      };
+      // Add credits to user_credits
+      const { error: creditError } = await supabase
+        .from('user_credits')
+        .update({ [creditType]: amount })
+        .eq('user_id', selectedUser);
 
-      const field = fieldMap[packType as keyof typeof fieldMap];
-      const currentUser = users.find(u => u.id === selectedUser);
-      
-      if (!currentUser) throw new Error('User not found');
+      if (creditError) throw creditError;
 
-      let updateValue;
-      if (packType === 'history') {
-        updateValue = true;
-      } else {
-        updateValue = (currentUser[field as keyof User] as number) + packUses;
-      }
-
-      const { error } = await supabase
-        .from('profiles')
-        .update({ [field]: updateValue })
-        .eq('id', selectedUser);
-
-      if (error) throw error;
-
-      await supabase
-        .from('feature_packs')
+      // Record in credit history
+      const { error: historyError } = await supabase
+        .from('credit_history')
         .insert({
           user_id: selectedUser,
-          type: packType,
-          uses_granted: packUses,
-          uses_remaining: packUses
+          credit_type: creditType,
+          amount,
+          action: 'purchase',
+          description: `Admin added ${amount} ${creditType} credits`
         });
 
-      toast({ title: 'Pack granted successfully!' });
-      await fetchUsers();
-      setSelectedUser('');
-      setPackType('');
-      setPackUses(1);
+      if (historyError) throw historyError;
+
+      toast({ title: 'Credits added successfully' });
+      fetchUsers();
     } catch (error) {
-      console.error('Error granting pack:', error);
-      toast({ title: 'Error granting pack', variant: 'destructive' });
+      console.error('Error adding credits:', error);
+      toast({ title: 'Error adding credits', variant: 'destructive' });
     } finally {
       setLoading(false);
     }
@@ -114,19 +113,16 @@ export const PackManagement: React.FC = () => {
     <div className="space-y-6">
       <Card>
         <CardHeader>
-          <CardTitle className="flex items-center gap-2">
-            <Gift className="h-5 w-5" />
-            Grant Feature Packs
-          </CardTitle>
+          <CardTitle>Manage User Credits</CardTitle>
         </CardHeader>
-        <CardContent className="space-y-4">
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <CardContent>
+          <div className="space-y-4">
             <Select value={selectedUser} onValueChange={setSelectedUser}>
               <SelectTrigger>
                 <SelectValue placeholder="Select user" />
               </SelectTrigger>
               <SelectContent>
-                {users.map(user => (
+                {users.map((user) => (
                   <SelectItem key={user.id} value={user.id}>
                     {user.username}
                   </SelectItem>
@@ -134,14 +130,17 @@ export const PackManagement: React.FC = () => {
               </SelectContent>
             </Select>
 
-            <Select value={packType} onValueChange={setPackType}>
+            <Select value={creditType} onValueChange={(value: CreditType) => setCreditType(value)}>
               <SelectTrigger>
-                <SelectValue placeholder="Pack type" />
+                <SelectValue placeholder="Select credit type" />
               </SelectTrigger>
               <SelectContent>
-                {packTypes.map(type => (
+                {creditTypes.map((type) => (
                   <SelectItem key={type.value} value={type.value}>
-                    {type.label}
+                    <div className="flex items-center gap-2">
+                      <type.icon className="h-4 w-4" />
+                      {type.label}
+                    </div>
                   </SelectItem>
                 ))}
               </SelectContent>
@@ -150,14 +149,17 @@ export const PackManagement: React.FC = () => {
             <Input
               type="number"
               min="1"
-              value={packUses}
-              onChange={(e) => setPackUses(parseInt(e.target.value) || 1)}
-              placeholder="Uses"
-              disabled={packType === 'history'}
+              value={amount}
+              onChange={(e) => setAmount(parseInt(e.target.value) || 0)}
+              placeholder="Amount"
             />
 
-            <Button onClick={grantPack} disabled={loading}>
-              {loading ? 'Granting...' : 'Grant Pack'}
+            <Button
+              onClick={handleAddCredits}
+              disabled={loading || !selectedUser || !creditType || amount <= 0}
+              className="w-full"
+            >
+              {loading ? 'Adding...' : 'Add Credits'}
             </Button>
           </div>
         </CardContent>
@@ -165,29 +167,22 @@ export const PackManagement: React.FC = () => {
 
       <Card>
         <CardHeader>
-          <CardTitle>User Pack Status</CardTitle>
+          <CardTitle>User Credit Balances</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="space-y-4">
-            {users.map(user => (
-              <div key={user.id} className="flex items-center justify-between p-3 border rounded">
-                <span className="font-medium">{user.username}</span>
-                <div className="flex gap-2 flex-wrap">
-                  <Badge variant="outline">
-                    👻 {user.anonymous_uses_remaining}
-                  </Badge>
-                  <Badge variant="outline">
-                    🗑️ {user.delete_uses_remaining}
-                  </Badge>
-                  <Badge variant="outline">
-                    ⚡ {user.boost_uses_remaining}
-                  </Badge>
-                  <Badge variant="outline">
-                    📚 {user.history_unlocked ? '✅' : '❌'}
-                  </Badge>
-                  <Badge variant="outline">
-                    ➕ {user.extra_takes_remaining}
-                  </Badge>
+            {users.map((user) => (
+              <div key={user.id} className="border rounded p-4">
+                <h3 className="font-semibold mb-2">{user.username}</h3>
+                <div className="grid grid-cols-2 gap-2">
+                  {creditTypes.map((type) => (
+                    <div key={type.value} className="flex items-center justify-between">
+                      <span className="text-sm">{type.label}:</span>
+                      <Badge variant="secondary">
+                        {user.user_credits[type.value]}
+                      </Badge>
+                    </div>
+                  ))}
                 </div>
               </div>
             ))}
