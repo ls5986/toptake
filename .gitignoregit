@@ -1,0 +1,5 @@
+.env.production
+push
+-f
+origin
+main
