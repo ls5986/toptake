@@ -15,35 +15,64 @@ interface DailyPromptBlockerProps {
 }
 
 export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerProps) => {
-  const { user, updateStreak, setCurrentScreen, setUser, setIsAppBlocked, userCredits } = useAppContext();
+  const { user, updateStreak, setCurrentScreen, setUser, setIsAppBlocked, userCredits, setHasPostedToday, checkHasPostedToday } = useAppContext();
   const [promptText, setPromptText] = useState('');
   const [response, setResponse] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
-  const [displayPrompt, setDisplayPrompt] = useState("What's one thing you believe but others don't?");
+  const [promptInfo, setPromptInfo] = useState({ id: null, prompt_text: "What's one thing you believe but others don't?" });
 
   const canPostAnonymously = user && userCredits.anonymous > 0;
 
+  // Function to get the current user's access token with timeout
+  const getAccessToken = async () => {
+    const timeout = new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000));
+    const sessionResult = await Promise.race([supabase.auth.getSession(), timeout]);
+    const result = sessionResult as { data?: { session?: { access_token?: string } } };
+    return result?.data?.session?.access_token;
+  };
+
+  // Function to create headers with auth token
+  const createAuthHeaders = async () => {
+    const token = await getAccessToken();
+    return {
+      'apikey': 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhanR4bmdicnVqbG9wenFqdmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NjU5ODEsImV4cCI6MjA2NDE0MTk4MX0.N-UphTEKPeFwxy8yoCpQCJYcsknHL8QTRuE4jzThLWw',
+      'Authorization': `Bearer ${token}`,
+      'Content-Type': 'application/json',
+      'Prefer': 'return=minimal'
+    };
+  };
+
   useEffect(() => {
     const fetchPrompt = async () => {
-      const today = new Date().toISOString().split('T')[0];
-      const { data } = await supabase
-        .from('daily_prompts')
-        .select('prompt_text, id')
-        .eq('prompt_date', today)
-        .single();
-      if (data && data.prompt_text) {
-        setDisplayPrompt(data.prompt_text);
-      } else {
-        setDisplayPrompt("No prompt for today!");
+      const today = new Date().toLocaleDateString('en-CA');
+      try {
+        const headers = await createAuthHeaders();
+        const response = await fetch(`https://qajtxngbrujlopzqjvfj.supabase.co/rest/v1/daily_prompts?prompt_date=eq.${today}&select=prompt_text,id`, {
+          headers: {
+            ...headers,
+            'Content-Type': undefined, // Remove Content-Type for GET requests
+            'Prefer': undefined
+          }
+        });
+        const data = await response.json();
+        if (data && data.length > 0 && data[0].prompt_text) {
+          setPromptInfo({ id: data[0].id, prompt_text: data[0].prompt_text });
+        } else {
+          setPromptInfo({ id: null, prompt_text: "No prompt for today!" });
+        }
+      } catch (error) {
+        console.error('Error fetching prompt:', error);
+        setPromptInfo({ id: null, prompt_text: "Error loading prompt" });
       }
     };
     fetchPrompt();
   }, []);
 
   const submitResponse = async () => {
+    console.log('submitResponse CALLED');
     if (!user) return;
 
     // Validate content length
@@ -60,30 +89,42 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
     setLoading(true);
     
     try {
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
+      if (!promptInfo.id) {
+        toast({ title: "No prompt found for today", variant: "destructive" });
+        setLoading(false);
+        return;
+      }
+      const dailyPrompt = { id: promptInfo.id };
 
-      // Get today's prompt
-      const { data: dailyPrompt, error: promptError } = await supabase
-        .from('daily_prompts')
-        .select('id')
-        .eq('prompt_date', today)
-        .single();
-
-      if (promptError) {
-        console.error('Error fetching prompt:', promptError);
-        toast({ title: "Error fetching prompt", variant: "destructive" });
+      // ADD LOGGING AND ERROR HANDLING FOR AUTH HEADERS
+      let headers;
+      try {
+        console.log('About to call createAuthHeaders()');
+        headers = await createAuthHeaders();
+        console.log('Headers from createAuthHeaders:', headers);
+      } catch (err) {
+        console.error('Error in createAuthHeaders or getAccessToken:', err);
+        setLoading(false);
+        toast({ title: "Auth/session error", description: err.message, variant: "destructive" });
         return;
       }
 
-      // Check if user has already posted today
-      const { data: existingTake } = await supabase
-        .from('takes')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('prompt_date', today)
-        .single();
+      // Check if user has already posted today using fetch with auth
+      console.log('[FETCH] GET takes (check existing)');
+      const existingResponse = await fetch(`https://qajtxngbrujlopzqjvfj.supabase.co/rest/v1/takes?user_id=eq.${user.id}&prompt_id=eq.${dailyPrompt.id}&select=id`, {
+        headers: {
+          ...headers,
+          'Content-Type': undefined, // Remove Content-Type for GET requests
+          'Prefer': undefined
+        }
+      });
+      console.log('[FETCH DONE] GET takes (check existing)', existingResponse);
+      
+      const existingData = await existingResponse.json();
+      console.log('Existing take check:', { existingData });
 
-      if (existingTake) {
+      if (existingData && existingData.length > 0) {
         toast({ 
           title: "You've already posted today!", 
           description: "Come back tomorrow for a new prompt.", 
@@ -92,35 +133,47 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
         setUser({ ...user, last_post_date: today });
         setIsAppBlocked(false);
         onSubmit();
+        setLoading(false);
         return;
       }
 
-      // Start a transaction
-      const { error: takeError } = await supabase
-        .from('takes')
-        .insert({
-          user_id: user.id,
-          content: trimmedContent,
-          is_anonymous: isAnonymous,
-          prompt_date: today,
-          daily_prompt_id: dailyPrompt.id,
-          created_at: new Date().toISOString()
-        });
+      // Prepare insert data
+      const insertData = {
+        user_id: user.id,
+        content: trimmedContent,
+        is_anonymous: isAnonymous,
+        prompt_date: today,
+        prompt_id: dailyPrompt.id,
+        created_at: new Date().toISOString()
+      };
+      console.log('Starting submission with data:', insertData);
 
-      if (takeError) {
-        console.error('Take submission error:', takeError);
+      // Insert the take using fetch with auth
+      console.log('[FETCH] POST takes');
+      const insertResponse = await fetch('https://qajtxngbrujlopzqjvfj.supabase.co/rest/v1/takes', {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(insertData)
+      });
+      console.log('[FETCH DONE] POST takes', insertResponse);
+
+      if (!insertResponse.ok) {
+        const errorData = await insertResponse.json();
+        console.error('Database error:', errorData);
         toast({ 
           title: "Failed to submit take", 
-          description: takeError.message, 
+          description: errorData.message || 'Database error', 
           variant: "destructive" 
         });
+        setLoading(false);
         return;
       }
 
+      console.log('Insert successful');
+
       // Record engagement analytics
-      const { error: analyticsError } = await supabase
-        .from('engagement_analytics')
-        .insert({
+      try {
+        const analyticsData = {
           user_id: user.id,
           action_type: 'submit_take',
           metadata: {
@@ -129,53 +182,75 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
             is_anonymous: isAnonymous
           },
           created_at: new Date().toISOString()
+        };
+        console.log('[FETCH] POST engagement_analytics');
+        const analyticsResponse = await fetch('https://qajtxngbrujlopzqjvfj.supabase.co/rest/v1/engagement_analytics', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify(analyticsData)
         });
-
-      if (analyticsError) {
-        console.error('Analytics error:', analyticsError);
+        console.log('[FETCH DONE] POST engagement_analytics', analyticsResponse);
+        if (!analyticsResponse.ok) {
+          console.error('Analytics error:', await analyticsResponse.json());
+        }
+      } catch (err) {
+        console.error('Analytics insert failed:', err);
       }
 
       // Handle anonymous credit usage
       if (isAnonymous) {
-        const { error: creditError } = await supabase
-          .from('user_credits')
-          .update({ balance: userCredits.anonymous - 1 })
-          .eq('user_id', user.id)
-          .eq('credit_type', 'anonymous');
-
-        if (creditError) {
-          console.error('Credit update error:', creditError);
+        try {
+          const creditData = { balance: userCredits.anonymous - 1 };
+          console.log('[FETCH] PATCH user_credits');
+          const creditResponse = await fetch(`https://qajtxngbrujlopzqjvfj.supabase.co/rest/v1/user_credits?user_id=eq.${user.id}&credit_type=eq.anonymous`, {
+            method: 'PATCH',
+            headers,
+            body: JSON.stringify(creditData)
+          });
+          console.log('[FETCH DONE] PATCH user_credits', creditResponse);
+          if (!creditResponse.ok) {
+            console.error('Credit update error:', await creditResponse.json());
+          }
+        } catch (err) {
+          console.error('Credit update failed:', err);
         }
       }
 
       // Update user's last post date and streak
-      const { error: profileError } = await supabase
-        .from('profiles')
-        .update({ 
+      try {
+        const profileData = { 
           last_post_date: today,
           current_streak: user.current_streak + 1,
           longest_streak: Math.max(user.current_streak + 1, user.longest_streak || 0)
-        })
-        .eq('id', user.id);
-
-      if (profileError) {
-        console.error('Profile update error:', profileError);
+        };
+        console.log('[FETCH] PATCH profiles');
+        const profileResponse = await fetch(`https://qajtxngbrujlopzqjvfj.supabase.co/rest/v1/profiles?id=eq.${user.id}`, {
+          method: 'PATCH',
+          headers,
+          body: JSON.stringify(profileData)
+        });
+        console.log('[FETCH DONE] PATCH profiles', profileResponse);
+        if (!profileResponse.ok) {
+          console.error('Profile update error:', await profileResponse.json());
+        }
+      } catch (err) {
+        console.error('Profile update failed:', err);
       }
 
-      // Update local state
-      setUser({ 
-        ...user, 
+      // Update local state only after successful database operations
+      await checkHasPostedToday();
+      setUser({
+        ...user!,
+        current_streak: user!.current_streak + 1,
         last_post_date: today,
-        current_streak: user.current_streak + 1,
-        longest_streak: Math.max(user.current_streak + 1, user.longest_streak || 0)
+        longest_streak: Math.max((user!.current_streak || 0) + 1, user!.longest_streak || 0)
       });
-      
-      await updateStreak();
       setIsAppBlocked(false);
+      await updateStreak();
       toast({ title: "Take submitted successfully!" });
       onSubmit();
     } catch (err) {
-      console.error('Submission error:', err);
+      console.error('Submission failed:', err);
       toast({ title: "An error occurred", variant: "destructive" });
     } finally {
       setLoading(false);
@@ -185,6 +260,13 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
   const handleBuyCredits = () => {
     setShowAnonymousModal(true);
   };
+
+  // Log button state before rendering
+  console.log('DailyPromptBlocker render:', {
+    responseTrim: response.trim(),
+    loading,
+    buttonDisabled: loading || !response.trim()
+  });
 
   if (!isBlocked) return null;
 
@@ -197,7 +279,7 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
           </DialogHeader>
           <div className="space-y-4">
             <div className="p-4 bg-brand-surface rounded-lg">
-              <p className="text-brand-text">{displayPrompt}</p>
+              <p className="text-brand-text">{promptInfo.prompt_text}</p>
             </div>
             
             <div className="space-y-2">
@@ -248,14 +330,16 @@ export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerPr
         </DialogContent>
       </Dialog>
       
-      <MonetizationModals
-        showAnonymousModal={showAnonymousModal}
-        showStreakModal={false}
-        showPremiumModal={false}
-        showBoostModal={false}
-        onClose={() => setShowAnonymousModal(false)}
-        onPurchase={() => {}}
-      />
+      {showAnonymousModal && (
+        <MonetizationModals
+          onClose={() => setShowAnonymousModal(false)}
+          onSuccess={() => {
+            setShowAnonymousModal(false);
+            // Refresh user credits after purchase
+            // You might want to add a function to refresh credits here
+          }}
+        />
+      )}
     </>
   );
 };

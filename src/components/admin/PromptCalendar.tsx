@@ -56,47 +56,32 @@ const PromptCalendar: React.FC = () => {
   }, []);
 
   const loadPrompts = async () => {
-    setLoading(true);
     try {
-      const firstDayStr = format(monthStart, 'yyyy-MM-dd');
-      const lastDayStr = format(monthEnd, 'yyyy-MM-dd');
       const { data, error } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .select('*')
-        .gte('prompt_date', firstDayStr)
-        .lte('prompt_date', lastDayStr)
         .order('prompt_date', { ascending: true });
+      
       if (error) throw error;
-      // Fetch engagement for each prompt
+      
+      // Calculate engagement for each prompt
       const promptsWithEngagement = await Promise.all(
-        (data || []).map(async (p: Prompt) => {
-          // Takes
-          const { count: takesCount } = await supabase
-            .from('takes')
-            .select('id', { count: 'exact', head: true })
-            .eq('prompt_date', p.prompt_date);
-          // Comments
-          const { count: commentsCount } = await supabase
-            .from('comments')
-            .select('id', { count: 'exact', head: true })
-            .eq('prompt_date', p.prompt_date);
-          // Reactions
+        (data || []).map(async (prompt) => {
           const { data: takes } = await supabase
             .from('takes')
-            .select('reactions')
-            .eq('prompt_date', p.prompt_date);
+            .select('id')
+            .eq('prompt_date', prompt.prompt_date);
+          
           const totalReactions = await calculateTotalReactions(takes);
-          return {
-            ...p,
-            engagement: (takesCount || 0) + (commentsCount || 0) + totalReactions
-          };
+          const engagement = (takes?.length || 0) + totalReactions;
+          
+          return { ...prompt, engagement };
         })
       );
+      
       setPrompts(promptsWithEngagement);
-    } catch (err: unknown) {
-      setPrompts([]);
-    } finally {
-      setLoading(false);
+    } catch (error) {
+      console.error('Error loading prompts:', error);
     }
   };
 
@@ -140,8 +125,8 @@ const PromptCalendar: React.FC = () => {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const { error } = await supabase
-        .from('daily_prompts')
-        .insert({ prompt_text: newPromptText.trim(), prompt_date: dateStr, status: 'scheduled' });
+        .from('prompts')
+        .insert({ prompt_text: newPromptText.trim(), prompt_date: dateStr, is_active: true });
       if (error) throw error;
       setShowModal(false);
       setNewPromptText('');
@@ -159,7 +144,7 @@ const PromptCalendar: React.FC = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .update({ prompt_text: newPromptText.trim() })
         .eq('id', modalPrompt.id);
       if (error) throw error;
@@ -179,7 +164,7 @@ const PromptCalendar: React.FC = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .delete()
         .eq('id', modalPrompt.id);
       if (error) throw error;

@@ -24,6 +24,8 @@ const PromptScreen: React.FC = () => {
   const canPostAnonymously = user && userCredits.anonymous > 0;
   const canLateSubmit = user && userCredits.late_submit > 0;
 
+  const today = new Date().toLocaleDateString('en-CA'); // Local date in YYYY-MM-DD
+
   const handleSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
     if (hasPostedToday) {
@@ -44,7 +46,20 @@ const PromptScreen: React.FC = () => {
       }
       setUserCredits({ ...userCredits, anonymous: userCredits.anonymous - 1 });
     }
-    const success = await submitTake(takeContent, isAnonymous);
+    // Fetch today's prompt by local date
+    const today = new Date().toLocaleDateString('en-CA');
+    const { data: prompt, error } = await supabase
+      .from('daily_prompts')
+      .select('id')
+      .eq('prompt_date', today)
+      .eq('is_active', true)
+      .single();
+    if (!prompt) {
+      alert('No prompt found for today!');
+      setIsSubmitting(false);
+      return;
+    }
+    const success = await submitTake(takeContent, isAnonymous, prompt.id);
     if (success) {
       setCurrentScreen('main');
     } else {

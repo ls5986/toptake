@@ -32,7 +32,7 @@ export const useNewDailyPrompt = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return false;
 
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA');
       const promptId = getCurrentPrompt().id;
 
       const { error } = await supabase
@@ -42,8 +42,7 @@ export const useNewDailyPrompt = () => {
           prompt_id: promptId,
           content,
           is_anonymous: isAnonymous,
-          prompt_date: today,
-          take_date: today
+          prompt_date: today
         });
 
       if (error) return false;
@@ -60,7 +59,7 @@ export const useNewDailyPrompt = () => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) return;
 
-        const today = new Date().toISOString().split('T')[0];
+        const today = new Date().toLocaleDateString('en-CA');
         const { data } = await supabase
           .from('takes')
           .select('id')

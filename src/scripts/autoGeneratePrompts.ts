@@ -5,7 +5,7 @@ const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_
 
 async function updateEngagementAnalytics() {
   const { data: prompts } = await supabase
-    .from('daily_prompts')
+    .from('prompts')
     .select('id, prompt_text, prompt_date')
     .gte('prompt_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
@@ -17,13 +17,19 @@ async function updateEngagementAnalytics() {
 
     const { data: takes } = await supabase
       .from('takes')
-      .select('reactions')
+      .select('id')
       .eq('prompt_date', prompt.prompt_date);
 
-    const totalReactions = (takes || []).reduce((sum, t) => {
-      const r = t.reactions || {};
-      return sum + Object.values(r).reduce((a, b) => a + (b as number), 0);
-    }, 0);
+    // Calculate reactions from take_reactions table
+    let totalReactions = 0;
+    if (takes && takes.length > 0) {
+      const takeIds = takes.map(t => t.id);
+      const { data: reactions } = await supabase
+        .from('take_reactions')
+        .select('id')
+        .in('take_id', takeIds);
+      totalReactions = reactions?.length || 0;
+    }
 
     await supabase
       .from('engagement_analytics')
@@ -79,17 +85,17 @@ async function insertDraftPrompts(prompts: string[]) {
     while (!found) {
       const dateStr = scheduleDate.toISOString().split('T')[0];
       const { data: existing } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .select('id')
         .eq('prompt_date', dateStr)
         .single();
       if (!existing) {
         found = true;
-        await supabase.from('daily_prompts').insert({
+        await supabase.from('prompts').insert({
           prompt_text: promptText,
           prompt_date: dateStr,
           is_active: false, // Draft for admin review
-          source: 'ai_auto_generated'
+          created_at: new Date().toISOString()
         });
       } else {
         // If duplicate, skip to next day

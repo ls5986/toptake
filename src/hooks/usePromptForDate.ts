@@ -12,7 +12,7 @@ export function usePromptForDate(date: Date) {
     setPromptText('');
     setError(null);
     const fetchPrompt = async () => {
-      const dateStr = date.toISOString().split('T')[0];
+      const dateStr = date.toLocaleDateString('en-CA');
       const { data, error } = await supabase
         .from('daily_prompts')
         .select('prompt_text')

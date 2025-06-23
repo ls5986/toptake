@@ -39,19 +39,17 @@ const PromptAnalytics: React.FC = () => {
 
   const loadAnalytics = async () => {
     setLoading(true);
-    setError(null);
     try {
-      const since = new Date();
-      since.setDate(since.getDate() - 30);
-      const sinceStr = since.toISOString().split('T')[0];
-      const { data: prompts, error: promptsError } = await supabase
-        .from('daily_prompts')
+      const { data: prompts, error } = await supabase
+        .from('prompts')
         .select('*')
-        .gte('prompt_date', sinceStr)
-        .order('prompt_date', { ascending: false });
-      if (promptsError) throw promptsError;
-      const analytics: AnalyticsRow[] = await Promise.all(
-        (prompts || []).map(async (p: { prompt_text: string; prompt_date: string; }) => {
+        .order('prompt_date', { ascending: false })
+        .limit(30);
+      
+      if (error) throw error;
+      
+      const analytics = await Promise.all(
+        (prompts || []).map(async (p) => {
           // Takes
           const { count: takesCount } = await supabase
             .from('takes')
@@ -62,10 +60,10 @@ const PromptAnalytics: React.FC = () => {
             .from('comments')
             .select('id', { count: 'exact', head: true })
             .eq('prompt_date', p.prompt_date);
-          // Reactions
+          // Reactions - get takes first, then reactions
           const { data: takes } = await supabase
             .from('takes')
-            .select('reactions')
+            .select('id')
             .eq('prompt_date', p.prompt_date);
           const totalReactions = await calculateTotalReactions(takes);
           return {
@@ -167,9 +165,9 @@ const PromptAnalytics: React.FC = () => {
   };
 
   const handleExportPrompts = async () => {
-    const { data } = await supabase.from('daily_prompts').select('*');
+    const { data } = await supabase.from('prompts').select('*');
     if (data) {
-      exportToCSV('prompts.csv', data, ['id','prompt_date','prompt_text','status']);
+      exportToCSV('prompts.csv', data, ['id','prompt_date','prompt_text','is_active']);
       toast({ title: 'Prompts exported', description: 'Prompts CSV downloaded.', variant: 'default' });
     }
   };

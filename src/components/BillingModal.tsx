@@ -3,12 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/AppContext';
 import { StripePayment } from './StripePayment';
-import { createBrowserClient } from '@supabase/ssr';
-
-const supabaseClient = createBrowserClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 interface BillingModalProps {
   isOpen: boolean;
@@ -85,10 +80,10 @@ const BillingModal: React.FC<BillingModalProps> = ({ isOpen, onClose }) => {
 
     try {
       // Update user credits in the database
-      const { error: updateError } = await supabaseClient
+      const { error: updateError } = await supabase
         .from('user_credits')
         .upsert({
-          user_id: (await supabaseClient.auth.getUser()).data.user?.id,
+          user_id: (await supabase.auth.getUser()).data.user?.id,
           [selectedPackage.type]: (userCredits[selectedPackage.type] || 0) + selectedPackage.credits
         });
 

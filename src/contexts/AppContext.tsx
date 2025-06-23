@@ -2,7 +2,6 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
-import { createBrowserClient } from '@supabase/ssr';
 import LoadingSpinner from '@/components/LoadingSpinner';
 import type { User } from '@/types';
 import { getUserCredits, CreditType } from '@/lib/credits';
@@ -32,6 +31,8 @@ interface AppContextType {
   selectedProfile: string | null;
   setSelectedProfile: (profileId: string | null) => void;
   hasPostedToday: boolean;
+  setHasPostedToday: (value: boolean) => void;
+  checkHasPostedToday: () => Promise<void>;
   currentPrompt: string;
   tomorrowPrompt: string | null;
   submitTake: (content: string, isAnonymous: boolean, promptId?: string) => Promise<boolean>;
@@ -44,6 +45,7 @@ interface AppContextType {
   refreshUserCredits: () => Promise<void>;
   isLoading: boolean;
   error: string | null;
+  clearUserState: () => void;
 }
 
 const defaultCredits: UserCredits = {
@@ -71,6 +73,8 @@ const AppContext = createContext<AppContextType>({
   selectedProfile: null,
   setSelectedProfile: () => {},
   hasPostedToday: false,
+  setHasPostedToday: () => {},
+  checkHasPostedToday: async () => {},
   currentPrompt: '',
   tomorrowPrompt: null,
   submitTake: async () => false,
@@ -82,7 +86,8 @@ const AppContext = createContext<AppContextType>({
   setUserCredits: () => {},
   refreshUserCredits: async () => {},
   isLoading: true,
-  error: null
+  error: null,
+  clearUserState: () => {}
 });
 
 export const useAppContext = () => {
@@ -109,16 +114,12 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
   const { toast } = useToast();
-  const supabaseClient = createBrowserClient(
-    import.meta.env.VITE_SUPABASE_URL!,
-    import.meta.env.VITE_SUPABASE_ANON_KEY!
-  );
 
   const isAuthenticated = user !== null;
 
   const logout = async () => {
     try {
-      await supabaseClient.auth.signOut();
+      await supabase.auth.signOut();
       localStorage.clear();
       setUser(null);
       setCurrentScreen('main');
@@ -158,7 +159,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       });
 
       // Check if user has posted today
-      const { data: existingTake, error } = await supabaseClient
+      const { data: existingTake, error } = await supabase
         .from('takes')
         .select('id')
         .eq('user_id', user.id)
@@ -194,7 +195,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (!lastPostDate) {
         // First post ever
-        await supabaseClient
+        await supabase
           .from('profiles')
           .update({ 
             current_streak: 1,
@@ -223,7 +224,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const newStreak = (user.current_streak || 0) + 1;
         const newLongestStreak = Math.max(newStreak, user.longest_streak || 0);
 
-        await supabaseClient
+        await supabase
           .from('profiles')
           .update({ 
             current_streak: newStreak,
@@ -240,7 +241,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
       } else if (diffDays > 1) {
         // Streak broken
-        await supabaseClient
+        await supabase
           .from('profiles')
           .update({ 
             current_streak: 1,
@@ -265,7 +266,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       tomorrow.setDate(tomorrow.getDate() + 1);
       const tomorrowStr = tomorrow.toISOString().split('T')[0];
       
-      const { data: promptData, error: promptError } = await supabaseClient
+      const { data: promptData, error: promptError } = await supabase
         .from('daily_prompts')
         .select('prompt_text')
         .eq('prompt_date', tomorrowStr)
@@ -282,55 +283,188 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  // Add this new function to handle auth state recovery
+  // Utility to force logout and redirect to login
+  const forceLogoutAndRedirect = async (reason?: string) => {
+    try {
+      console.warn('Force logout and redirect triggered', reason || '');
+      await supabase.auth.signOut();
+      localStorage.clear();
+      sessionStorage.clear();
+      setUser(null);
+      setCurrentScreen('main');
+      setHasCompletedOnboarding(false);
+      setShouldShowCarousel(false);
+      setSelectedProfile(null);
+      setIsAppBlocked(false);
+      setHasPostedToday(false);
+      setCurrentTakeId(null);
+      setUserCredits(defaultCredits);
+      setError(null);
+      window.location.href = '/login';
+    } catch (error) {
+      console.error('Error during forceLogoutAndRedirect:', error);
+      localStorage.clear();
+      sessionStorage.clear();
+      setUser(null);
+      setCurrentScreen('main');
+      setIsAppBlocked(false);
+      setHasPostedToday(false);
+      setCurrentTakeId(null);
+      setUserCredits(defaultCredits);
+      setError(null);
+      window.location.href = '/login';
+    }
+  };
+
+  // Utility to clear user state when session validation fails
+  const clearUserState = () => {
+    console.log('Clearing user state due to invalid session');
+    setUser(null);
+    setCurrentScreen('main');
+    setHasCompletedOnboarding(false);
+    setShouldShowCarousel(false);
+    setSelectedProfile(null);
+    setIsAppBlocked(false);
+    setHasPostedToday(false);
+    setCurrentTakeId(null);
+    setUserCredits(defaultCredits);
+    setError(null);
+  };
+
+  // Refactored initializeAuth with timeout and robust error handling
+  useEffect(() => {
+    const initializeAuth = async () => {
+      try {
+        // Timeout helper
+        const withTimeout = (promise, ms, label) => {
+          return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timeout')), ms))
+          ]);
+        };
+        // Get initial session with timeout
+        let session;
+        try {
+          const sessionResult = await withTimeout(supabase.auth.getSession(), 7000, 'getSession');
+          session = sessionResult?.data?.session;
+          if (!session) throw new Error('No session returned');
+        } catch (err) {
+          console.error('initializeAuth: Failed to get session or timed out', err);
+          await forceLogoutAndRedirect('No valid session on app load');
+          return;
+        }
+        // Get user profile with timeout
+        let profile;
+        try {
+          const profileResult = await withTimeout(
+            supabase.from('profiles').select('*').eq('id', session.user.id).single(),
+            7000,
+            'profile fetch'
+          );
+          profile = profileResult?.data;
+          if (!profile) throw new Error('No profile returned');
+        } catch (err) {
+          console.error('initializeAuth: Failed to get profile or timed out', err);
+          await forceLogoutAndRedirect('No valid profile on app load');
+          return;
+        }
+        setUser(profile);
+        setHasPostedToday(profile.has_posted_today);
+        // Set up auth state change listener
+        const { data: { subscription } } = supabase.auth.onAuthStateChange(async (event, session) => {
+          console.log('Auth state changed:', { event, hasSession: !!session, userId: session?.user?.id });
+          if (session) {
+            setUser(session.user);
+            // Optionally re-fetch profile here
+          } else {
+            await forceLogoutAndRedirect('Auth state change: session null');
+          }
+        });
+        return () => {
+          subscription.unsubscribe();
+        };
+      } catch (error) {
+        console.error('Error in initializeAuth:', error);
+        await forceLogoutAndRedirect('initializeAuth error');
+      }
+    };
+    initializeAuth();
+  }, []);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    // Subscribe to real-time updates for the current user's profile
+    const profileSub = supabase
+      .channel('public:profiles')
+      .on(
+        'postgres_changes',
+        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
+        async (payload) => {
+          // Refetch the updated profile
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', user.id)
+            .maybeSingle();
+          if (profile) {
+            setUser((prev) => prev ? { ...prev, ...profile } : prev);
+          }
+        }
+      )
+      .subscribe();
+    return () => {
+      supabase.removeChannel(profileSub);
+    };
+  }, [user?.id]);
+
+  useEffect(() => {
+    refreshUserCredits();
+  }, []);
+
+  // Refactored recoverAuthState with timeout and robust error handling
   const recoverAuthState = async () => {
     try {
-      // First check if user exists in profiles
-      const { data: profile, error: profileError } = await supabaseClient
-        .from('profiles')
-        .select('*')
-        .eq('id', user?.id)
-        .single();
-
-      console.log('Auth Recovery Debug:', {
-        userId: user?.id,
-        profileExists: !!profile,
-        profileError
-      });
-
-      if (profileError || !profile) {
-        console.error('Profile not found, forcing re-auth');
-        // Clear all auth state
-        await supabaseClient.auth.signOut();
-        // Clear local storage
-        localStorage.clear();
-        // Redirect to login
-        window.location.href = '/login';
+      const withTimeout = (promise, ms, label) => {
+        return Promise.race([
+          promise,
+          new Promise((_, reject) => setTimeout(() => reject(new Error(label + ' timeout')), ms))
+        ]);
+      };
+      // Check profile
+      let profile;
+      try {
+        const profileResult = await withTimeout(
+          supabase.from('profiles').select('*').eq('id', user?.id).single(),
+          7000,
+          'profile fetch'
+        );
+        profile = profileResult?.data;
+        if (!profile) throw new Error('No profile returned');
+      } catch (err) {
+        console.error('recoverAuthState: Failed to get profile or timed out', err);
+        await forceLogoutAndRedirect('recoverAuthState: no profile');
         return false;
       }
-
-      // If profile exists but session is invalid, try to refresh
-      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-      if (sessionError || !session) {
-        console.log('No valid session, attempting to refresh...');
-        const { data: { session: refreshedSession }, error: refreshError } = await supabaseClient.auth.refreshSession();
-        
-        if (refreshError || !refreshedSession) {
-          console.error('Session refresh failed, forcing re-auth');
-          await supabaseClient.auth.signOut();
-          localStorage.clear();
-          window.location.href = '/login';
-          return false;
-        }
+      // Check session
+      let session;
+      try {
+        const sessionResult = await withTimeout(supabase.auth.getSession(), 7000, 'getSession');
+        session = sessionResult?.data?.session;
+        if (!session) throw new Error('No session returned');
+      } catch (err) {
+        console.error('recoverAuthState: Failed to get session or timed out', err);
+        await forceLogoutAndRedirect('recoverAuthState: no session');
+        return false;
       }
-
       return true;
     } catch (error) {
-      console.error('Error in auth recovery:', error);
+      console.error('Error in recoverAuthState:', error);
+      await forceLogoutAndRedirect('recoverAuthState: error');
       return false;
     }
   };
 
+  // Refactored submitTake to force logout on session error
   const submitTake = async (content: string, isAnonymous: boolean, promptId?: string): Promise<boolean> => {
     console.log('submitTake function called - ENTRY POINT', {
       contentLength: content?.length,
@@ -339,85 +473,63 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       hasUser: !!user,
       userId: user?.id
     });
-
     try {
       if (!user) {
         console.error('submitTake: No user found');
+        await forceLogoutAndRedirect('submitTake: no user');
         return false;
       }
-
-      console.log('submitTake: User found, proceeding with submission');
-
-      // Verify session before submission with retry logic
-      console.log('submitTake: About to call getSession...');
-      let session = null;
-      let retryCount = 0;
-      const maxRetries = 3;
-
-      while (retryCount < maxRetries) {
-        try {
-          const { data: { session: currentSession }, error: sessionError } = await supabaseClient.auth.getSession();
-          console.log(`submitTake: getSession attempt ${retryCount + 1}:`, {
-            hasSession: !!currentSession,
-            sessionError,
-            userId: user.id
-          });
-
-          if (currentSession) {
-            session = currentSession;
-            break;
-          }
-
-          if (sessionError) {
-            console.error('Session error:', sessionError);
-          }
-
-          retryCount++;
-          if (retryCount < maxRetries) {
-            console.log(`Retrying session check (${retryCount}/${maxRetries})...`);
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Wait 1 second between retries
-          }
-        } catch (error) {
-          console.error(`Session check attempt ${retryCount + 1} failed:`, error);
-          retryCount++;
-          if (retryCount < maxRetries) {
-            await new Promise(resolve => setTimeout(resolve, 1000));
-          }
-        }
+      // Get today's prompt ID from the prompts table
+      const today = new Date().toLocaleDateString('en-CA');
+      const { data: promptData, error: promptError } = await supabase
+        .from('daily_prompts')
+        .select('id')
+        .eq('prompt_date', today)
+        .single();
+      if (promptError || !promptData) {
+        console.error('Error fetching today\'s prompt:', promptError);
+        alert('No prompt found for today. Please try again later.');
+        return false;
       }
-
-      if (!session) {
-        console.error('Failed to get valid session after retries');
+      const actualPromptId = promptId || promptData.id;
+      // Verify session before submission with timeout
+      let session;
+      try {
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 7000))
+        ]);
+        session = sessionResult?.data?.session;
+        if (!session) throw new Error('No session returned');
+      } catch (err) {
+        console.error('submitTake: Failed to get session or timed out', err);
+        await forceLogoutAndRedirect('submitTake: no session');
         return false;
       }
 
       console.log('submitTake: Session verified, preparing data');
-
-      const today = new Date(Date.UTC(
-        new Date().getUTCFullYear(),
-        new Date().getUTCMonth(),
-        new Date().getUTCDate()
-      )).toISOString().split('T')[0];
 
       // Debug insert data
       const insertData = {
         user_id: user.id,
         content,
         is_anonymous: isAnonymous,
+        prompt_id: actualPromptId,
         prompt_date: today,
-        created_at: new Date().toISOString(),
         is_late_submit: false,
-        is_deleted: false
+        is_deleted: false,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
       };
       console.log('Insert Data:', insertData);
 
       // First check if user already has a take for today
       console.log('Checking for existing take...');
-      const { data: existingTake, error: checkError } = await supabaseClient
+      const { data: existingTake, error: checkError } = await supabase
         .from('takes')
         .select('id')
         .eq('user_id', user.id)
-        .eq('prompt_date', today)
+        .eq('prompt_id', actualPromptId)
         .maybeSingle();
 
       console.log('Existing take check:', {
@@ -429,12 +541,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       if (existingTake) {
         console.error('User already has a take for today');
+        alert('You have already submitted a take for today.');
         return false;
       }
 
       // Attempt the insert with detailed logging
       console.log('Attempting to insert take...');
-      const { data: insertedTake, error: insertError } = await supabaseClient
+      const { data: insertedTake, error: insertError } = await supabase
         .from('takes')
         .insert(insertData)
         .select()
@@ -442,29 +555,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       console.log('Insert Result:', {
         insertedTake,
-        insertError: insertError ? {
-          code: insertError.code,
-          message: insertError.message,
-          details: insertError.details,
-          hint: insertError.hint,
-          statusCode: insertError.statusCode
-        } : null,
-        success: !!insertedTake
+        insertError,
+        insertData
       });
 
       if (insertError) {
-        console.error('Full insert error:', JSON.stringify(insertError, null, 2));
+        console.error('Full insert error:', insertError, JSON.stringify(insertError, null, 2));
+        alert('Failed to submit take: ' + (insertError.message || 'Unknown error'));
         return false;
       }
 
       if (!insertedTake) {
         console.error('No take was inserted despite no error');
+        alert('No take was inserted. Please try again.');
         return false;
       }
 
       // Verify the take was actually created
       console.log('Verifying take creation...');
-      const { data: verifiedTake, error: verifyError } = await supabaseClient
+      const { data: verifiedTake, error: verifyError } = await supabase
         .from('takes')
         .select('*')
         .eq('id', insertedTake.id)
@@ -481,22 +590,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           error: verifyError,
           data: verifiedTake
         });
+        alert('Take was not properly created. Please try again.');
         return false;
       }
 
       // Only proceed with updates if we confirmed the take was created
       console.log('Take successfully created, updating user state...');
-      
-      const { error: profileError } = await supabaseClient
+      const { error: profileError } = await supabase
         .from('profiles')
         .update({ 
           current_streak: user.current_streak + 1,
-          last_post_date: today
+          last_post_date: new Date().toISOString().split('T')[0]
         })
         .eq('id', user.id);
 
       if (profileError) {
         console.error('Failed to update profile:', profileError);
+        alert('Failed to update profile after take submission.');
         return false;
       }
 
@@ -505,7 +615,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(prev => prev ? { 
         ...prev, 
         current_streak: user.current_streak + 1,
-        last_post_date: today
+        last_post_date: new Date().toISOString().split('T')[0]
       } : null);
       setIsAppBlocked(false);
       await updateStreak();
@@ -516,13 +626,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     } catch (error) {
       console.error('submitTake crashed:', error);
+      alert('An unexpected error occurred: ' + (error?.message || error));
       return false;
     }
   };
 
   const handleAuthenticatedUser = async (authUser: any) => {
     try {
-      const { data: profile, error: profileError } = await supabaseClient
+      const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
@@ -577,20 +688,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   const refreshUserCredits = async () => {
+    setError(null);
     try {
-      setIsLoading(true);
-      setError(null);
-
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) {
         setUserCredits(defaultCredits);
         return;
       }
-
-      const { data, error: creditsError } = await supabaseClient
-        .rpc('get_user_credits', { user_id: user.id });
-
-      if (creditsError) throw creditsError;
+      const { data, error: creditsError } = await supabase
+        .from('user_credits')
+        .select('credit_type, balance')
+        .eq('user_id', user.id);
+      if (creditsError) {
+        throw creditsError;
+      }
 
       setUserCredits(data || defaultCredits);
     } catch (err) {
@@ -601,142 +712,35 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   };
 
-  useEffect(() => {
-    const initializeAuth = async () => {
-      try {
-        // Get initial session
-        const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
-        console.log('Initial session state:', {
-          hasSession: !!session,
-          sessionError,
-          userId: session?.user?.id
-        });
-
-        if (sessionError) {
-          console.error('Error getting initial session:', sessionError);
-          return;
-        }
-
-        if (session) {
-          // Set the session in the client
-          const { error: setSessionError } = await supabaseClient.auth.setSession({
-            access_token: session.access_token,
-            refresh_token: session.refresh_token
-          });
-
-          if (setSessionError) {
-            console.error('Error setting session:', setSessionError);
-            return;
-          }
-
-          // Verify session was set
-          const { data: { session: verifySession } } = await supabaseClient.auth.getSession();
-          console.log('Session verification:', {
-            hasSession: !!verifySession,
-            userId: verifySession?.user?.id,
-            accessToken: verifySession?.access_token ? 'present' : 'missing'
-          });
-
-          // Get user profile
-          const { data: profile, error: profileError } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single();
-
-          if (profileError) {
-            console.error('Error fetching profile:', profileError);
-            return;
-          }
-
-          if (profile) {
-            setUser(profile);
-            setHasPostedToday(profile.has_posted_today);
-          }
-        }
-
-        // Set up auth state change listener
-        const { data: { subscription } } = supabaseClient.auth.onAuthStateChange(async (event, session) => {
-          console.log('Auth state changed:', {
-            event,
-            hasSession: !!session,
-            userId: session?.user?.id
-          });
-
-          if (session) {
-            // Set the session in the client
-            const { error: setSessionError } = await supabaseClient.auth.setSession({
-              access_token: session.access_token,
-              refresh_token: session.refresh_token
-            });
-
-            if (setSessionError) {
-              console.error('Error setting session on auth change:', setSessionError);
-              return;
-            }
-
-            // Get user profile
-            const { data: profile, error: profileError } = await supabaseClient
-              .from('profiles')
-              .select('*')
-              .eq('id', session.user.id)
-              .single();
-
-            if (profileError) {
-              console.error('Error fetching profile on auth change:', profileError);
-              return;
-            }
-
-            if (profile) {
-              setUser(profile);
-              setHasPostedToday(profile.has_posted_today);
-            }
-          } else {
-            setUser(null);
-            setHasPostedToday(false);
-          }
-        });
-
-        return () => {
-          subscription.unsubscribe();
-        };
-      } catch (error) {
-        console.error('Error in initializeAuth:', error);
+  // Utility to check if the user has posted today by querying the backend
+  const checkHasPostedToday = async () => {
+    if (!user) {
+      setHasPostedToday(false);
+      return;
+    }
+    try {
+      const today = new Date().toLocaleDateString('en-CA');
+      const { data: takes, error } = await supabase
+        .from('takes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('prompt_date', today);
+      if (error) {
+        console.error('Error checking hasPostedToday:', error);
+        setHasPostedToday(false);
+        return;
       }
-    };
+      setHasPostedToday(!!(takes && takes.length > 0));
+    } catch (err) {
+      console.error('Error in checkHasPostedToday:', err);
+      setHasPostedToday(false);
+    }
+  };
 
-    initializeAuth();
-  }, []);
-
+  // Call checkHasPostedToday on mount and whenever user changes
   useEffect(() => {
-    if (!user?.id) return;
-    // Subscribe to real-time updates for the current user's profile
-    const profileSub = supabaseClient
-      .channel('public:profiles')
-      .on(
-        'postgres_changes',
-        { event: 'UPDATE', schema: 'public', table: 'profiles', filter: `id=eq.${user.id}` },
-        async (payload) => {
-          // Refetch the updated profile
-          const { data: profile } = await supabaseClient
-            .from('profiles')
-            .select('*')
-            .eq('id', user.id)
-            .maybeSingle();
-          if (profile) {
-            setUser((prev) => prev ? { ...prev, ...profile } : prev);
-          }
-        }
-      )
-      .subscribe();
-    return () => {
-      supabaseClient.removeChannel(profileSub);
-    };
-  }, [user?.id]);
-
-  useEffect(() => {
-    refreshUserCredits();
-  }, []);
+    checkHasPostedToday();
+  }, [user]);
 
   if (isLoading) {
     return <LoadingSpinner />;
@@ -760,6 +764,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         selectedProfile,
         setSelectedProfile,
         hasPostedToday,
+        setHasPostedToday,
+        checkHasPostedToday,
         currentPrompt,
         tomorrowPrompt,
         submitTake,
@@ -771,7 +777,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         setUserCredits,
         refreshUserCredits,
         isLoading,
-        error
+        error,
+        clearUserState
       }}
     >
       {children}

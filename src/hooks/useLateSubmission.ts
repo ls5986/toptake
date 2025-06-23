@@ -1,12 +1,7 @@
-import { createBrowserClient } from '@supabase/ssr';
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
 import { loadStripe } from '@stripe/stripe-js';
-
-const supabaseClient = createBrowserClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY!);
 
@@ -21,15 +16,15 @@ export const useLateSubmission = () => {
       setError(null);
 
       // Get current user
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       // Start a transaction
-      const { data: { session }, error: sessionError } = await supabaseClient.auth.getSession();
+      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
       if (sessionError) throw sessionError;
 
       // Create payment intent
-      const { data: { clientSecret }, error: paymentError } = await supabaseClient.functions.invoke('late-submission-payment', {
+      const { data: { clientSecret }, error: paymentError } = await supabase.functions.invoke('late-submission-payment', {
         body: {
           amount,
           userId: user.id,

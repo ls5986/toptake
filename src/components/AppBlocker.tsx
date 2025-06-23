@@ -21,6 +21,7 @@ interface AppBlockerProps {
 }
 
 export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) => {
+  console.log('AppBlocker render!');
   const { user, updateStreak, setUser, submitTake } = useAppContext();
   const { userCredits = { anonymous: 0, late_submit: 0, sneak_peek: 0, boost: 0, extra_takes: 0, delete: 0 } } = useCredits();
   const [response, setResponse] = useState('');
@@ -48,27 +49,55 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
   }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    console.log('AppBlocker handleSubmit CALLED');
     e.preventDefault(); // Prevent default form submission
     setLoading(true);
     setError(null);
-
     try {
+      console.log('handleSubmit: response value:', response);
       if (!response.trim()) {
         setError('Please enter your take before submitting.');
         setLoading(false);
         return;
       }
-
+      // Fetch today's prompt by local date
+      const today = new Date().toLocaleDateString('en-CA');
+      let prompt, error;
+      try {
+        const result = await supabase
+          .from('daily_prompts')
+          .select('id')
+          .eq('prompt_date', today)
+          .eq('is_active', true)
+          .single();
+        prompt = result.data;
+        error = result.error;
+        console.log('handleSubmit: prompt fetch result:', { prompt, error, result });
+      } catch (fetchErr) {
+        console.error('handleSubmit: prompt fetch threw error:', fetchErr);
+        setError('Error fetching prompt: ' + fetchErr.message);
+        setLoading(false);
+        return;
+      }
+      if (error) {
+        console.error('handleSubmit: prompt fetch error:', error);
+        setError('Error fetching prompt: ' + error.message);
+        setLoading(false);
+        return;
+      }
+      if (!prompt) {
+        setError('No prompt found for today!');
+        setLoading(false);
+        return;
+      }
       console.log('Starting take submission...');
-      const success = await submitTake(response, isAnonymous);
+      const success = await submitTake(response, isAnonymous, prompt.id);
       console.log('Take submission result:', success);
-
       if (!success) {
         setError('Failed to submit take. Please try again.');
         setLoading(false);
         return;
       }
-
       // Only redirect on success
       navigate('/');
     } catch (err) {
@@ -77,6 +106,13 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
       setLoading(false);
     }
   };
+
+  // Log button state before rendering
+  console.log('AppBlocker render state:', {
+    responseTrim: response.trim(),
+    loading,
+    buttonDisabled: loading || !response.trim()
+  });
 
   if (!isBlocked) return null;
 

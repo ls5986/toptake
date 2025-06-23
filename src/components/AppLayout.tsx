@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect, useState } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import LoadingSpinner from './LoadingSpinner';
 import LandingPage from './LandingPage';
@@ -6,7 +6,8 @@ import EnhancedAdminScreen from './EnhancedAdminScreen';
 import SuperAdminScreen from './SuperAdminScreen';
 import AdminLogin from './AdminLogin';
 import TakePage from './TakePage';
-import { AppBlocker } from './AppBlocker';
+import { DailyPromptBlocker } from './DailyPromptBlocker';
+import { supabase } from '@/lib/supabase';
 
 // Lazy load components to improve initial load time
 const AuthScreen = React.lazy(() => import('./AuthScreen'));
@@ -23,11 +24,71 @@ const AppLayout: React.FC = () => {
     setCurrentScreen, 
     currentTakeId,
     hasPostedToday,
-    submitTake
+    submitTake,
+    clearUserState
   } = useAppContext();
   const [isAdminMode, setIsAdminMode] = React.useState(false);
   const [isSuperAdmin, setIsSuperAdmin] = React.useState(false);
   const [showAdminLogin, setShowAdminLogin] = React.useState(false);
+  const [isValidatingSession, setIsValidatingSession] = useState(true);
+  const [hasValidSession, setHasValidSession] = useState(false);
+
+  // Validate session on mount and when user changes
+  useEffect(() => {
+    const validateSession = async () => {
+      try {
+        console.log('AppLayout: Validating session...');
+        setIsValidatingSession(true);
+        
+        // Check if we have a user in context
+        if (!user) {
+          console.log('AppLayout: No user in context, session invalid');
+          setHasValidSession(false);
+          setIsValidatingSession(false);
+          return;
+        }
+
+        // Check Supabase session with timeout
+        const sessionResult = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise((_, reject) => setTimeout(() => reject(new Error('getSession timeout')), 5000))
+        ]);
+
+        const session = sessionResult?.data?.session;
+        
+        if (!session) {
+          console.log('AppLayout: No Supabase session found');
+          setHasValidSession(false);
+          setIsValidatingSession(false);
+          clearUserState();
+          return;
+        }
+
+        // Verify the session user matches our context user
+        if (session.user.id !== user.id) {
+          console.log('AppLayout: Session user ID mismatch', {
+            sessionUserId: session.user.id,
+            contextUserId: user.id
+          });
+          setHasValidSession(false);
+          setIsValidatingSession(false);
+          clearUserState();
+          return;
+        }
+
+        console.log('AppLayout: Session is valid');
+        setHasValidSession(true);
+        setIsValidatingSession(false);
+      } catch (error) {
+        console.error('AppLayout: Session validation failed:', error);
+        setHasValidSession(false);
+        setIsValidatingSession(false);
+        clearUserState();
+      }
+    };
+
+    validateSession();
+  }, [user, clearUserState]);
 
   // Check if current user is superadmin (ljstevens)
   const isUserSuperAdmin = user?.username === 'ljstevens';
@@ -70,6 +131,11 @@ const AppLayout: React.FC = () => {
     setCurrentScreen('auth');
   };
 
+  // Show loading while validating session
+  if (isValidatingSession) {
+    return <LoadingSpinner />;
+  }
+
   // Show admin login screen
   if (showAdminLogin) {
     return <AdminLogin onAdminLogin={handleAdminLogin} />;
@@ -99,13 +165,13 @@ const AppLayout: React.FC = () => {
 
   const renderScreen = () => {
     try {
-      // If not authenticated, show landing page first
-      if (!isAuthenticated && currentScreen === 'main') {
+      // If no valid session, show landing page first
+      if (!hasValidSession && currentScreen === 'main') {
         return <LandingPage onGetStarted={handleGetStarted} />;
       }
 
-      // If not authenticated and on auth screen, show auth
-      if (!isAuthenticated) {
+      // If no valid session, show auth screen
+      if (!hasValidSession) {
         return <AuthScreen />;
       }
 
@@ -138,11 +204,12 @@ const AppLayout: React.FC = () => {
     }
   };
 
-  // If user is authenticated and hasn't posted today, show AppBlocker
-  const shouldBlock = isAuthenticated && user && !hasPostedToday && !isAdminMode;
+  // If user has valid session and hasn't posted today, show AppBlocker
+  const shouldBlock = hasValidSession && user && !hasPostedToday && !isAdminMode;
 
   // Debug logging
   console.log('AppLayout Debug:', {
+    hasValidSession,
     isAuthenticated,
     userId: user?.id,
     hasPostedToday,
@@ -159,6 +226,7 @@ const AppLayout: React.FC = () => {
       last_post_date: user?.last_post_date
     },
     blockingState: {
+      hasValidSession,
       isAuthenticated,
       hasUser: !!user,
       hasNotPostedToday: !hasPostedToday,
@@ -167,12 +235,12 @@ const AppLayout: React.FC = () => {
     }
   });
 
-  // Force block if user is authenticated but hasn't posted
-  const forceBlock = isAuthenticated && user && !hasPostedToday;
+  // Force block if user has valid session but hasn't posted
+  const forceBlock = hasValidSession && user && !hasPostedToday;
 
   console.log('AppBlocker Render State:', {
     forceBlock,
-    isAuthenticated,
+    hasValidSession,
     hasUser: !!user,
     hasNotPostedToday: !hasPostedToday,
     willRender: forceBlock
@@ -182,13 +250,13 @@ const AppLayout: React.FC = () => {
     <Suspense fallback={<LoadingSpinner />}>
       {forceBlock ? (
         <>
-          {console.log('Rendering AppBlocker')}
-          <AppBlocker 
+          {console.log('Rendering DailyPromptBlocker')}
+          <DailyPromptBlocker 
             isBlocked={true}
             onSubmit={() => {
-              console.log('AppBlocker onSubmit called');
-              // After successful submission, refresh the app state
-              window.location.reload();
+              console.log('DailyPromptBlocker onSubmit called');
+              // The hasPostedToday state is now properly updated in the component
+              // The app will automatically transition to the main screen
             }}
           />
         </>

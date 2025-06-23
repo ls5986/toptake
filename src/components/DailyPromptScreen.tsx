@@ -8,6 +8,7 @@ import { MessageSquare, Send, Eye, EyeOff } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { useNewDailyPrompt } from '@/hooks/useNewDailyPrompt';
 import { toast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 
 const DailyPromptScreen: React.FC = () => {
   const { user, setCurrentScreen, submitTake } = useAppContext();
@@ -25,12 +26,22 @@ const DailyPromptScreen: React.FC = () => {
       });
       return;
     }
-
     setIsSubmitting(true);
-    
+    // Fetch today's prompt by local date
+    const today = new Date().toLocaleDateString('en-CA');
+    const { data: prompt, error } = await supabase
+      .from('daily_prompts')
+      .select('id')
+      .eq('prompt_date', today)
+      .eq('is_active', true)
+      .single();
+    if (!prompt) {
+      toast({ title: "No prompt found for today!", variant: "destructive" });
+      setIsSubmitting(false);
+      return;
+    }
     try {
-      const success = await submitTake(take.trim(), isAnonymous);
-      
+      const success = await submitTake(take.trim(), isAnonymous, prompt.id);
       if (success) {
         const fakeTakes = JSON.parse(localStorage.getItem('fakeTakes') || '[]');
         fakeTakes.unshift({
@@ -43,17 +54,14 @@ const DailyPromptScreen: React.FC = () => {
           timestamp: new Date().toISOString()
         });
         localStorage.setItem('fakeTakes', JSON.stringify(fakeTakes));
-
         toast({
           title: "Success!",
           description: "Your take has been posted successfully."
         });
-
         setCurrentScreen('feed');
       } else {
         throw new Error('Failed to submit take');
       }
-      
     } catch (error) {
       console.error('Error submitting take:', error);
       toast({

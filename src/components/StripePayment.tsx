@@ -1,15 +1,10 @@
 import React, { useState } from 'react';
-import { createBrowserClient } from '@supabase/ssr';
 import { useAppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
 import { loadStripe } from '@stripe/stripe-js';
 import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
-
-const supabaseClient = createBrowserClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY!);
 
@@ -80,10 +75,10 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
 
   const initializePayment = async () => {
     try {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { data, error } = await supabaseClient.functions.invoke('late-submission-payment', {
+      const { data, error } = await supabase.functions.invoke('late-submission-payment', {
         body: {
           amount,
           userId: user.id,

@@ -57,7 +57,7 @@ const RealTimeEngagementDashboard: React.FC = () => {
       // Get today's prompt
       const today = new Date().toISOString().split('T')[0];
       const { data: todayPrompt } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .select('prompt_text')
         .eq('prompt_date', today)
         .single();

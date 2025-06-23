@@ -1,11 +1,6 @@
-import { createBrowserClient } from '@supabase/ssr';
 import { useAppContext } from '@/contexts/AppContext';
 import { useState } from 'react';
-
-const supabaseClient = createBrowserClient(
-  import.meta.env.VITE_SUPABASE_URL!,
-  import.meta.env.VITE_SUPABASE_ANON_KEY!
-);
+import { supabase } from '@/lib/supabase';
 
 export type CreditType = 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'extra_takes' | 'delete';
 export type CreditAction = 'purchase' | 'use' | 'expire' | 'refund';
@@ -54,11 +49,11 @@ export const useCredits = () => {
       }
 
       // Get current user
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
       // Start a transaction
-      const { error: updateError } = await supabaseClient
+      const { error: updateError } = await supabase
         .from('user_credits')
         .update({ [type]: userCredits[type] - amount })
         .eq('user_id', user.id);
@@ -66,7 +61,7 @@ export const useCredits = () => {
       if (updateError) throw updateError;
 
       // Record credit usage in history
-      await supabaseClient.rpc('add_credit_history', {
+      await supabase.rpc('add_credit_history', {
         p_user_id: user.id,
         p_credit_type: type,
         p_amount: amount,
@@ -95,10 +90,10 @@ export const useCredits = () => {
     offset: number = 0
   ): Promise<CreditHistory[]> => {
     try {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { data, error: historyError } = await supabaseClient
+      const { data, error: historyError } = await supabase
         .rpc('get_credit_history', {
           p_user_id: user.id,
           p_limit: limit,
@@ -116,10 +111,10 @@ export const useCredits = () => {
 
   const getCreditPurchases = async (): Promise<CreditPurchase[]> => {
     try {
-      const { data: { user } } = await supabaseClient.auth.getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      const { data, error: purchasesError } = await supabaseClient
+      const { data, error: purchasesError } = await supabase
         .from('credit_purchases')
         .select('*')
         .eq('user_id', user.id)
@@ -136,7 +131,7 @@ export const useCredits = () => {
 
   const checkExpiredCredits = async (): Promise<void> => {
     try {
-      const { error: checkError } = await supabaseClient
+      const { error: checkError } = await supabase
         .rpc('check_expired_credits');
 
       if (checkError) throw checkError;
@@ -160,7 +155,7 @@ export const useCredits = () => {
 };
 
 export async function getUserCredits(userId: string, creditType: CreditType): Promise<number> {
-  const { data, error } = await supabaseClient
+  const { data, error } = await supabase
     .from('user_credits')
     .select('balance')
     .eq('user_id', userId)
@@ -171,7 +166,7 @@ export async function getUserCredits(userId: string, creditType: CreditType): Pr
 }
 
 export async function updateUserCredits(userId: string, creditType: CreditType, newBalance: number): Promise<boolean> {
-  const { error } = await supabaseClient
+  const { error } = await supabase
     .from('user_credits')
     .upsert({ user_id: userId, credit_type: creditType, balance: newBalance });
   return !error;

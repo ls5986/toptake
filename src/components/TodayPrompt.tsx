@@ -8,7 +8,7 @@ const TodayPrompt: React.FC = () => {
   useEffect(() => {
     const fetchPrompt = async () => {
       setLoading(true);
-      const today = new Date().toISOString().split('T')[0];
+      const today = new Date().toLocaleDateString('en-CA'); // Local date in YYYY-MM-DD
       const { data, error } = await supabase
         .from('daily_prompts')
         .select('prompt_text')

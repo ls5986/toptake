@@ -8,8 +8,23 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
     autoRefreshToken: true,
     persistSession: true,
     detectSessionInUrl: true
+  },
+  global: {
+    headers: {
+      'X-Client-Info': 'toptake-app'
+    }
+  },
+  realtime: {
+    params: {
+      eventsPerSecond: 10
+    }
   }
 });
+
+// Expose supabase on window for debugging
+if (typeof window !== 'undefined') {
+  window.supabase = supabase;
+}
 
 export const clearInvalidTokens = async () => {
   try {
@@ -77,17 +92,45 @@ export const getTodayPrompt = async () => {
     .select('prompt_text')
     .eq('prompt_date', today)
     .eq('is_active', true)
-    .limit(1)
-    .single();
+    .limit(1);
   if (error) {
     console.error('Prompt fetch error:', error);
     if (error.code === '406') {
       return { data: null, error: 'No prompt available for today.' };
     }
+    return { data: null, error };
   }
-  return { data, error };
+  if (!data || data.length === 0) {
+    return { data: null, error: 'No prompt available for today.' };
+  }
+  return { data: data[0], error: null };
 };
 
 export async function addNotification(userId: string, type: string, message: string) {
   return supabase.from('notifications').insert({ user_id: userId, type, message });
 }
+
+// Add a test function to debug Supabase client
+export const testSupabaseConnection = async () => {
+  console.log('Testing Supabase connection...');
+  try {
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => {
+      console.log('Supabase query timed out after 10 seconds');
+      controller.abort();
+    }, 10000);
+
+    const { data, error } = await supabase
+      .from('daily_prompts')
+      .select('id')
+      .limit(1)
+      .abortSignal(controller.signal);
+
+    clearTimeout(timeoutId);
+    console.log('Supabase test result:', { data, error });
+    return { data, error };
+  } catch (err) {
+    console.error('Supabase test error:', err);
+    return { data: null, error: err };
+  }
+};
