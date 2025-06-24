@@ -85,7 +85,7 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
           const { data: promptData } = await supabase
             .from('daily_prompts')
             .select('prompt_text')
-            .eq('prompt_date', takeData.prompt_date)
+            .eq('id', takeData.prompt_date)
             .single();
           setPrompt(promptData?.prompt_text || '');
         }

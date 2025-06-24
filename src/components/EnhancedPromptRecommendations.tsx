@@ -28,9 +28,8 @@ const EnhancedPromptRecommendations: React.FC = () => {
 
   useEffect(() => {
     loadRecommendations();
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setSelectedDate(tomorrow.toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today);
   }, []);
 
   const loadRecommendations = async () => {
@@ -75,13 +74,13 @@ const EnhancedPromptRecommendations: React.FC = () => {
       if (!recommendation) return;
 
       if (action === 'approve') {
-        const { data: existingPrompt } = await supabase
+        const { data: existingPrompts } = await supabase
           .from('daily_prompts')
-          .select('id')
-          .eq('prompt_date', selectedDate)
-          .single();
+          .select('prompt_date')
+          .gte('prompt_date', selectedDate)
+          .order('prompt_date', { ascending: true });
 
-        if (existingPrompt) {
+        if (existingPrompts.length > 0) {
           toast({ 
             title: 'Date conflict', 
             description: 'A prompt is already scheduled for this date',
@@ -93,13 +92,9 @@ const EnhancedPromptRecommendations: React.FC = () => {
         const { error: insertError } = await supabase
           .from('daily_prompts')
           .insert({
-            prompt: recommendation.prompt_text,
             prompt_text: recommendation.prompt_text,
             prompt_date: selectedDate,
-            scheduled_for: selectedDate,
-            created_by: 'user-suggestion',
-            category: 'user_suggested',
-            engagement_score: recommendation.engagement_score || 75
+            is_active: true,
           });
 
         if (insertError) throw insertError;

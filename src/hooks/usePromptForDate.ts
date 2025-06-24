@@ -1,6 +1,17 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '@/lib/supabase';
 
+// Simple in-memory cache for prompts by date string
+const promptCache: Record<string, string> = {};
+
+export function clearPromptCache(dateStr?: string) {
+  if (dateStr) {
+    delete promptCache[dateStr];
+  } else {
+    Object.keys(promptCache).forEach(key => delete promptCache[key]);
+  }
+}
+
 export function usePromptForDate(date: Date) {
   const [promptText, setPromptText] = useState('');
   const [loading, setLoading] = useState(true);
@@ -9,21 +20,32 @@ export function usePromptForDate(date: Date) {
   useEffect(() => {
     let isMounted = true;
     setLoading(true);
-    setPromptText('');
     setError(null);
+    const dateStr = date.toISOString().split('T')[0];
+
+    // If cached, use it immediately
+    if (promptCache[dateStr]) {
+      setPromptText(promptCache[dateStr]);
+      setLoading(false);
+      return;
+    }
+
+    setPromptText('');
     const fetchPrompt = async () => {
-      const dateStr = date.toLocaleDateString('en-CA');
       const { data, error } = await supabase
         .from('daily_prompts')
-        .select('prompt_text')
+        .select('*')
         .eq('prompt_date', dateStr)
+        .eq('is_active', true)
         .single();
       if (!isMounted) return;
       if (error) {
         setPromptText('');
         setError(error.message);
       } else {
-        setPromptText(data?.prompt_text || '');
+        const text = data?.prompt_text || '';
+        promptCache[dateStr] = text;
+        setPromptText(text);
         setError(null);
       }
       setLoading(false);

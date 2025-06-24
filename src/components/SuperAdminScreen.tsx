@@ -35,7 +35,7 @@ const SuperAdminScreen: React.FC = () => {
       console.log('Users query result:', usersRes);
       
       // Load prompts
-      const promptsRes = await supabase
+      const { data, error } = await supabase
         .from('daily_prompts')
         .select('*')
         .order('prompt_date', { ascending: true });
@@ -44,19 +44,19 @@ const SuperAdminScreen: React.FC = () => {
         console.error('Users query error:', usersRes.error);
         throw usersRes.error;
       }
-      if (promptsRes.error) {
-        console.error('Prompts query error:', promptsRes.error);
-        throw promptsRes.error;
+      if (error) {
+        console.error('Prompts query error:', error);
+        throw error;
       }
       
       console.log('Loaded users:', usersRes.data);
-      console.log('Loaded prompts:', promptsRes.data);
+      console.log('Loaded prompts:', data);
       
       setUsers(usersRes.data || []);
-      setPrompts(promptsRes.data || []);
+      setPrompts(data || []);
       
       toast({ 
-        title: `Loaded ${usersRes.data?.length || 0} users and ${promptsRes.data?.length || 0} prompts` 
+        title: `Loaded ${usersRes.data?.length || 0} users and ${data?.length || 0} prompts` 
       });
     } catch (error) {
       console.error('Error loading super admin data:', error);

@@ -24,7 +24,7 @@ interface TakeCardProps {
   dayNumber?: number;
   isOwnTake?: boolean;
   selectedDate?: string;
-  reactionCounts: Record<ReactionType, number>;
+  reactionCounts?: Record<ReactionType, number>;
 }
 
 export const TakeCard: React.FC<TakeCardProps> = ({ 
@@ -36,7 +36,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   dayNumber = 1,
   isOwnTake = false,
   selectedDate,
-  reactionCounts
+  reactionCounts = { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }
 }) => {
   const { user, hasPostedToday } = useAppContext();
   const { packUsage, consumeUse } = usePackSystem(user?.id);
@@ -52,8 +52,14 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   useEffect(() => {
     // Fetch all reaction types
     const fetchReactionTypes = async () => {
-      const { data } = await supabase.from('reaction_types').select('name, emoji');
-      setReactionTypes(data || []);
+      // Use hardcoded reaction types since the table doesn't exist
+      const hardcodedReactionTypes = [
+        { name: 'wildTake', emoji: '🚨' },
+        { name: 'fairPoint', emoji: '⚖️' },
+        { name: 'mid', emoji: '🙄' },
+        { name: 'thatYou', emoji: '👻' }
+      ];
+      setReactionTypes(hardcodedReactionTypes);
     };
     fetchReactionTypes();
   }, []);
@@ -104,16 +110,9 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const handleDelete = async () => {
     if (!isOwnTake || !onDelete) return;
     
-    if (packUsage.delete_uses_remaining <= 0) {
-      setShowUpgradeModal('delete');
-      return;
-    }
-
-    const success = await consumeUse('delete_uses_remaining');
-    if (success) {
-      onDelete(take.id);
-      toast({ title: "Take deleted", description: `${packUsage.delete_uses_remaining - 1} deletes remaining` });
-    }
+    // Simple delete without pack usage check
+    onDelete(take.id);
+    toast({ title: "Take deleted", description: "Take has been removed" });
   };
 
   const handleUpgrade = (type: string, uses: number) => {
@@ -178,7 +177,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const commentCount = take.commentCount || 0;
 
   // Engagement = sum of all reactions + commentCount
-  const engagementCount = Object.values(reactionCounts).reduce((sum, count) => sum + count, 0) + (take.commentCount || 0);
+  const engagementCount = Object.values(reactionCounts || {}).reduce((sum, count) => sum + count, 0) + (take.commentCount || 0);
 
   return (
     <>
@@ -235,7 +234,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                       variant="ghost"
                       size="sm"
                       className="text-brand-muted hover:text-brand-danger p-1 h-auto"
-                      title={packUsage.delete_uses_remaining > 0 ? `Delete (${packUsage.delete_uses_remaining} left)` : 'Delete (upgrade needed)'}
+                      title="Delete"
                     >
                       <Trash2 className="w-3 h-3" />
                     </Button>

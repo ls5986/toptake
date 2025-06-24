@@ -13,6 +13,7 @@ import { useCredits } from '@/lib/credits';
 import { MonetizationModals } from './MonetizationModals';
 import { useNavigate } from 'react-router-dom';
 import { Checkbox } from '@/components/ui/checkbox';
+import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 
 interface AppBlockerProps {
   isBlocked: boolean;
@@ -33,20 +34,9 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
   const navigate = useNavigate();
 
   // Prompt state
-  const [currentPrompt, setCurrentPrompt] = useState('');
-  const [promptLoading, setPromptLoading] = useState(true);
+  const { prompt, loading: promptLoading, error: promptError, hasPostedToday } = useTodayPrompt();
 
   const canPostAnonymously = user && (userCredits?.anonymous ?? 0) > 0;
-
-  useEffect(() => {
-    const fetchPrompt = async () => {
-      setPromptLoading(true);
-      const { data, error } = await getTodayPrompt();
-      setCurrentPrompt(data?.prompt_text || '');
-      setPromptLoading(false);
-    };
-    fetchPrompt();
-  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('AppBlocker handleSubmit CALLED');
@@ -57,36 +47,6 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
       console.log('handleSubmit: response value:', response);
       if (!response.trim()) {
         setError('Please enter your take before submitting.');
-        setLoading(false);
-        return;
-      }
-      // Fetch today's prompt by local date
-      const today = new Date().toLocaleDateString('en-CA');
-      let prompt, error;
-      try {
-        const result = await supabase
-          .from('daily_prompts')
-          .select('id')
-          .eq('prompt_date', today)
-          .eq('is_active', true)
-          .single();
-        prompt = result.data;
-        error = result.error;
-        console.log('handleSubmit: prompt fetch result:', { prompt, error, result });
-      } catch (fetchErr) {
-        console.error('handleSubmit: prompt fetch threw error:', fetchErr);
-        setError('Error fetching prompt: ' + fetchErr.message);
-        setLoading(false);
-        return;
-      }
-      if (error) {
-        console.error('handleSubmit: prompt fetch error:', error);
-        setError('Error fetching prompt: ' + error.message);
-        setLoading(false);
-        return;
-      }
-      if (!prompt) {
-        setError('No prompt found for today!');
         setLoading(false);
         return;
       }
@@ -107,6 +67,25 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
     }
   };
 
+  const handleClose = () => {
+    // Only allow closing if not loading
+    if (!loading) {
+      navigate('/');
+    }
+  };
+
+  // Add escape key handler
+  useEffect(() => {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && isBlocked && !loading) {
+        handleClose();
+      }
+    };
+    
+    document.addEventListener('keydown', handleEscape);
+    return () => document.removeEventListener('keydown', handleEscape);
+  }, [isBlocked, loading]);
+
   // Log button state before rendering
   console.log('AppBlocker render state:', {
     responseTrim: response.trim(),
@@ -118,7 +97,7 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
 
   return (
     <>
-      <Dialog open={isBlocked} onOpenChange={() => {}}>
+      <Dialog open={isBlocked} onOpenChange={handleClose}>
         <DialogContent className="sm:max-w-[600px] p-0 bg-brand-surface border-brand-border">
           <form onSubmit={handleSubmit} className="space-y-6">
             <DialogHeader>
@@ -141,7 +120,7 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
                 {promptLoading ? (
                   <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
                 ) : (
-                  <p className="text-brand-muted">{currentPrompt}</p>
+                  <p className="text-brand-muted">{prompt.prompt_text}</p>
                 )}
               </div>
               
@@ -172,7 +151,7 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
                     onCheckedChange={setIsAnonymous}
                     disabled={!canPostAnonymously}
                   />
-                  <span className="text-sm text-brand-muted">👻 Post anonymously</span>
+                  <span className="text-sm text-brand-muted">Post anonymously</span>
                 </div>
                 <Badge variant="outline" className="text-brand-accent border-brand-accent">
                   {userCredits?.anonymous ?? 0} left

@@ -30,9 +30,8 @@ const PromptScheduler: React.FC = () => {
 
   useEffect(() => {
     loadPrompts();
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setSelectedDate(tomorrow.toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    setSelectedDate(today);
   }, []);
 
   const loadPrompts = async () => {

@@ -41,7 +41,7 @@ const PromptAnalytics: React.FC = () => {
     setLoading(true);
     try {
       const { data: prompts, error } = await supabase
-        .from('prompts')
+        .from('daily_prompts')
         .select('*')
         .order('prompt_date', { ascending: false })
         .limit(30);
@@ -165,7 +165,9 @@ const PromptAnalytics: React.FC = () => {
   };
 
   const handleExportPrompts = async () => {
-    const { data } = await supabase.from('prompts').select('*');
+    const { data } = await supabase
+      .from('daily_prompts')
+      .select('*');
     if (data) {
       exportToCSV('prompts.csv', data, ['id','prompt_date','prompt_text','is_active']);
       toast({ title: 'Prompts exported', description: 'Prompts CSV downloaded.', variant: 'default' });

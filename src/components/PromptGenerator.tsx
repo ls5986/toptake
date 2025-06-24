@@ -16,11 +16,10 @@ const PromptGenerator: React.FC = () => {
   const [scheduling, setScheduling] = useState(false);
   const { toast } = useToast();
 
-  // Set tomorrow as default date
+  // Set today as default date
   React.useEffect(() => {
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setScheduleDate(tomorrow.toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    setScheduleDate(today);
   }, []);
 
   const generateTomorrowPrompt = async () => {
@@ -93,40 +92,33 @@ const PromptGenerator: React.FC = () => {
     setScheduling(true);
     try {
       // 1. Check if a prompt already exists for this date
-      const { data: existing, error: fetchError } = await supabase
+      const { data: existingPrompt } = await supabase
         .from('daily_prompts')
         .select('id')
         .eq('prompt_date', scheduleDate)
         .single();
 
-      if (fetchError && fetchError.code !== 'PGRST116') {
-        // Some error other than "no rows found"
-        throw fetchError;
-      }
-
-      if (existing) {
+      if (existingPrompt) {
         toast({ title: 'A prompt for this date already exists. Please choose another date.', variant: 'destructive' });
         return;
       }
 
       // 2. Try to insert the new prompt
-      const { error: insertError } = await supabase
+      const { error } = await supabase
         .from('daily_prompts')
         .insert({
-          prompt_text: promptText.trim(),
+          prompt_text: promptText,
           prompt_date: scheduleDate,
-          is_active: false,
-          category: 'ai_generated',
-          source: 'admin_generated'
+          is_active: true,
         });
 
-      if (insertError) {
-        if (insertError.code === '23505') {
+      if (error) {
+        if (error.code === '23505') {
           // Duplicate key error, likely due to a race condition
           toast({ title: 'A prompt for this date was just created by someone else. Please refresh and try again.', variant: 'destructive' });
           return;
         }
-        throw insertError;
+        throw error;
       }
 
       toast({ 

@@ -86,13 +86,15 @@ export const handleAuthError = (error: any): string => {
 };
 
 export const getTodayPrompt = async () => {
-  const today = new Date().toLocaleDateString('en-CA');
+  const today = new Date();
+  const todayStr = today.getFullYear() + '-' +
+    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getDate()).padStart(2, '0');
   const { data, error } = await supabase
     .from('daily_prompts')
-    .select('prompt_text')
-    .eq('prompt_date', today)
-    .eq('is_active', true)
-    .limit(1);
+    .select('*')
+    .eq('prompt_date', todayStr)
+    .single();
   if (error) {
     console.error('Prompt fetch error:', error);
     if (error.code === '406') {
@@ -133,4 +135,20 @@ export const testSupabaseConnection = async () => {
     console.error('Supabase test error:', err);
     return { data: null, error: err };
   }
+};
+
+export const getTodayTakes = async (userId: string) => {
+  const today = new Date().toISOString().split('T')[0];
+  const { data, error } = await supabase
+    .from('takes')
+    .select('*')
+    .eq('user_id', userId)
+    .eq('prompt_date', today);
+  
+  if (error) {
+    console.error('Error fetching today\'s takes:', error);
+    return [];
+  }
+  
+  return data || [];
 };

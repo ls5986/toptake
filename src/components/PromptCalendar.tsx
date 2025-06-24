@@ -58,16 +58,16 @@ const PromptCalendar: React.FC = () => {
       const lastDay = new Date(year, month + 1, 0);
       const firstDayStr = firstDay.toISOString().split('T')[0];
       const lastDayStr = lastDay.toISOString().split('T')[0];
-      const result = await supabase
+      const { data, error } = await supabase
         .from('daily_prompts')
-        .select()
+        .select('*')
         .gte('prompt_date', firstDayStr)
         .lte('prompt_date', lastDayStr)
         .order('prompt_date', { ascending: true });
-      if (result.data) {
-        setDailyPrompts(result.data);
+      if (data) {
+        setDailyPrompts(data);
         // Check for duplicate prompt_date
-        const dateCounts = result.data.reduce((acc, p) => {
+        const dateCounts = data.reduce((acc, p) => {
           acc[p.prompt_date] = (acc[p.prompt_date] || 0) + 1;
           return acc;
         }, {});
@@ -75,7 +75,7 @@ const PromptCalendar: React.FC = () => {
         if (dupes.length > 0) {
           setError(`Duplicate prompts found for: ${dupes.map(([d]) => d).join(', ')}`);
         }
-        console.log(`Loaded ${result.data.length} prompts for ${year}-${month + 1}`);
+        console.log(`Loaded ${data.length} prompts for ${year}-${month + 1}`);
       } else {
         setError('No prompts found');
         console.error('Failed to load monthly prompts');

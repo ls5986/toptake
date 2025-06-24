@@ -62,9 +62,8 @@ const PromptRecommendations: React.FC = () => {
   useEffect(() => {
     loadRecommendations();
     loadUserSubmissions();
-    const tomorrow = new Date();
-    tomorrow.setDate(tomorrow.getDate() + 1);
-    setScheduleDate(tomorrow.toISOString().split('T')[0]);
+    const today = new Date().toISOString().split('T')[0];
+    setScheduleDate(today);
   }, []);
 
   const loadRecommendations = async () => {

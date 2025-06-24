@@ -5,7 +5,7 @@ const openai = new OpenAIApi(new Configuration({ apiKey: process.env.OPENAI_API_
 
 async function updateEngagementAnalytics() {
   const { data: prompts } = await supabase
-    .from('prompts')
+    .from('daily_prompts')
     .select('id, prompt_text, prompt_date')
     .gte('prompt_date', new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0]);
 
@@ -85,13 +85,13 @@ async function insertDraftPrompts(prompts: string[]) {
     while (!found) {
       const dateStr = scheduleDate.toISOString().split('T')[0];
       const { data: existing } = await supabase
-        .from('prompts')
+        .from('daily_prompts')
         .select('id')
         .eq('prompt_date', dateStr)
         .single();
       if (!existing) {
         found = true;
-        await supabase.from('prompts').insert({
+        await supabase.from('daily_prompts').insert({
           prompt_text: promptText,
           prompt_date: dateStr,
           is_active: false, // Draft for admin review

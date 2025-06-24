@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
@@ -72,9 +72,17 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
   onError,
 }) => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
+  const [isInitializing, setIsInitializing] = useState(true);
+
+  // Memoize the options object to prevent React Stripe warnings
+  const options = useMemo(() => {
+    if (!clientSecret) return null;
+    return { clientSecret };
+  }, [clientSecret]);
 
   const initializePayment = async () => {
     try {
+      setIsInitializing(true);
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
@@ -82,6 +90,7 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
         body: {
           amount,
           userId: user.id,
+          promptDate: new Date().toISOString().split('T')[0], // Use today's date as default
           description,
         },
       });
@@ -90,19 +99,25 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
       setClientSecret(data.clientSecret);
     } catch (err) {
       onError(err.message || 'Failed to initialize payment');
+    } finally {
+      setIsInitializing(false);
     }
   };
 
-  React.useEffect(() => {
+  useEffect(() => {
     initializePayment();
-  }, []);
+  }, [amount, description]); // Only re-initialize if amount or description changes
 
-  if (!clientSecret) {
+  if (isInitializing) {
     return <div>Loading payment form...</div>;
   }
 
+  if (!clientSecret || !options) {
+    return <div>Failed to load payment form</div>;
+  }
+
   return (
-    <Elements stripe={stripePromise} options={{ clientSecret }}>
+    <Elements stripe={stripePromise} options={options}>
       <PaymentForm
         clientSecret={clientSecret}
         onSuccess={onSuccess}

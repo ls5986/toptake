@@ -75,16 +75,15 @@ export const BulkPromptGenerator: React.FC<BulkPromptGeneratorProps> = ({ onProm
 
   const schedulePrompt = async (prompt: GeneratedPrompt) => {
     try {
-      const tomorrow = new Date();
-      tomorrow.setDate(tomorrow.getDate() + 1);
+      const today = new Date();
+      const scheduleDate = new Date(today);
       
       const { data: existingPrompts } = await supabase
         .from('daily_prompts')
         .select('prompt_date')
-        .gte('prompt_date', tomorrow.toISOString().split('T')[0])
+        .gte('prompt_date', scheduleDate.toISOString().split('T')[0])
         .order('prompt_date', { ascending: true });
 
-      const scheduleDate = new Date(tomorrow);
       const existingDates = existingPrompts?.map(p => p.prompt_date) || [];
       
       while (existingDates.includes(scheduleDate.toISOString().split('T')[0])) {
@@ -96,7 +95,7 @@ export const BulkPromptGenerator: React.FC<BulkPromptGeneratorProps> = ({ onProm
         .insert({
           prompt_text: prompt.text,
           prompt_date: scheduleDate.toISOString().split('T')[0],
-          is_active: false,
+          is_active: true,
           source: 'bulk_generator'
         });
 

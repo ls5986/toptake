@@ -222,16 +222,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
                     </Button>
                   ))}
                 </div>
-                <MonetizationModals
-                  showAnonymousModal={false}
-                  showStreakModal={false}
-                  showPremiumModal={showPremiumModal}
-                  showBoostModal={false}
-                  onClose={() => setShowPremiumModal(false)}
-                  onPurchase={(type) => {
-                    if (type === 'premium') handlePremiumPurchase();
-                  }}
-                />
+                {showPremiumModal && (
+                  <MonetizationModals
+                    onClose={() => setShowPremiumModal(false)}
+                    onSuccess={() => {
+                      setShowPremiumModal(false);
+                      handlePremiumPurchase();
+                    }}
+                  />
+                )}
               </div>
               {isOwnProfile && (
                 <Button

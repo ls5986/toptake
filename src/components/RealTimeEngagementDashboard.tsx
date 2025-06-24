@@ -56,9 +56,9 @@ const RealTimeEngagementDashboard: React.FC = () => {
 
       // Get today's prompt
       const today = new Date().toISOString().split('T')[0];
-      const { data: todayPrompt } = await supabase
-        .from('prompts')
-        .select('prompt_text')
+      const { data, error } = await supabase
+        .from('daily_prompts')
+        .select('*')
         .eq('prompt_date', today)
         .single();
 
@@ -73,7 +73,7 @@ const RealTimeEngagementDashboard: React.FC = () => {
         commentsPerHour,
         engagementRate,
         viralCoefficient,
-        trendingPrompt: todayPrompt?.prompt_text || 'No prompt scheduled'
+        trendingPrompt: data?.prompt_text || 'No prompt scheduled'
       });
 
       // Generate engagement history for visualization

@@ -12,9 +12,21 @@ const supabaseClient = createClient(
   Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') ?? ''
 )
 
+// CORS headers
+const corsHeaders = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+}
+
 serve(async (req) => {
+  // Handle CORS preflight requests
+  if (req.method === 'OPTIONS') {
+    return new Response('ok', { headers: corsHeaders })
+  }
+
   try {
-    const { amount, userId, promptDate } = await req.json()
+    const { amount, userId, promptDate, description } = await req.json()
 
     // Create a payment intent
     const paymentIntent = await stripe.paymentIntents.create({
@@ -22,7 +34,8 @@ serve(async (req) => {
       currency: 'usd',
       metadata: {
         userId,
-        promptDate,
+        promptDate: promptDate || new Date().toISOString().split('T')[0],
+        description: description || 'Payment',
         type: 'late_submission'
       }
     })
@@ -32,7 +45,10 @@ serve(async (req) => {
         clientSecret: paymentIntent.client_secret
       }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        },
         status: 200,
       }
     )
@@ -40,7 +56,10 @@ serve(async (req) => {
     return new Response(
       JSON.stringify({ error: error.message }),
       {
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...corsHeaders
+        },
         status: 400,
       }
     )

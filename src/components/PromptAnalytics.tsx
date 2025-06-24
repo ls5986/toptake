@@ -41,7 +41,7 @@ const PromptAnalytics: React.FC = () => {
     try {
       // Get daily prompts
       const { data: promptsData, error: promptsError } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .select('*')
         .order('created_at', { ascending: false })
         .limit(50);

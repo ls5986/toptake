@@ -28,7 +28,7 @@ const DailyPromptScreen: React.FC = () => {
     }
     setIsSubmitting(true);
     // Fetch today's prompt by local date
-    const today = new Date().toLocaleDateString('en-CA');
+    const today = new Date().toISOString().split('T')[0];
     const { data: prompt, error } = await supabase
       .from('daily_prompts')
       .select('id')

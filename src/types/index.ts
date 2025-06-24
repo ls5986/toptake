@@ -67,10 +67,10 @@ export interface FeaturePack {
 }
 
 export interface PackUsage {
-  delete_uses_remaining: number;
-  boost_uses_remaining: number;
-  history_unlocked: boolean;
-  extra_takes_remaining: number;
+  // delete_uses_remaining: number;
+  // boost_uses_remaining: number;
+  // history_unlocked: boolean;
+  // extra_takes_remaining: number;
 }
 
 export type PromptCategory = 

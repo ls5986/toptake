@@ -7,8 +7,10 @@ import { Switch } from '@/components/ui/switch';
 import { Label } from '@/components/ui/label';
 import { ArrowLeft, Send } from 'lucide-react';
 import { spendCredits } from '@/lib/credits';
+import { supabase } from '@/lib/supabase';
 import BillingModal from './BillingModal';
 import { useToast } from '@/hooks/use-toast';
+import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 
 const PromptScreen: React.FC = () => {
   const { currentPrompt, submitTake, setCurrentScreen, hasPostedToday, user, userCredits, setUserCredits } = useAppContext();
@@ -18,13 +20,17 @@ const PromptScreen: React.FC = () => {
   const [showLateSubmitModal, setShowLateSubmitModal] = useState(false);
   const [showPurchaseModal, setShowPurchaseModal] = useState(false);
   const { toast } = useToast();
+  const { prompt, loading, error } = useTodayPrompt();
 
   // Helper: is prompt expired?
-  const isPromptExpired = currentPrompt && new Date(currentPrompt.expiry) < new Date();
+  const isPromptExpired = false; // Since currentPrompt is just a string, we can't check expiry
   const canPostAnonymously = user && userCredits.anonymous > 0;
   const canLateSubmit = user && userCredits.late_submit > 0;
 
-  const today = new Date().toLocaleDateString('en-CA'); // Local date in YYYY-MM-DD
+  const today = new Date();
+  const todayStr = today.getFullYear() + '-' +
+    String(today.getMonth() + 1).padStart(2, '0') + '-' +
+    String(today.getDate()).padStart(2, '0');
 
   const handleSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
@@ -47,11 +53,10 @@ const PromptScreen: React.FC = () => {
       setUserCredits({ ...userCredits, anonymous: userCredits.anonymous - 1 });
     }
     // Fetch today's prompt by local date
-    const today = new Date().toLocaleDateString('en-CA');
     const { data: prompt, error } = await supabase
       .from('daily_prompts')
       .select('id')
-      .eq('prompt_date', today)
+      .eq('prompt_date', todayStr)
       .eq('is_active', true)
       .single();
     if (!prompt) {
@@ -83,12 +88,20 @@ const PromptScreen: React.FC = () => {
     }
     setUserCredits({ ...userCredits, late_submit: userCredits.late_submit - 1 });
     // Insert take with is_late_submit = true and backdate created_at
+    const today = new Date().toISOString().split('T')[0];
+    const { data: prompt } = await supabase
+      .from('daily_prompts')
+      .select('id, created_at')
+      .eq('prompt_date', today)
+      .eq('is_active', true)
+      .single();
+    
     const takeData = {
       content: takeContent,
       is_anonymous: isAnonymous,
       is_late_submit: true,
-      created_at: currentPrompt?.created_at, // backdate
-      prompt_id: currentPrompt?.id,
+      created_at: prompt?.created_at, // backdate
+      prompt_id: prompt?.id,
       user_id: user.id,
     };
     const { error } = await supabase.from('takes').insert([takeData]);
@@ -100,6 +113,10 @@ const PromptScreen: React.FC = () => {
     }
     setIsSubmitting(false);
   };
+
+  if (loading) return <div>Loading prompt...</div>;
+  if (error) return <div>{error}</div>;
+  if (!prompt) return <div>No prompt found for today!</div>;
 
   if (hasPostedToday) {
     return (
@@ -139,7 +156,7 @@ const PromptScreen: React.FC = () => {
         <Card className="bg-white/10 backdrop-blur-sm border-white/20">
           <CardHeader>
             <CardTitle className="text-white text-center text-lg">
-              {currentPrompt?.text || 'Loading prompt...'}
+              {prompt.prompt_text || 'Loading prompt...'}
             </CardTitle>
           </CardHeader>
         </Card>

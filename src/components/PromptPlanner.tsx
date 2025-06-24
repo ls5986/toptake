@@ -35,14 +35,10 @@ const PromptPlanner: React.FC = () => {
     try {
       // Get historical data
       const { data: prompts, error } = await supabase
-        .from('prompts')
-        .select(`
-          *,
-          takes:takes(count),
-          comments:comments(count)
-        `)
-        .order('created_at', { ascending: false })
-        .limit(100);
+        .from('daily_prompts')
+        .select('*')
+        .order('prompt_date', { ascending: false })
+        .limit(50);
       
       if (error) throw error;
 
@@ -54,11 +50,11 @@ const PromptPlanner: React.FC = () => {
         const commentsCount = prompt.comments?.[0]?.count || 0;
         const engagement = (takesCount * 2) + (commentsCount * 3);
         
-        const current = typePerformance.get(prompt.type) || { total: 0, count: 0, lastUsed: prompt.created_at };
+        const current = typePerformance.get(prompt.type) || { total: 0, count: 0, lastUsed: prompt.prompt_date };
         typePerformance.set(prompt.type, {
           total: current.total + engagement,
           count: current.count + 1,
-          lastUsed: prompt.created_at > current.lastUsed ? prompt.created_at : current.lastUsed
+          lastUsed: prompt.prompt_date > current.lastUsed ? prompt.prompt_date : current.lastUsed
         });
       });
 

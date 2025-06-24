@@ -58,7 +58,7 @@ const PromptCalendar: React.FC = () => {
   const loadPrompts = async () => {
     try {
       const { data, error } = await supabase
-        .from('prompts')
+        .from('daily_prompts')
         .select('*')
         .order('prompt_date', { ascending: true });
       
@@ -125,8 +125,12 @@ const PromptCalendar: React.FC = () => {
     try {
       const dateStr = format(selectedDate, 'yyyy-MM-dd');
       const { error } = await supabase
-        .from('prompts')
-        .insert({ prompt_text: newPromptText.trim(), prompt_date: dateStr, is_active: true });
+        .from('daily_prompts')
+        .insert({
+          prompt_text: newPromptText.trim(),
+          prompt_date: dateStr,
+          is_active: true,
+        });
       if (error) throw error;
       setShowModal(false);
       setNewPromptText('');
@@ -144,7 +148,7 @@ const PromptCalendar: React.FC = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('prompts')
+        .from('daily_prompts')
         .update({ prompt_text: newPromptText.trim() })
         .eq('id', modalPrompt.id);
       if (error) throw error;
@@ -164,7 +168,7 @@ const PromptCalendar: React.FC = () => {
     setSaving(true);
     try {
       const { error } = await supabase
-        .from('prompts')
+        .from('daily_prompts')
         .delete()
         .eq('id', modalPrompt.id);
       if (error) throw error;

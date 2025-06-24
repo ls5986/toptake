@@ -9,54 +9,39 @@ export interface DailyPrompt {
   created_at: string;
 }
 
-export function useDailyPrompt() {
-  const [todaysPrompt, setTodaysPrompt] = useState<DailyPrompt | null>(null);
+export const useDailyPrompt = () => {
+  const [prompt, setPrompt] = useState<DailyPrompt | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    let isMounted = true;
-    setLoading(true);
-    setError(null);
-    
-    const fetchTodaysPrompt = async () => {
+    const fetchPrompt = async () => {
       try {
-        const today = new Date().toLocaleDateString('en-CA');
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' +
+          String(today.getMonth() + 1).padStart(2, '0') + '-' +
+          String(today.getDate()).padStart(2, '0');
         const { data, error } = await supabase
           .from('daily_prompts')
           .select('*')
-          .eq('prompt_date', today)
+          .eq('prompt_date', todayStr)
+          .eq('is_active', true)
           .single();
 
-        if (!isMounted) return;
-        
         if (error) {
           setError(error.message);
-          setTodaysPrompt(null);
         } else {
-          setTodaysPrompt(data);
-          setError(null);
+          setPrompt(data);
         }
       } catch (err) {
-        if (isMounted) {
-          setError('Failed to fetch today\'s prompt');
-          setTodaysPrompt(null);
-        }
+        setError('Failed to fetch prompt');
       } finally {
-        if (isMounted) {
-          setLoading(false);
-        }
+        setLoading(false);
       }
     };
 
-    fetchTodaysPrompt();
-    return () => { isMounted = false; };
+    fetchPrompt();
   }, []);
 
-  return { 
-    todaysPrompt, 
-    loading, 
-    error,
-    prompt: todaysPrompt?.prompt_text || 'Loading prompt...'
-  };
-} 
+  return { prompt, loading, error };
+}; 

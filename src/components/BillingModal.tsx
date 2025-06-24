@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/AppContext';
 import { StripePayment } from './StripePayment';
@@ -105,11 +105,20 @@ const BillingModal: React.FC<BillingModalProps> = ({ isOpen, onClose }) => {
     setTimeout(() => setError(null), 5000);
   };
 
+  const handleClose = () => {
+    setSelectedPackage(null);
+    setError(null);
+    onClose();
+  };
+
   return (
-    <Dialog open={isOpen} onOpenChange={onClose}>
+    <Dialog open={isOpen} onOpenChange={handleClose}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle>Billing & Packages</DialogTitle>
+          <DialogDescription>
+            Purchase credits to unlock features. Select a package below.
+          </DialogDescription>
         </DialogHeader>
 
         {error && (

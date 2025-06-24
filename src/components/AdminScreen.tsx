@@ -67,7 +67,7 @@ const AdminScreen: React.FC = () => {
       const tomorrowStr = tomorrow.toISOString().split('T')[0];
       
       const { data } = await supabase
-        .from('daily_prompts')
+        .from('prompts')
         .select('prompt_text')
         .eq('prompt_date', tomorrowStr)
         .single();
