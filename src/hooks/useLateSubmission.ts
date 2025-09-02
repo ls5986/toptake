@@ -1,9 +1,22 @@
 import { useState } from 'react';
 import { useToast } from '@/hooks/use-toast';
-import { loadStripe } from '@stripe/stripe-js';
 import { supabase } from '@/lib/supabase';
 
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY!);
+// Mock payment function for development
+const mockPayment = async (amount: number, userId: string) => {
+  console.log('🧪 Using mock payment for $' + amount);
+  
+  // Simulate payment processing delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  // Mock successful payment
+  return {
+    success: true,
+    paymentIntentId: 'mock_pi_' + Date.now(),
+    amount: amount,
+    userId: userId
+  };
+};
 
 export const useLateSubmission = () => {
   const [loading, setLoading] = useState(false);
@@ -15,77 +28,65 @@ export const useLateSubmission = () => {
       setLoading(true);
       setError(null);
 
-      // Get current user
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // Start a transaction
-      const { data: { session }, error: sessionError } = await supabase.auth.getSession();
-      if (sessionError) throw sessionError;
+      // In development mode, always use mock payment
+      if (process.env.NODE_ENV === 'development') {
+        console.log('🧪 Development mode - using mock payment');
+        const mockResult = await mockPayment(amount, user.id);
+        
+        // Record credit history
+        const { error: historyError } = await supabase
+          .from('credit_history')
+          .insert({
+            user_id: user.id,
+            credit_type: 'late_submit',
+            amount: 1,
+            action: 'purchase',
+            price: amount,
+            stripe_payment_id: mockResult.paymentIntentId,
+            created_at: new Date().toISOString()
+          });
 
-      // Create payment intent
-      const { data: { clientSecret }, error: paymentError } = await supabase.functions.invoke('late-submission-payment', {
-        body: {
-          amount,
-          userId: user.id,
-          promptDate,
-          sessionToken: session?.access_token
+        if (historyError) {
+          console.error('Error recording credit history:', historyError);
         }
-      });
 
-      if (paymentError) throw paymentError;
+        // Update user credits
+        const { error: creditError } = await supabase
+          .from('user_credits')
+          .upsert({
+            user_id: user.id,
+            credit_type: 'late_submit',
+            balance: 1,
+            created_at: new Date().toISOString()
+          }, {
+            onConflict: 'user_id,credit_type',
+            count: 'balance'
+          });
 
-      // Load Stripe
-      const stripe = await stripePromise;
-      if (!stripe) throw new Error('Stripe failed to load');
+        if (creditError) {
+          console.error('Error updating user credits:', creditError);
+        }
 
-      // Confirm payment
-      const { error: confirmError } = await stripe.confirmCardPayment(clientSecret);
-      if (confirmError) throw confirmError;
-
-      // Record credit history
-      const { error: historyError } = await supabase
-        .from('credit_history')
-        .insert({
-          user_id: user.id,
-          credit_type: 'late_submit',
-          amount: 1,
-          action: 'purchase',
-          price: amount,
-          stripe_payment_id: clientSecret,
-          created_at: new Date().toISOString()
+        toast({ 
+          title: "Mock Payment successful", 
+          description: "You can now submit your late take.",
+          variant: "default" 
         });
 
-      if (historyError) {
-        console.error('Error recording credit history:', historyError);
-        // Don't throw here, as the payment was successful
+        return true;
       }
 
-      // Update user credits
-      const { error: creditError } = await supabase
-        .from('user_credits')
-        .upsert({
-          user_id: user.id,
-          credit_type: 'late_submit',
-          balance: 1,
-          created_at: new Date().toISOString()
-        }, {
-          onConflict: 'user_id,credit_type',
-          count: 'balance'
-        });
-
-      if (creditError) {
-        console.error('Error updating user credits:', creditError);
-        // Don't throw here, as the payment was successful
-      }
-
+      // Production mode would use real Stripe here
       toast({ 
-        title: "Payment successful", 
-        description: "You can now submit your late take.",
+        title: "Production Mode", 
+        description: "Stripe integration not available in this demo.",
         variant: "default" 
       });
 
-      return true;
+      return false;
     } catch (err) {
       console.error('Late submission error:', err);
       setError(err.message);
@@ -103,7 +104,7 @@ export const useLateSubmission = () => {
   const checkLateSubmissionStatus = async (promptDate: string) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+      if (!user) return false;
 
       const { data, error } = await supabase
         .rpc('has_paid_late_submission', {

@@ -2,61 +2,7 @@ import React, { useState, useMemo, useEffect } from 'react';
 import { useAppContext } from '@/contexts/AppContext';
 import { Button } from '@/components/ui/button';
 import { useToast } from '@/hooks/use-toast';
-import { loadStripe } from '@stripe/stripe-js';
-import { Elements, PaymentElement, useStripe, useElements } from '@stripe/react-stripe-js';
 import { supabase } from '@/lib/supabase';
-
-const stripePromise = loadStripe(import.meta.env.VITE_STRIPE_PUBLISHABLE_KEY!);
-
-interface PaymentFormProps {
-  clientSecret: string;
-  onSuccess: () => void;
-  onError: (error: string) => void;
-}
-
-const PaymentForm: React.FC<PaymentFormProps> = ({ clientSecret, onSuccess, onError }) => {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [loading, setLoading] = useState(false);
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!stripe || !elements) return;
-
-    setLoading(true);
-    try {
-      const { error } = await stripe.confirmPayment({
-        elements,
-        confirmParams: {
-          return_url: window.location.origin,
-        },
-      });
-
-      if (error) {
-        onError(error.message || 'Payment failed');
-      } else {
-        onSuccess();
-      }
-    } catch (err) {
-      onError(err.message || 'Payment failed');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  return (
-    <form onSubmit={handleSubmit} className="w-full max-w-md mx-auto p-4">
-      <PaymentElement />
-      <button
-        type="submit"
-        disabled={!stripe || loading}
-        className="mt-4 w-full bg-blue-500 text-white py-2 px-4 rounded hover:bg-blue-600 disabled:opacity-50"
-      >
-        {loading ? 'Processing...' : 'Pay Now'}
-      </button>
-    </form>
-  );
-};
 
 interface StripePaymentProps {
   amount: number;
@@ -73,56 +19,64 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
 }) => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
+  const { toast } = useToast();
 
-  // Memoize the options object to prevent React Stripe warnings
-  const options = useMemo(() => {
-    if (!clientSecret) return null;
-    return { clientSecret };
-  }, [clientSecret]);
+  // In development mode, show mock payment only
+  if (process.env.NODE_ENV === 'development') {
+    return (
+      <div className="w-full max-w-md mx-auto p-4">
+        <div className="p-6 border-2 border-dashed border-green-400 rounded-lg bg-green-50">
+          <h3 className="text-lg font-semibold text-green-800 mb-2">🧪 Development Mode</h3>
+          <p className="text-green-700 mb-3">Stripe is disabled. Use this button to test payments:</p>
+          <button
+            onClick={async () => {
+              try {
+                const { data: { user } } = await supabase.auth.getUser();
+                if (!user) throw new Error('User not authenticated');
+                
+                // Mock successful payment
+                console.log('🧪 Mock payment for $' + amount);
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Update user credits directly
+                const { error: creditError } = await supabase
+                  .from('user_credits')
+                  .upsert({
+                    user_id: user.id,
+                    credit_type: 'late_submit',
+                    balance: 1,
+                    created_at: new Date().toISOString()
+                  }, {
+                    onConflict: 'user_id,credit_type',
+                    count: 'balance'
+                  });
 
-  const initializePayment = async () => {
-    try {
-      setIsInitializing(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) throw new Error('User not authenticated');
+                if (creditError) {
+                  console.error('Error updating user credits:', creditError);
+                }
 
-      const { data, error } = await supabase.functions.invoke('late-submission-payment', {
-        body: {
-          amount,
-          userId: user.id,
-          promptDate: new Date().toISOString().split('T')[0], // Use today's date as default
-          description,
-        },
-      });
-
-      if (error) throw error;
-      setClientSecret(data.clientSecret);
-    } catch (err) {
-      onError(err.message || 'Failed to initialize payment');
-    } finally {
-      setIsInitializing(false);
-    }
-  };
-
-  useEffect(() => {
-    initializePayment();
-  }, [amount, description]); // Only re-initialize if amount or description changes
-
-  if (isInitializing) {
-    return <div>Loading payment form...</div>;
+                onSuccess();
+              } catch (err) {
+                onError(err.message || 'Mock payment failed');
+              }
+            }}
+            className="w-full bg-green-500 text-white py-2 px-4 rounded hover:bg-green-600 font-semibold"
+          >
+            🧪 Test Payment (Mock)
+          </button>
+        </div>
+      </div>
+    );
   }
 
-  if (!clientSecret || !options) {
-    return <div>Failed to load payment form</div>;
-  }
-
+  // Production mode - Stripe implementation would go here
+  // For now, just show a placeholder
   return (
-    <Elements stripe={stripePromise} options={options}>
-      <PaymentForm
-        clientSecret={clientSecret}
-        onSuccess={onSuccess}
-        onError={onError}
-      />
-    </Elements>
+    <div className="w-full max-w-md mx-auto p-4">
+      <div className="p-6 border-2 border-dashed border-blue-400 rounded-lg bg-blue-50">
+        <h3 className="text-lg font-semibold text-blue-800 mb-2">🚀 Production Mode</h3>
+        <p className="text-blue-700 mb-3">Stripe integration would be enabled here.</p>
+      </div>
+    </div>
   );
 }; 

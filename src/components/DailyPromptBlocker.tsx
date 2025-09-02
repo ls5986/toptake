@@ -16,13 +16,13 @@ interface DailyPromptBlockerProps {
 }
 
 export const DailyPromptBlocker = ({ isBlocked, onSubmit }: DailyPromptBlockerProps) => {
-  const { user, submitTake, userCredits } = useAppContext();
+  const { user, submitTake, userCredits, hasPostedToday } = useAppContext();
   const [response, setResponse] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
   const [loading, setLoading] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
-  const { prompt, loading: promptLoading, error, hasPostedToday } = useTodayPrompt();
+  const { prompt, loading: promptLoading, error } = useTodayPrompt();
 
   const canPostAnonymously = user && userCredits.anonymous > 0;
 

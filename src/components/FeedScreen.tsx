@@ -163,7 +163,11 @@ const FeedScreen: React.FC = () => {
     setUnlockingTakeId(take.id);
     const spent = await spendCredits(user.id, 'sneak_peek', 1);
     if (!spent) {
-      alert('Not enough sneak peek credits!');
+      toast({ 
+        title: 'Insufficient Credits', 
+        description: 'You need sneak peek credits to unlock this take. Purchase some credits to continue.', 
+        variant: 'destructive' 
+      });
       setUnlockingTakeId(null);
       return;
     }

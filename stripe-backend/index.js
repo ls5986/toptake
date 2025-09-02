@@ -29,17 +29,76 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
   try {
     event = stripe.webhooks.constructEvent(req.body, sig, process.env.STRIPE_WEBHOOK_SECRET);
   } catch (err) {
+    console.error('Webhook signature verification failed:', err.message);
     return res.status(400).send(`Webhook Error: ${err.message}`);
   }
 
+  console.log('Processing webhook event:', event.type);
+
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
-    const priceId = session.metadata?.priceId || session.display_items?.[0]?.price?.id || session.line_items?.[0]?.price?.id;
     const userId = session.client_reference_id;
-    // TODO: Map priceId to credit type and increment in Supabase
-    // Example: if (priceId === 'price_late_submit') { ... }
-    // await supabase.from('profiles').update({ late_submit_credits: ... }).eq('id', userId);
+    
+    try {
+      // Get the actual price ID from line items
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
+      const priceId = lineItems.data[0]?.price?.id;
+      
+      console.log('Processing payment:', { userId, priceId, sessionId: session.id });
+      
+      // Map price IDs to credit types and amounts
+      const creditMapping = {
+        'price_anonymous_1': { type: 'anonymous', amount: 1 },
+        'price_anonymous_5': { type: 'anonymous', amount: 5 },
+        'price_anonymous_10': { type: 'anonymous', amount: 10 },
+        'price_late_submit_1': { type: 'late_submit', amount: 1 },
+        'price_late_submit_3': { type: 'late_submit', amount: 3 },
+        'price_sneak_peek_1': { type: 'sneak_peek', amount: 1 },
+        'price_sneak_peek_5': { type: 'sneak_peek', amount: 5 },
+        'price_boost_1': { type: 'boost', amount: 1 },
+        'price_extra_takes_1': { type: 'extra_takes', amount: 1 },
+        'price_delete_1': { type: 'delete', amount: 1 }
+      };
+      
+      const creditInfo = creditMapping[priceId];
+      if (creditInfo && userId) {
+        try {
+          // Use the add_user_credits function from the database
+          const { error } = await supabase.rpc('add_user_credits', {
+            p_user_id: userId,
+            p_credit_type: creditInfo.type,
+            p_amount: creditInfo.amount
+          });
+          
+          if (error) {
+            console.error('Error adding credits:', error);
+            // Log to monitoring service in production
+          } else {
+            console.log(`✅ Added ${creditInfo.amount} ${creditInfo.type} credits to user ${userId}`);
+            
+            // Also log the purchase for analytics
+            await supabase.from('purchases').insert({
+              user_id: userId,
+              product_type: creditInfo.type,
+              amount: creditInfo.amount,
+              price_id: priceId,
+              stripe_session_id: session.id,
+              amount_paid: session.amount_total / 100 // Convert from cents
+            });
+          }
+        } catch (err) {
+          console.error('Error processing credit purchase:', err);
+          // In production, send to error monitoring service
+        }
+      } else {
+        console.warn('Unknown price ID or missing user ID:', { priceId, userId });
+      }
+    } catch (error) {
+      console.error('Error processing checkout session:', error);
+      // Don't fail the webhook, but log the error
+    }
   }
+  
   res.json({ received: true });
 });
 
@@ -48,6 +107,11 @@ app.use(bodyParser.json());
 
 app.post('/api/create-checkout-session', async (req, res) => {
   const { priceId, userId } = req.body;
+  
+  if (!priceId || !userId) {
+    return res.status(400).json({ error: 'Missing priceId or userId' });
+  }
+  
   try {
     const session = await stripe.checkout.sessions.create({
       payment_method_types: ['card'],
@@ -56,10 +120,13 @@ app.post('/api/create-checkout-session', async (req, res) => {
       success_url: process.env.SUCCESS_URL || 'https://your-frontend.com/success',
       cancel_url: process.env.CANCEL_URL || 'https://your-frontend.com/cancel',
       client_reference_id: userId,
-      // Optionally, add metadata: { priceId }
+      metadata: { priceId }
     });
+    
+    console.log('Created checkout session:', { sessionId: session.id, userId, priceId });
     res.json({ sessionId: session.id });
   } catch (err) {
+    console.error('Error creating checkout session:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -70,6 +137,7 @@ app.get('/api/products', async (req, res) => {
     const prices = await stripe.prices.list({ active: true, expand: ['data.product'] });
     res.json(prices.data);
   } catch (err) {
+    console.error('Error fetching products:', err);
     res.status(500).json({ error: err.message });
   }
 });
@@ -79,5 +147,7 @@ app.get('/', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+  console.log(`🚀 Stripe backend server running on port ${PORT}`);
+  console.log(`📊 Webhook endpoint: /api/stripe/webhook`);
+  console.log(`💳 Checkout endpoint: /api/create-checkout-session`);
 }); 

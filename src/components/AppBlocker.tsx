@@ -23,7 +23,7 @@ interface AppBlockerProps {
 
 export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) => {
   console.log('AppBlocker render!');
-  const { user, updateStreak, setUser, submitTake } = useAppContext();
+  const { user, updateStreak, setUser, submitTake, hasPostedToday } = useAppContext();
   const { userCredits = { anonymous: 0, late_submit: 0, sneak_peek: 0, boost: 0, extra_takes: 0, delete: 0 } } = useCredits();
   const [response, setResponse] = useState('');
   const [isAnonymous, setIsAnonymous] = useState(false);
@@ -33,8 +33,8 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Prompt state
-  const { prompt, loading: promptLoading, error: promptError, hasPostedToday } = useTodayPrompt();
+  // Prompt state - remove hasPostedToday since we get it from AppContext
+  const { prompt, loading: promptLoading, error: promptError } = useTodayPrompt();
 
   const canPostAnonymously = user && (userCredits?.anonymous ?? 0) > 0;
 
@@ -93,6 +93,9 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
     buttonDisabled: loading || !response.trim()
   });
 
+  // Don't render if user has already posted today
+  if (hasPostedToday) return null;
+  
   if (!isBlocked) return null;
 
   return (

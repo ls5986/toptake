@@ -7,10 +7,10 @@ export function useTodayPrompt() {
   const [prompt, setPrompt] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [hasPostedToday, setHasPostedToday] = useState(false);
 
   useEffect(() => {
-    async function fetchPromptAndTake() {
+    async function fetchPrompt() {
+      console.log('🔍 useTodayPrompt: Fetching prompt...');
       setLoading(true);
       setError(null);
       // Get local date string YYYY-MM-DD
@@ -18,6 +18,9 @@ export function useTodayPrompt() {
       const todayStr = today.getFullYear() + '-' +
         String(today.getMonth() + 1).padStart(2, '0') + '-' +
         String(today.getDate()).padStart(2, '0');
+      
+      console.log('📅 useTodayPrompt: Looking for prompt on date:', todayStr);
+      
       try {
         // Fetch today's prompt
         const { data: promptData, error: promptError } = await supabase
@@ -26,31 +29,26 @@ export function useTodayPrompt() {
           .eq('prompt_date', todayStr)
           .eq('is_active', true)
           .single();
-        if (promptError) throw promptError;
-        setPrompt(promptData);
-        // Check if user has posted today
-        if (user?.id && promptData?.id) {
-          const { data: takes, error: takeError } = await supabase
-            .from('takes')
-            .select('id')
-            .eq('user_id', user.id)
-            .eq('prompt_id', promptData.id)
-            .limit(1);
-          if (takeError) throw takeError;
-          setHasPostedToday(!!(takes && takes.length > 0));
-        } else {
-          setHasPostedToday(false);
+        
+        if (promptError) {
+          console.error('❌ useTodayPrompt: Error fetching prompt:', promptError);
+          throw promptError;
         }
+        
+        console.log('✅ useTodayPrompt: Prompt fetched:', promptData);
+        setPrompt(promptData);
       } catch (err) {
+        console.error('❌ useTodayPrompt: Error:', err);
         setError(err.message || 'Error fetching today\'s prompt');
         setPrompt(null);
-        setHasPostedToday(false);
       } finally {
         setLoading(false);
       }
     }
-    fetchPromptAndTake();
-  }, [user?.id]);
+    
+    // Fetch prompt immediately when component mounts
+    fetchPrompt();
+  }, []); // Remove user?.id dependency to fetch immediately
 
-  return { prompt, loading, error, hasPostedToday };
+  return { prompt, loading, error };
 } 

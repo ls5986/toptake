@@ -17,7 +17,8 @@ const AppLayout: React.FC = () => {
     shouldShowCarousel,
     hasPostedToday,
     isLoading,
-    currentTakeId
+    currentTakeId,
+    setCurrentScreen
   } = useAppContext();
 
   console.log('📱 AppLayout render:', {
@@ -28,16 +29,51 @@ const AppLayout: React.FC = () => {
     shouldShowCarousel
   });
 
+  // Manual refresh handler
+  const handleManualRefresh = () => {
+    console.log('🔄 Manual refresh triggered');
+    window.location.reload();
+  };
+
+  // Debug panel for development
+  const showDebugPanel = process.env.NODE_ENV === 'development';
+
   // Show loading while initializing
   if (isLoading) {
-    return <LoadingSpinner />;
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen">
+        <LoadingSpinner />
+        <div className="mt-4 text-center">
+          <p className="text-gray-600 mb-2">Loading TopTake...</p>
+          <button
+            onClick={handleManualRefresh}
+            className="px-4 py-2 bg-blue-500 text-white rounded hover:bg-blue-600 transition-colors"
+          >
+            🔄 Refresh if stuck
+          </button>
+        </div>
+        {showDebugPanel && (
+          <div className="mt-4 p-3 bg-gray-100 rounded text-xs text-gray-600">
+            <div>Debug: {currentScreen}</div>
+            <div>User: {user ? 'Yes' : 'No'}</div>
+            <div>Posted: {hasPostedToday ? 'Yes' : 'No'}</div>
+          </div>
+        )}
+      </div>
+    );
   }
 
   // Unauthenticated users
   if (!user) {
+    console.log('🔐 No user, currentScreen:', currentScreen);
     if (currentScreen === 'main') {
-      return <LandingPage onGetStarted={() => {}} />;
+      console.log('🏠 Showing LandingPage');
+      return <LandingPage onGetStarted={() => {
+        console.log('🚀 Get Started clicked, setting screen to auth');
+        setCurrentScreen('auth');
+      }} />;
     }
+    console.log('🔑 Showing AuthScreen');
     return (
       <Suspense fallback={<LoadingSpinner />}>
         <AuthScreen />

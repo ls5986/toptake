@@ -348,7 +348,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       // CRITICAL: Always check backend for hasPostedToday
       // This is the single source of truth
-      await checkHasPostedTodayFromBackend();
+      await checkHasPostedTodayFromBackend(profile.id);
       
       setIsLoading(false);
       
@@ -361,8 +361,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ✅ ADD: Single source of truth for posting status
-  const checkHasPostedTodayFromBackend = useCallback(async () => {
-    if (!user?.id) {
+  const checkHasPostedTodayFromBackend = useCallback(async (userId?: string) => {
+    const targetUserId = userId || user?.id;
+    if (!targetUserId) {
+      console.log('⚠️ No user ID provided for checkHasPostedTodayFromBackend');
       setHasPostedToday(false);
       return;
     }
@@ -374,13 +376,13 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         String(today.getMonth() + 1).padStart(2, '0') + '-' +
         String(today.getDate()).padStart(2, '0');
       
-      console.log('🔍 Checking for takes:', { userId: user.id, today: todayStr });
+      console.log('🔍 Checking for takes:', { userId: targetUserId, today: todayStr });
       
       // Use better query structure to avoid 406 errors
       const { data: takes, error } = await supabase
         .from('takes')
         .select('id')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .eq('prompt_date', todayStr)
         .limit(1);
         
@@ -394,7 +396,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setHasPostedToday(hasPosted);
       
       console.log('✅ Backend check result:', {
-        userId: user.id,
+        userId: targetUserId,
         today: todayStr,
         hasPosted,
         takesFound: takes?.length || 0
@@ -404,7 +406,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.error('❌ Error in checkHasPostedToday:', error);
       setHasPostedToday(false);
     }
-  }, [user?.id]);
+  }, []);
 
   // ✅ ADD: Auth listener with cleanup
   useEffect(() => {
@@ -431,9 +433,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   }, []);
 
   // ✅ ADD: Proper dependencies
-  useEffect(() => {
-    checkHasPostedTodayFromBackend();
-  }, [checkHasPostedTodayFromBackend]);
+  // useEffect(() => {
+  //   checkHasPostedTodayFromBackend();
+  // }, [checkHasPostedTodayFromBackend]);
 
   // ✅ ADD: Bulletproof Take Submission
   const submitTake = async (content: string, isAnonymous: boolean, promptId?: string): Promise<boolean> => {
@@ -523,7 +525,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       console.log('✅ Take submitted successfully:', insertedTake.id);
 
       // CRITICAL: Re-check backend state immediately
-      await checkHasPostedTodayFromBackend();
+      await checkHasPostedTodayFromBackend(user.id);
       
       // Update user streak if needed
       if (user) {
@@ -633,6 +635,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(false);
     }
   };
+
+  // ✅ ADD: Safety timeout to prevent stuck loading states (much smarter)
+  useEffect(() => {
+    const safetyTimeout = setTimeout(() => {
+      // Only trigger if:
+      // 1. Still loading after 45 seconds
+      // 2. No user (prevents kicking out authenticated users)
+      // 3. Not in the middle of auth flow
+      if (isLoading && !user && !isCheckingPostStatus) {
+        console.log('⚠️ Safety timeout triggered - forcing app to continue');
+        setIsLoading(false);
+        setCurrentScreen('main');
+      }
+    }, 45000); // Increased to 45 seconds and made smarter
+
+    return () => clearTimeout(safetyTimeout);
+  }, [isLoading, user, isCheckingPostStatus, setCurrentScreen]);
 
   if (isLoading) {
     return <LoadingSpinner />;

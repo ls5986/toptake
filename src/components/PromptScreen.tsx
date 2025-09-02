@@ -35,7 +35,11 @@ const PromptScreen: React.FC = () => {
   const handleSubmit = async () => {
     if (!takeContent.trim() || isSubmitting) return;
     if (hasPostedToday) {
-      alert('You have already posted today!');
+      toast({ 
+        title: 'Already Posted', 
+        description: 'You have already posted today!', 
+        variant: 'destructive' 
+      });
       return;
     }
     if (isAnonymous && userCredits.anonymous <= 0) {
@@ -46,7 +50,11 @@ const PromptScreen: React.FC = () => {
     if (isAnonymous) {
       const spent = await spendCredits(user.id, 'anonymous', 1);
       if (!spent) {
-        alert('Not enough anonymous credits!');
+        toast({ 
+          title: 'Insufficient Credits', 
+          description: 'You need anonymous credits to post anonymously. Purchase some credits to continue.', 
+          variant: 'destructive' 
+        });
         setIsSubmitting(false);
         return;
       }
@@ -60,15 +68,27 @@ const PromptScreen: React.FC = () => {
       .eq('is_active', true)
       .single();
     if (!prompt) {
-      alert('No prompt found for today!');
+      toast({ 
+        title: 'No Prompt Available', 
+        description: 'No prompt found for today. Please try again later.', 
+        variant: 'destructive' 
+      });
       setIsSubmitting(false);
       return;
     }
     const success = await submitTake(takeContent, isAnonymous, prompt.id);
     if (success) {
+      toast({ 
+        title: 'Success!', 
+        description: 'Your take has been submitted successfully!' 
+      });
       setCurrentScreen('main');
     } else {
-      alert('Failed to submit take. You may have already posted today.');
+      toast({ 
+        title: 'Submission Failed', 
+        description: 'Failed to submit take. You may have already posted today or there was an error.', 
+        variant: 'destructive' 
+      });
     }
     setIsSubmitting(false);
   };
@@ -82,7 +102,11 @@ const PromptScreen: React.FC = () => {
     setIsSubmitting(true);
     const spent = await spendCredits(user.id, 'late_submit', 1);
     if (!spent) {
-      alert('Not enough late submit credits!');
+      toast({ 
+        title: 'Insufficient Credits', 
+        description: 'You need late submit credits to submit a late take. Purchase some credits to continue.', 
+        variant: 'destructive' 
+      });
       setIsSubmitting(false);
       return;
     }
@@ -109,7 +133,11 @@ const PromptScreen: React.FC = () => {
       toast({ title: 'Late Take Submitted', description: 'Your take was submitted and backdated to the prompt date.' });
       setCurrentScreen('main');
     } else {
-      alert('Failed to submit late take.');
+      toast({ 
+        title: 'Submission Failed', 
+        description: 'Failed to submit late take. Please try again.', 
+        variant: 'destructive' 
+      });
     }
     setIsSubmitting(false);
   };

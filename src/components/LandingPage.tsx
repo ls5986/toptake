@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -9,6 +9,10 @@ interface LandingPageProps {
 }
 
 const LandingPage: React.FC<LandingPageProps> = ({ onGetStarted }) => {
+  useEffect(() => {
+    console.log('🏠 LandingPage mounted, onGetStarted function:', onGetStarted);
+  }, [onGetStarted]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-brand-background via-brand-surface to-brand-background">
       {/* Hero Section */}
