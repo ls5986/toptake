@@ -16,12 +16,14 @@ import { getTodayPrompt } from '@/lib/supabase';
 import { spendCredits } from '@/lib/credits';
 import BillingModal from './BillingModal';
 import { usePromptForDate } from '@/hooks/usePromptForDate';
+import { getReactionCounts, addReaction, ReactionType } from '@/lib/reactions';
 
 const FeedScreen: React.FC = () => {
   const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, userCredits, setUserCredits } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [reactionCounts, setReactionCounts] = useState<Record<string, Record<ReactionType, number>>>({});
   const fetchInProgress = useRef(false);
   const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
   const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
@@ -89,10 +91,17 @@ const FeedScreen: React.FC = () => {
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
         timestamp: take.created_at,
-        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
+        reactions: { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }, // Placeholder, will be replaced by reactionCounts
         commentCount: commentCountMap[take.id] || 0
       }));
       setTakes(formattedTakes);
+
+      // Fetch reaction counts for all takes
+      const counts: Record<string, Record<ReactionType, number>> = {};
+      for (const take of formattedTakes) {
+        counts[take.id] = await getReactionCounts(take.id);
+      }
+      setReactionCounts(counts);
     } catch (error) {
       setTakes([]);
     } finally {
@@ -101,30 +110,19 @@ const FeedScreen: React.FC = () => {
     }
   };
 
-  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
+  const handleReaction = async (takeId: string, reaction: ReactionType) => {
     try {
-      if (!user?.hasPostedToday) {
-        return;
-      }
-      setTakes(prev => prev.map(t => 
-        t.id === takeId ? { 
-          ...t, 
-          reactions: {
-            ...t.reactions,
-            [reaction]: t.reactions[reaction] + 1
-          }
-        } : t
-      ));
-      const take = takes.find(t => t.id === takeId);
-      if (!take) return;
-      const updatedReactions = {
-        ...take.reactions,
-        [reaction]: take.reactions[reaction] + 1
-      };
-      await supabase
-        .from('takes')
-        .update({ reactions: updatedReactions })
-        .eq('id', takeId);
+      if (!user?.id) return;
+
+      // Add reaction to database
+      await addReaction(takeId, user.id, reaction);
+
+      // Refetch reaction counts for this take
+      const counts = await getReactionCounts(takeId);
+      setReactionCounts(prev => ({
+        ...prev,
+        [takeId]: counts
+      }));
     } catch (error) {
       console.error('Error handling reaction:', error);
     }
@@ -255,6 +253,7 @@ const FeedScreen: React.FC = () => {
                       <TakeCard 
                         take={take} 
                         onReact={handleReaction}
+                        reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
                       />
                     </div>
                   </div>
