@@ -14,14 +14,16 @@ import { MonetizationModals } from './MonetizationModals';
 import { useNavigate } from 'react-router-dom';
 import { Checkbox } from '@/components/ui/checkbox';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
+import { format } from 'date-fns';
 
 interface AppBlockerProps {
   isBlocked: boolean;
   onSubmit: () => void;
   message?: string;
+  targetDate?: Date; // Add target date for late submissions
 }
 
-export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) => {
+export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBlockerProps) => {
   console.log('AppBlocker render!');
   const { user, updateStreak, setUser, submitTake, hasPostedToday } = useAppContext();
   const { userCredits = { anonymous: 0, late_submit: 0, sneak_peek: 0, boost: 0, extra_takes: 0, delete: 0 } } = useCredits();
@@ -30,13 +32,60 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
+  const [takes, setTakes] = useState<any[]>([]);
+  const [loadingTakes, setLoadingTakes] = useState(false);
   const { toast } = useToast();
   const navigate = useNavigate();
 
-  // Prompt state - remove hasPostedToday since we get it from AppContext
-  const { prompt, loading: promptLoading, error: promptError } = useTodayPrompt();
+  // Determine which date to use - targetDate for late submissions, today for normal
+  const effectiveDate = targetDate || new Date();
+  const isLateSubmission = !!targetDate;
+
+  // Prompt state - use targetDate if provided, otherwise today
+  const { prompt, loading: promptLoading, error: promptError } = useTodayPrompt(effectiveDate);
 
   const canPostAnonymously = user && (userCredits?.anonymous ?? 0) > 0;
+
+  // Fetch takes for the target date (for late submissions)
+  const fetchTakesForDate = async (date: Date) => {
+    if (!isLateSubmission) return;
+    
+    setLoadingTakes(true);
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('takes')
+        .select(`
+          *,
+          profiles:user_id(username)
+        `)
+        .eq('prompt_date', dateStr)
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedTakes = (data || []).map((take: any) => ({
+        id: take.id,
+        content: take.content,
+        username: take.is_anonymous ? 'Anonymous' : take.profiles?.username || 'Unknown',
+        timestamp: take.created_at,
+        isAnonymous: take.is_anonymous
+      }));
+
+      setTakes(formattedTakes);
+    } catch (error) {
+      console.error('Error fetching takes for date:', error);
+    } finally {
+      setLoadingTakes(false);
+    }
+  };
+
+  // Fetch takes when targetDate changes
+  useEffect(() => {
+    if (isLateSubmission && effectiveDate) {
+      fetchTakesForDate(effectiveDate);
+    }
+  }, [targetDate, isLateSubmission]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     console.log('AppBlocker handleSubmit CALLED');
@@ -118,7 +167,9 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
             <div className="space-y-4">
               <div className="bg-brand-surface p-4 rounded-lg">
                 <div className="flex items-center mb-2">
-                  <span className="font-semibold text-brand-accent">Today's Prompt</span>
+                  <span className="font-semibold text-brand-accent">
+                    {isLateSubmission ? `${format(effectiveDate, 'MMM dd, yyyy')} Prompt` : "Today's Prompt"}
+                  </span>
                 </div>
                 {promptLoading ? (
                   <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
@@ -126,6 +177,47 @@ export const AppBlocker = ({ isBlocked, onSubmit, message }: AppBlockerProps) =>
                   <p className="text-brand-muted">{prompt.prompt_text}</p>
                 )}
               </div>
+
+              {/* Show takes for the target date in late submission mode */}
+              {isLateSubmission && (
+                <div className="bg-brand-surface p-4 rounded-lg">
+                  <div className="flex items-center justify-between mb-3">
+                    <span className="font-semibold text-brand-accent">
+                      Takes from {format(effectiveDate, 'MMM dd, yyyy')}
+                    </span>
+                    <span className="text-sm text-brand-muted">
+                      {takes.length} takes
+                    </span>
+                  </div>
+                  
+                  {loadingTakes ? (
+                    <div className="space-y-2">
+                      {[1, 2, 3].map(i => (
+                        <div key={i} className="animate-pulse bg-brand-muted h-16 rounded"></div>
+                      ))}
+                    </div>
+                  ) : takes.length > 0 ? (
+                    <div className="space-y-3 max-h-48 overflow-y-auto">
+                      {takes.map((take) => (
+                        <div key={take.id} className="p-3 bg-brand-background rounded border border-brand-border">
+                          <div className="flex items-start justify-between">
+                            <div className="flex-1">
+                              <p className="text-sm text-brand-text mb-1">{take.content}</p>
+                              <div className="flex items-center text-xs text-brand-muted">
+                                <span>{take.username}</span>
+                                <span className="mx-2">•</span>
+                                <span>{format(new Date(take.timestamp), 'h:mm a')}</span>
+                              </div>
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-brand-muted text-center py-4">No takes yet for this date</p>
+                  )}
+                </div>
+              )}
               
               <div className="relative">
                 <Textarea

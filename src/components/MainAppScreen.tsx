@@ -505,7 +505,11 @@ const MainAppScreen: React.FC = () => {
 
   return (
     <div className="bg-brand-background min-h-screen flex flex-col">
-      <AppBlocker isBlocked={isAppBlocked} onSubmit={handleUnlock} />
+      <AppBlocker 
+        isBlocked={isAppBlocked} 
+        onSubmit={handleUnlock}
+        targetDate={showLateSubmit ? selectedDate : undefined}
+      />
       
       <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="flex-shrink-0 p-4 border-b border-brand-border">
