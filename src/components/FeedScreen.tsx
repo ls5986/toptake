@@ -12,32 +12,23 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { getTodayPrompt } from '@/lib/supabase';
-import { spendCredits } from '@/lib/credits';
-import BillingModal from './BillingModal';
-import { usePromptForDate } from '@/hooks/usePromptForDate';
+import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 
 const FeedScreen: React.FC = () => {
-  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, userCredits, setUserCredits } = useAppContext();
+  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const fetchInProgress = useRef(false);
-  const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
-  const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
-  const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
-
-  useEffect(() => {
-    if (user && !isAppBlocked && !fetchInProgress.current) {
-      fetchInProgress.current = true;
-      loadPromptAndTakes().finally(() => {
-        fetchInProgress.current = false;
-      });
-    }
-  }, [user, isAppBlocked, selectedDate]);
-
+  
+  // Use the same prompt hook as other components for consistency
+  const { prompt, loading: promptLoading } = useTodayPrompt();
+  
+  // Get prompt text for display - use today's prompt for consistency
+  const promptText = prompt?.prompt_text || '';
+  
   const loadPromptAndTakes = async () => {
     setLoading(true);
     try {
@@ -48,6 +39,14 @@ const FeedScreen: React.FC = () => {
         .select('*')
         .eq('prompt_date', dateStr)
         .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('❌ FeedScreen: Error fetching takes for date:', error);
+        setTakes([]);
+        setLoading(false);
+        return;
+      }
+      
       // Fetch profiles for user_ids
       const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
       let profileMap: Record<string, Pick<User, 'id' | 'username'>> = {};
@@ -61,11 +60,7 @@ const FeedScreen: React.FC = () => {
           return acc;
         }, {});
       }
-      if (error) {
-        setTakes([]);
-        setLoading(false);
-        return;
-      }
+      
       // Fetch all comments for today's takes and count per take
       const takeIds = (data || []).map((take: { id: string }) => take.id);
       let commentCountMap: Record<string, number> = {};
@@ -81,6 +76,7 @@ const FeedScreen: React.FC = () => {
           }, {});
         }
       }
+      
       // Format takes to match Take type
       const formattedTakes: Take[] = (data || []).map((take: any) => ({
         id: take.id,
@@ -89,11 +85,13 @@ const FeedScreen: React.FC = () => {
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
         timestamp: take.created_at,
-        reactions: take.reactions || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 },
+        prompt_date: take.prompt_date,
         commentCount: commentCountMap[take.id] || 0
       }));
+      
       setTakes(formattedTakes);
     } catch (error) {
+      console.error('❌ FeedScreen: Error in loadPromptAndTakes:', error);
       setTakes([]);
     } finally {
       setLoading(false);
@@ -101,33 +99,18 @@ const FeedScreen: React.FC = () => {
     }
   };
 
-  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
-    try {
-      if (!user?.hasPostedToday) {
-        return;
-      }
-      setTakes(prev => prev.map(t => 
-        t.id === takeId ? { 
-          ...t, 
-          reactions: {
-            ...t.reactions,
-            [reaction]: t.reactions[reaction] + 1
-          }
-        } : t
-      ));
-      const take = takes.find(t => t.id === takeId);
-      if (!take) return;
-      const updatedReactions = {
-        ...take.reactions,
-        [reaction]: take.reactions[reaction] + 1
-      };
-      await supabase
-        .from('takes')
-        .update({ reactions: updatedReactions })
-        .eq('id', takeId);
-    } catch (error) {
-      console.error('Error handling reaction:', error);
+  useEffect(() => {
+    if (user && !isAppBlocked && !fetchInProgress.current) {
+      fetchInProgress.current = true;
+      loadPromptAndTakes().finally(() => {
+        fetchInProgress.current = false;
+      });
     }
+  }, [user, isAppBlocked, selectedDate]);
+
+  const handleReaction = async (takeId: string, reaction: string) => {
+    // Simplified reaction handling - just log for now
+    console.log('Reaction:', reaction, 'on take:', takeId);
   };
 
   const handleRefresh = async () => {
@@ -144,39 +127,6 @@ const FeedScreen: React.FC = () => {
     } catch (error) {
       console.error('Error unlocking:', error);
     }
-  };
-
-  // Helper: is take from future prompt?
-  const isFutureTake = (take) => {
-    const today = new Date();
-    const takeDate = new Date(take.timestamp);
-    return takeDate > today;
-  };
-
-  const canSneakPeek = user && userCredits.sneak_peek > 0;
-
-  const handleSneakPeekUnlock = async (take) => {
-    if (!canSneakPeek) {
-      setShowSneakPeekModal(true);
-      return;
-    }
-    setUnlockingTakeId(take.id);
-    const spent = await spendCredits(user.id, 'sneak_peek', 1);
-    if (!spent) {
-      toast({ 
-        title: 'Insufficient Credits', 
-        description: 'You need sneak peek credits to unlock this take. Purchase some credits to continue.', 
-        variant: 'destructive' 
-      });
-      setUnlockingTakeId(null);
-      return;
-    }
-    setUserCredits({ ...userCredits, sneak_peek: userCredits.sneak_peek - 1 });
-    // Insert into sneak_peeks and decrement credit
-    await supabase.from('sneak_peeks').insert({ user_id: user.id, take_id: take.id, created_at: new Date().toISOString() });
-    toast({ title: 'Sneak Peek Unlocked', description: 'You have unlocked a future take!' });
-    setUnlockingTakeId(null);
-    // Optionally, refetch or optimistically update UI to reveal take
   };
 
   if (isAppBlocked) {
@@ -235,31 +185,13 @@ const FeedScreen: React.FC = () => {
                   </Button>
                 </div>
               </div>
-              {takes.map((take, index) => {
-                const futureTake = isFutureTake(take);
-                const canView = !futureTake || canSneakPeek;
-                return (
-                  <div key={take.id} className="relative">
-                    {!canView ? (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
-                        <div className="text-white text-lg mb-2">🔒 Sneak Peek Locked</div>
-                        <Button
-                          onClick={() => handleSneakPeekUnlock(take)}
-                          className="bg-blue-500 text-white hover:bg-blue-600"
-                        >
-                          {canSneakPeek ? 'Unlock Sneak Peek' : 'Buy Sneak Peek Credit'}
-                        </Button>
-                      </div>
-                    ) : null}
-                    <div className={canView ? '' : 'blur-sm pointer-events-none select-none'}>
-                      <TakeCard 
-                        take={take} 
-                        onReact={handleReaction}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {takes.map((take) => (
+                <TakeCard 
+                  key={take.id}
+                  take={take} 
+                  onReact={handleReaction}
+                />
+              ))}
               {takes.length === 0 && (
                 <div className="text-center text-brand-muted py-8">
                   <p>No takes yet today!</p>
@@ -269,7 +201,6 @@ const FeedScreen: React.FC = () => {
             </div>
           </ScrollArea>
         )}
-        <BillingModal isOpen={showSneakPeekModal} onClose={() => setShowSneakPeekModal(false)} />
       </div>
     </div>
   );

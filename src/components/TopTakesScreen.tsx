@@ -71,12 +71,22 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
   const loadPromptAndTopTakes = async () => {
     setLoading(true);
     try {
-      // Fetch all takes for selected date
-      const dateStr = selectedDate.toISOString().split('T')[0];
+      // Fetch all takes for today's date (not selectedDate)
+      const today = new Date();
+      const dateStr = today.toISOString().split('T')[0];
       const { data, error } = await supabase
         .from('takes')
         .select('*')
-        .eq('prompt_date', dateStr);
+        .eq('prompt_date', dateStr)
+        .order('created_at', { ascending: false });
+        
+      if (error) {
+        console.error('❌ TopTakesScreen: Error fetching takes for date:', error);
+        setTopTakes([]);
+        setLoading(false);
+        return;
+      }
+      
       // Fetch profiles for user_ids
       const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
       let profileMap: Record<string, any> = {};
@@ -85,16 +95,12 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
           .from('profiles')
           .select('id, username')
           .in('id', userIds);
-        profileMap = (profiles || []).reduce((acc, profile) => {
+        profileMap = (profiles || []).reduce((acc: Record<string, any>, profile: { id: string; username: string }) => {
           acc[profile.id] = profile;
           return acc;
-        }, {} as Record<string, any>);
+        }, {});
       }
-      if (error) {
-        setTopTakes([]);
-        setLoading(false);
-        return;
-      }
+      
       // Fetch all comments for today's takes and count per take
       const takeIds = (data || []).map(take => take.id);
       let commentCountMap: Record<string, number> = {};
@@ -104,13 +110,14 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
           .select('id, take_id')
           .in('take_id', takeIds);
         if (!commentsError && commentsData) {
-          commentCountMap = commentsData.reduce((acc, row) => {
+          commentCountMap = commentsData.reduce((acc: Record<string, number>, row: { take_id: string }) => {
             acc[row.take_id] = (acc[row.take_id] || 0) + 1;
             return acc;
-          }, {} as Record<string, number>);
+          }, {});
         }
       }
-      // Format and sort by engagement
+      
+      // Format takes to match Take type
       const formattedTakes = (data || []).map(take => ({
         id: take.id,
         userId: take.user_id,
@@ -118,18 +125,13 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
         username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
         isAnonymous: take.is_anonymous,
         timestamp: take.created_at,
-        prompt_id: take.prompt_id,
-        reactionsCount: 0, // Placeholder, can be updated if needed
-        commentCount: commentCountMap[take.id] || 0,
-        isBoosted: take.is_boosted || false,
+        prompt_date: take.prompt_date,
+        commentCount: commentCountMap[take.id] || 0
       }));
-      const sortedTakes = formattedTakes.sort((a, b) => {
-        const aTotal = Object.values(reactionCounts[a.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof a.commentCount === 'number' ? a.commentCount : 0);
-        const bTotal = Object.values(reactionCounts[b.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof b.commentCount === 'number' ? b.commentCount : 0);
-        return bTotal - aTotal;
-      });
-      setTopTakes(sortedTakes);
+      
+      setTopTakes(formattedTakes);
     } catch (error) {
+      console.error('❌ TopTakesScreen: Error in loadPromptAndTopTakes:', error);
       setTopTakes([]);
     } finally {
       setLoading(false);

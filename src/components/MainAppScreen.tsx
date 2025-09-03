@@ -25,7 +25,6 @@ import LateSubmitModal from './LateSubmitModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
-import { usePromptForDate } from '@/hooks/usePromptForDate';
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt } = useAppContext();
@@ -52,7 +51,6 @@ const MainAppScreen: React.FC = () => {
   const today = new Date();
   const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
   const { prompt, loading: promptLoading, error, hasPostedToday } = useTodayPrompt();
-  const { promptText: promptTextForDate, loading: promptLoadingForDate } = usePromptForDate(selectedDate);
 
   useEffect(() => {
     if (!user || fetchInProgress.current) return;
@@ -242,7 +240,7 @@ const MainAppScreen: React.FC = () => {
       return (
         <div className="flex-1 flex flex-col h-full">
           <div className="flex-shrink-0">
-          <TodaysPrompt prompt={promptTextForDate} takeCount={takes.length} loading={loading} />
+          <TodaysPrompt prompt={prompt?.prompt_text || ''} takeCount={takes.length} loading={loading} />
           </div>
           
           <div className="flex-1 min-h-0">
