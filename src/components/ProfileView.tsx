@@ -40,6 +40,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [profileUser, setProfileUser] = useState<any>(null);
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
+  const [promptByDate, setPromptByDate] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('light');
@@ -119,6 +120,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
         setUserTakes(formattedTakes);
         setHasPostedForSelectedDate(formattedTakes.length > 0);
+
+        // Fetch prompt text for each distinct prompt_date shown on the profile
+        const dates = Array.from(new Set((takesData || []).map((t: any) => t.prompt_date).filter(Boolean)));
+        if (dates.length) {
+          try {
+            const { data: prompts } = await supabase
+              .from('daily_prompts')
+              .select('prompt_date, prompt_text')
+              .in('prompt_date', dates);
+            const map: Record<string, string> = {};
+            (prompts || []).forEach((p: any) => { map[p.prompt_date] = p.prompt_text || ''; });
+            setPromptByDate(map);
+          } catch {}
+        }
       }
     } catch (error) {
       console.error('Error fetching user takes:', error);
@@ -617,11 +632,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         {userTakes.length > 0 ? (
           <div className="space-y-4">
             {userTakes.map((take) => (
-              <TakeCard 
-                key={take.id}
-                take={take} 
-                onReact={handleReaction}
-              />
+              <div key={take.id} className="space-y-2">
+                {take.prompt_date && (
+                  <div className="text-sm text-brand-muted">
+                    <span className="font-semibold text-brand-text">Prompt:</span> {promptByDate[take.prompt_date] || '—'}
+                  </div>
+                )}
+                <TakeCard 
+                  take={take} 
+                  onReact={handleReaction}
+                />
+              </div>
             ))}
           </div>
         ) : (
