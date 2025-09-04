@@ -339,11 +339,15 @@ const MainAppScreen: React.FC = () => {
 
   // If hook provided a prompt, adopt it as a fallback source
   useEffect(() => {
-    if (prompt && !promptText) {
-      console.log('[hook] useTodayPrompt delivered prompt; adopting');
-      setPromptText(prompt);
+    // Coerce hook prompt to string; avoid rendering object (React error #31)
+    if (currentTab === 'feed' && !promptText && prompt) {
+      const text = typeof prompt === 'string' ? prompt : (prompt as any)?.prompt_text || '';
+      if (text) {
+        console.log('[hook] useTodayPrompt delivered prompt; adopting');
+        setPromptText(text);
+      }
     }
-  }, [prompt]);
+  }, [prompt, currentTab, promptText]);
 
   // Removed forced-date alignment to always start at today on refresh
 
