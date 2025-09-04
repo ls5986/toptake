@@ -39,60 +39,39 @@ const PromptAnalytics: React.FC = () => {
 
   const loadPromptAnalytics = async () => {
     try {
-      // Get daily prompts
+      // Get recent daily prompts
       const { data: promptsData, error: promptsError } = await supabase
-        .from('prompts')
-        .select('*')
+        .from('daily_prompts')
+        .select('id, prompt_text, category, created_at')
         .order('created_at', { ascending: false })
         .limit(50);
-      
       if (promptsError) throw promptsError;
-      
-      // Get total takes and comments counts
-      const { count: totalTakes } = await supabase
-        .from('takes')
-        .select('*', { count: 'exact', head: true });
-      
-      const { count: totalComments } = await supabase
-        .from('comments')
-        .select('*', { count: 'exact', head: true });
-      
-      // Get users who have been active today (have takes or comments today)
+
+      // Get today window once
       const today = new Date();
       const todayStart = new Date(today.getFullYear(), today.getMonth(), today.getDate());
       const todayEnd = new Date(todayStart.getTime() + 24 * 60 * 60 * 1000);
-      
-      const { data: todayTakes } = await supabase
-        .from('takes')
-        .select('user_id')
-        .gte('created_at', todayStart.toISOString())
-        .lt('created_at', todayEnd.toISOString());
-      
-      const { data: todayComments } = await supabase
-        .from('comments')
-        .select('user_id')
-        .gte('created_at', todayStart.toISOString())
-        .lt('created_at', todayEnd.toISOString());
-      
-      // Count unique users active today
-      const activeUserIds = new Set([
-        ...(todayTakes || []).map(t => t.user_id),
-        ...(todayComments || []).map(c => c.user_id)
+
+      const [{ count: totalTakes }, { count: totalComments }, { data: todayTakes }, { data: todayComments }] = await Promise.all([
+        supabase.from('takes').select('*', { count: 'exact', head: true }),
+        supabase.from('comments').select('*', { count: 'exact', head: true }),
+        supabase.from('takes').select('user_id').gte('created_at', todayStart.toISOString()).lt('created_at', todayEnd.toISOString()),
+        supabase.from('comments').select('user_id').gte('created_at', todayStart.toISOString()).lt('created_at', todayEnd.toISOString()),
       ]);
-      
+
+      const activeUserIds = new Set([...(todayTakes || []).map(t => t.user_id), ...(todayComments || []).map(c => c.user_id)]);
       setOnlineToday(activeUserIds.size);
-      
-      // Process prompts with engagement data
-      const promptsWithCounts = (promptsData || []).map(prompt => ({
-        id: prompt.id,
-        content: prompt.prompt,
-        type: prompt.category || 'general',
+
+      const promptsWithCounts = (promptsData || []).map(dp => ({
+        id: dp.id,
+        content: dp.prompt_text,
+        type: dp.category || 'general',
         takes_count: totalTakes || 0,
         comments_count: totalComments || 0,
         engagement_score: calculateEngagementScore(totalTakes || 0, totalComments || 0),
-        created_at: prompt.created_at
+        created_at: dp.created_at,
       }));
-      
+
       setPrompts(promptsWithCounts);
       generateRecommendations(promptsWithCounts);
     } catch (error: unknown) {
@@ -105,29 +84,29 @@ const PromptAnalytics: React.FC = () => {
   };
 
   const calculateEngagementScore = (takes: number, comments: number): number => {
-    return (takes * 2) + (comments * 3);
+    return takes * 2 + comments * 3;
   };
 
   const generateRecommendations = (promptsData: PromptAnalysis[]) => {
-    const typePerformance = new Map<string, { total: number, count: number }>();
-    
+    const typePerformance = new Map<string, { total: number; count: number }>();
+
     promptsData.forEach(prompt => {
       const current = typePerformance.get(prompt.type) || { total: 0, count: 0 };
       typePerformance.set(prompt.type, {
         total: current.total + prompt.engagement_score,
-        count: current.count + 1
+        count: current.count + 1,
       });
     });
 
     const recommendations: RecommendedPrompt[] = [];
-    
+
     typePerformance.forEach((data, type) => {
       const avgScore = data.total / data.count;
       recommendations.push({
         type,
         score: avgScore,
         reason: avgScore > 10 ? 'High engagement' : avgScore > 5 ? 'Moderate engagement' : 'Low engagement',
-        example: getExamplePrompt(type)
+        example: getExamplePrompt(type),
       });
     });
 
@@ -136,14 +115,14 @@ const PromptAnalytics: React.FC = () => {
 
   const getExamplePrompt = (type: string): string => {
     const examples: Record<string, string> = {
-      'controversial': 'What\'s your most unpopular opinion?',
-      'personal': 'Share a moment that changed your perspective',
-      'hypothetical': 'If you could change one thing about society...',
-      'creative': 'Describe your dream world in 3 words',
-      'philosophical': 'What does success mean to you?',
-      'general': 'What\'s on your mind today?'
+      controversial: "What's your most unpopular opinion?",
+      personal: 'Share a moment that changed your perspective',
+      hypothetical: 'If you could change one thing about society...',
+      creative: 'Describe your dream world in 3 words',
+      philosophical: 'What does success mean to you?',
+      general: "What's on your mind today?",
     };
-    return examples[type] || 'What\'s on your mind today?';
+    return examples[type] || "What's on your mind today?";
   };
 
   if (loading) {
@@ -177,7 +156,7 @@ const PromptAnalytics: React.FC = () => {
         <TabsTrigger value="calendar">Calendar</TabsTrigger>
         <TabsTrigger value="planner">Planner</TabsTrigger>
       </TabsList>
-      
+
       <TabsContent value="overview" className="space-y-6">
         <Card>
           <CardHeader>
@@ -204,7 +183,7 @@ const PromptAnalytics: React.FC = () => {
             </div>
           </CardContent>
         </Card>
-        
+
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
           <Card>
             <CardHeader>
@@ -213,7 +192,7 @@ const PromptAnalytics: React.FC = () => {
             <CardContent>
               <ScrollArea className="h-64">
                 <div className="space-y-3">
-                  {prompts.slice(0, 10).map((prompt) => (
+                  {prompts.slice(0, 10).map(prompt => (
                     <div key={prompt.id} className="p-3 border rounded-lg">
                       <div className="flex justify-between items-start mb-2">
                         <Badge variant="outline">{prompt.type}</Badge>
@@ -221,9 +200,7 @@ const PromptAnalytics: React.FC = () => {
                           Score: {prompt.engagement_score}
                         </Badge>
                       </div>
-                      <p className="text-sm text-gray-600 mb-2">
-                        {prompt.content.substring(0, 80)}...
-                      </p>
+                      <p className="text-sm text-gray-600 mb-2">{prompt.content.substring(0, 80)}...</p>
                       <div className="flex gap-4 text-xs text-gray-500">
                         <span>📝 {prompt.takes_count} takes</span>
                         <span>💬 {prompt.comments_count} comments</span>
@@ -242,7 +219,7 @@ const PromptAnalytics: React.FC = () => {
             <CardContent>
               <ScrollArea className="h-64">
                 <div className="space-y-3">
-                  {recommendations.map((rec) => (
+                  {recommendations.map(rec => (
                     <div key={rec.type} className="p-3 border rounded-lg">
                       <div className="flex justify-between items-center mb-2">
                         <span className="font-medium capitalize">{rec.type}</span>
@@ -260,11 +237,11 @@ const PromptAnalytics: React.FC = () => {
           </Card>
         </div>
       </TabsContent>
-      
+
       <TabsContent value="calendar">
         <PromptCalendar />
       </TabsContent>
-      
+
       <TabsContent value="planner">
         <PromptPlanner />
       </TabsContent>

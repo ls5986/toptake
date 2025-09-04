@@ -66,24 +66,25 @@ const PromptRecommendations: React.FC = () => {
     setScheduleDate(today);
   }, []);
 
+  const attachUsernames = async (rows: any[]): Promise<PromptRecommendation[]> => {
+    const ids = Array.from(new Set(rows.map(r => r.user_id))).filter(Boolean);
+    let idToUsername: Record<string, string> = {};
+    if (ids.length) {
+      const { data: profiles } = await supabase.from('profiles').select('id, username').in('id', ids);
+      (profiles || []).forEach((p: any) => { idToUsername[p.id] = p.username; });
+    }
+    return rows.map(r => ({ ...r, username: idToUsername[r.user_id] || 'User' }));
+  };
+
   const loadRecommendations = async () => {
     try {
       const { data, error } = await supabase
         .from('prompt_recommendations')
-        .select(`
-          *,
-          profiles!inner(username)
-        `)
+        .select('*')
         .eq('status', 'pending')
         .order('created_at', { ascending: false });
-      
       if (error) throw error;
-      
-      const formatted = data?.map(rec => ({
-        ...rec,
-        username: rec.profiles.username
-      })) || [];
-      
+      const formatted = await attachUsernames(data || []);
       setRecommendations(formatted);
     } catch (error) {
       console.error('Error loading recommendations:', error);
@@ -97,20 +98,11 @@ const PromptRecommendations: React.FC = () => {
     try {
       const { data, error } = await supabase
         .from('prompt_recommendations')
-        .select(`
-          *,
-          profiles!inner(username)
-        `)
+        .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
-      
       if (error) throw error;
-      
-      const formatted = data?.map(rec => ({
-        ...rec,
-        username: rec.profiles.username
-      })) || [];
-      
+      const formatted = await attachUsernames(data || []);
       setUserSubmissions(formatted);
     } catch (error) {
       console.error('Error loading user submissions:', error);
