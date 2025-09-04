@@ -138,11 +138,16 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     toast({ title: "Pack purchased!", description: `Added ${uses} ${type} uses` });
   };
 
-  const handleProfileClick = () => {
+  const handleProfileClick = async () => {
     if (take.isAnonymous) return;
-    const username = (take.username || '').toString().trim();
+    let username = (take.username || '').toString().trim();
+    if (!username || username.toLowerCase() === 'unknown') {
+      try {
+        const { data } = await supabase.from('profiles').select('username').eq('id', take.userId).maybeSingle();
+        if (data?.username) username = data.username;
+      } catch {}
+    }
     if (username) {
-      // fire-and-forget logging
       try { logClientEvent('profile_click', { username, takeId: take.id }); } catch {}
       navigate(`/${encodeURIComponent(username)}`);
     }
