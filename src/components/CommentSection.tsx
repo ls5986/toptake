@@ -80,26 +80,39 @@ export const CommentSection = ({ takeId, isOpen, onClose, selectedDate }: Commen
   const loadComments = async () => {
     try {
       setLoadingComments(true);
-      // Use the new function to fetch comments with like/dislike counts and usernames
-      const { data, error } = await supabase
-        .rpc('get_comments_with_votes', { take_id: takeId });
+      console.log('[comments] load →', { takeId })
+      // 1) Fetch comments strictly for this take
+      const { data: rows, error } = await supabase
+        .from('comments')
+        .select('id, content, is_anonymous, created_at, user_id, parent_comment_id, profiles(username)')
+        .eq('take_id', takeId)
+        .order('created_at', { ascending: true });
       if (error) throw error;
-      // Map to CommentType and build votes map
-      const formatted: CommentType[] = (data || []).map((c: any) => ({
+      const formatted: CommentType[] = (rows || []).map((c: any) => ({
         id: c.id,
         content: c.content,
         is_anonymous: c.is_anonymous,
         created_at: c.created_at,
         user_id: c.user_id,
         parent_comment_id: c.parent_comment_id,
-        username: c.username || 'User',
+        username: c.is_anonymous ? 'Anonymous' : (c.profiles?.username || 'User'),
       }));
       setComments(formatted);
-      // Build votes map
+
+      // 2) Fetch votes for these comments and aggregate counts
+      const ids = formatted.map(c => c.id);
       const voteMap: Record<string, { like: number; dislike: number; userVote?: 'like' | 'dislike' }> = {};
-      (data || []).forEach((c: any) => {
-        voteMap[c.id] = { like: c.like_count || 0, dislike: c.dislike_count || 0 };
-      });
+      if (ids.length > 0) {
+        const { data: votesRows } = await supabase
+          .from('comment_votes')
+          .select('comment_id, vote_type, user_id')
+          .in('comment_id', ids);
+        (votesRows || []).forEach((v: any) => {
+          const entry = voteMap[v.comment_id] || { like: 0, dislike: 0 };
+          if (v.vote_type === 'like') entry.like += 1; else if (v.vote_type === 'dislike') entry.dislike += 1;
+          voteMap[v.comment_id] = entry;
+        });
+      }
       setVotes(voteMap);
     } catch (error: unknown) {
       console.error('Failed to load comments:', error);
@@ -198,18 +211,12 @@ export const CommentSection = ({ takeId, isOpen, onClose, selectedDate }: Commen
       }
     });
     // DB logic
-    if (voteType === undefined) {
-      // Remove vote
-      await supabase.from('comment_votes').delete().eq('comment_id', commentId).eq('user_id', userId);
-    } else {
-      // Upsert vote
-      await supabase.from('comment_votes').upsert({
-        comment_id: commentId,
-        user_id: userId,
-        vote_type: voteType,
-        created_at: new Date().toISOString(),
-      });
-    }
+    console.log('[comments] vote toggle →', { commentId, voteType, userId })
+    await supabase.rpc('comment_vote_toggle', {
+      p_comment_id: commentId,
+      p_user_id: userId,
+      p_vote_type: voteType,
+    });
     setRefresh(r => r + 1);
     // Get comment owner
     const { data: comment } = await supabase.from('comments').select('user_id').eq('id', commentId).single();

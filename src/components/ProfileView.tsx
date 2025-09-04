@@ -1,96 +1,96 @@
 import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
-import { Settings, Flame, MessageSquare, Lock, CalendarIcon } from 'lucide-react';
-import { TakeCard } from './TakeCard';
-import ProfileEditModal from './ProfileEditModal';
-import { useAppContext } from '@/contexts/AppContext';
-import { supabase } from '@/lib/supabase';
-import { User as AppUser, Take as AppTake } from '@/types';
-import { isPremiumTheme } from './theme-provider';
-import { MonetizationModals } from './MonetizationModals';
+import { Badge } from '@/components/ui/badge';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
+import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
-import { Calendar } from '@/components/ui/calendar';
-import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { usePromptForDate } from '@/hooks/usePromptForDate';
+import ProfileEditModal from './ProfileEditModal';
+import { TakeCard } from './TakeCard';
+import { ThemeSelector } from './ThemeSelector';
+import { useTheme } from '@/components/theme-provider';
+import { MonetizationModals } from './MonetizationModals';
+import ThemeStoreModal from './ThemeStoreModal';
+import { TodaysPrompt } from './TodaysPrompt';
+import { Take } from '@/types';
+import { useAppContext } from '@/contexts/AppContext';
+import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 
-interface ProfileViewProps {
-  userId?: string;
-  username?: string;
-}
-
-type ProfileData = AppUser & {
-  avatar_url?: string;
-  bio?: string;
-  full_name?: string;
-  is_private?: boolean;
-  theme_id?: string;
-};
-
-const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
-  const { user } = useAppContext();
-  const [profileData, setProfileData] = useState<ProfileData | null>(null);
+const ProfileView: React.FC = () => {
+  const { user, logout } = useAppContext();
+  const [selectedDate] = useState(new Date());
+  const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
-  const [isEditModalOpen, setIsEditModalOpen] = useState(false);
-  const [showPremiumModal, setShowPremiumModal] = useState(false);
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [currentTheme, setCurrentTheme] = useState('light');
+  const { setTheme } = useTheme();
+  const [showStore, setShowStore] = useState(false);
+  const [streak, setStreak] = useState(0);
+  const [totalTakes, setTotalTakes] = useState(0);
+  const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState(new Date());
-  const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
-  const [userTake, setUserTake] = useState<AppTake | null>(null);
-
-  const isOwnProfile = !userId || userId === user?.id;
-  const displayUser = isOwnProfile ? (profileData || user) : profileData;
+  
+  // Profile is not date-specific for prompt display; omit prompt
 
   useEffect(() => {
-    loadUserData();
-  }, [userId, username]);
+    if (user?.id) {
+      loadUserData();
+      fetchUserTakes();
+    }
+  }, [user?.id]);
 
-  useEffect(() => {
-    if (!displayUser?.id) return;
-    const fetchUserTake = async () => {
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const { data: takeData } = await supabase
+  const localDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const fetchUserTakes = async () => {
+    if (!user?.id) return;
+    try {
+      const { data: takesData } = await supabase
         .from('takes')
         .select('*')
-        .eq('user_id', displayUser.id)
-        .eq('prompt_date', dateStr)
-        .single();
-      setUserTake(takeData || null);
-    };
-    fetchUserTake();
-  }, [selectedDate, displayUser]);
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false });
+      
+      if (takesData) {
+        // Format takes to match Take type
+        const formattedTakes: Take[] = takesData.map((take: any) => ({
+          id: take.id,
+          userId: take.user_id,
+          content: take.content,
+          username: take.is_anonymous ? 'Anonymous' : user.username || 'Unknown',
+          isAnonymous: take.is_anonymous,
+          timestamp: take.created_at,
+          prompt_date: take.prompt_date,
+          commentCount: 0
+        }));
+        
+        setUserTakes(formattedTakes);
+        setHasPostedForSelectedDate(formattedTakes.length > 0);
+      }
+    } catch (error) {
+      console.error('Error fetching user takes:', error);
+    }
+  };
 
   const loadUserData = async () => {
+    if (!user?.id) return;
     setLoading(true);
     try {
-      let targetUserId = userId;
-      if (!targetUserId && username) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('username', username)
-          .single();
-        if (profile) {
-          targetUserId = profile.id;
-          setProfileData(profile);
-        }
-      } else if (!isOwnProfile && targetUserId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', targetUserId)
-          .single();
-        setProfileData(profile);
-      } else if (isOwnProfile && user?.id) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', user.id)
-          .single();
-        setProfileData(profile);
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', user.id)
+        .single();
+      if (profile) {
+        setStreak(profile.streak || 0);
+        setTotalTakes(profile.total_takes || 0);
+        setCurrentTheme(profile.theme_id || 'light');
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -99,217 +99,137 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId, username }) => {
     }
   };
 
-  const handleReaction = async (takeId: string, reaction: keyof AppTake['reactions']) => {
-    if (!userTake) return;
-    setUserTake(prev => prev ? {
-      ...prev,
-      reactions: {
-        ...prev.reactions,
-        [reaction]: prev.reactions[reaction] + 1
-      }
-    } : prev);
-    const updatedReactions = {
-      ...userTake.reactions,
-      [reaction]: userTake.reactions[reaction] + 1
-    };
-    await supabase
-      .from('takes')
-      .update({ reactions: updatedReactions })
-      .eq('id', takeId);
-    if (user) {
-      await supabase.from('take_reactions').upsert({
-        take_id: takeId,
-        actor_id: user.id,
-        reaction_type: reaction,
-        created_at: new Date().toISOString(),
-      });
-    }
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) return;
+      const { count } = await supabase
+        .from('takes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      setTotalTakes(count || 0);
+    })().catch(console.error);
+  }, [user?.id]);
+
+  const handleReaction = async (takeId: string, reaction: string) => {
+    // Simplified reaction handling - just log for now
+    console.log('Reaction:', reaction, 'on take:', takeId);
   };
 
-  const handleProfileUpdate = (updatedProfile: ProfileData) => {
-    setProfileData(updatedProfile);
+  const handleLogout = () => {
+    logout();
   };
 
-  const availableThemes = [
-    { id: 'light', name: 'Light', premium: false },
-    { id: 'dark', name: 'Dark', premium: false },
-    { id: 'orange_glow', name: 'Orange Glow', premium: true },
-  ];
-
-  const handleThemeSelect = async (themeId: string, premium: boolean) => {
-    if (premium && !currentUser.isPremium) {
-      setShowPremiumModal(true);
-      return;
-    }
-    await supabase.from('profiles').update({ theme_id: themeId }).eq('id', currentUser.id);
-    setProfileData((prev: ProfileData | null) => ({ ...prev, theme_id: themeId }));
-    toast({ title: 'Theme Changed', description: `Theme set to ${themeId.replace('_', ' ')}` });
-  };
-
-  const handlePremiumPurchase = async () => {
-    await supabase.from('profiles').update({ is_premium: true }).eq('id', currentUser.id);
-    setProfileData((prev: ProfileData | null) => ({ ...prev, isPremium: true }));
-    toast({ title: 'Premium Unlocked!', description: 'You now have access to all premium features and themes.' });
+  const handleEditProfile = () => {
+    setShowEditModal(true);
   };
 
   if (loading) {
     return (
-      <div className="text-center text-white py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
-        <p>Loading profile...</p>
+      <div className="flex items-center justify-center h-full">
+        <div className="text-center text-brand-text">
+          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-accent mx-auto mb-4"></div>
+          <p>Loading profile...</p>
+        </div>
       </div>
     );
   }
 
-  const currentUser = displayUser || { username: username || 'Unknown', streak: 0 };
-  const isPrivate = !isOwnProfile && profileData?.is_private;
-
   return (
-    <div className="space-y-6">
-      <Card className="bg-brand-surface border-brand-border">
-        <CardHeader className="text-center">
+    <div className="flex-1 flex flex-col h-full p-4 space-y-6">
+      {/* Profile Card */}
+      <Card className="bg-card-gradient">
+        <CardContent className="p-6">
           <div className="flex flex-col items-center space-y-4">
             <Avatar className="w-20 h-20">
-              {currentUser.avatar_url ? (
-                <AvatarImage src={currentUser.avatar_url} alt={currentUser.username} />
-              ) : (
-                <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
-                  {(currentUser.username || 'U')[0].toUpperCase()}
-                </AvatarFallback>
-              )}
+              <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
+                {(user?.username || 'U')[0].toUpperCase()}
+              </AvatarFallback>
             </Avatar>
-            <div>
+            <div className="text-center">
               <CardTitle className="text-2xl text-brand-text">
-                {currentUser.username || 'Unknown User'}
+                {user?.username || 'Unknown User'}
               </CardTitle>
-              {currentUser.full_name && (
-                <p className="text-brand-muted mt-1">{currentUser.full_name}</p>
-              )}
-              {currentUser.bio && (
-                <p className="text-brand-muted mt-2 text-sm max-w-md mx-auto">{currentUser.bio}</p>
-              )}
               <div className="flex justify-center space-x-4 mt-3">
                 <Badge variant="outline" className="text-brand-primary border-brand-primary flex items-center gap-1">
                   <Flame className="w-4 h-4 text-brand-primary" />
-                  {currentUser.streak || 0} day streak
+                  {streak || 0} day streak
                 </Badge>
                 <Badge variant="outline" className="text-brand-accent border-brand-accent flex items-center gap-1">
-                  <MessageSquare className="w-4 h-4 text-brand-accent" />
-                  {/* Only show take count for selected date if take exists */}
-                  {userTake ? 1 : 0} takes
+                  <FileText className="w-4 h-4 text-brand-accent" />
+                  {totalTakes || 0} takes
                 </Badge>
-                {isPrivate && (
-                  <Badge variant="outline" className="text-brand-muted border-brand-muted flex items-center gap-1">
-                    <Lock className="w-4 h-4 text-brand-muted" />
-                    Private
-                  </Badge>
-                )}
               </div>
-              <div className="mt-4">
-                <div className="font-semibold text-brand-text mb-2">Theme</div>
-                <div className="flex gap-2 justify-center">
-                  {availableThemes.map(theme => (
-                    <Button
-                      key={theme.id}
-                      onClick={() => handleThemeSelect(theme.id, theme.premium)}
-                      className={`px-3 py-1 rounded-full border ${profileData?.theme_id === theme.id ? 'border-brand-accent' : 'border-brand-border'} ${theme.id === 'orange_glow' ? 'bg-gradient-to-r from-orange-300 to-orange-500 text-orange-900' : ''}`}
-                      disabled={profileData?.theme_id === theme.id}
-                    >
-                      {theme.name}
-                      {theme.premium && !currentUser.isPremium && (
-                        <Lock className="inline w-4 h-4 ml-1 text-brand-danger" />
-                      )}
-                    </Button>
-                  ))}
+              <div className="mt-4 w-full max-w-2xl mx-auto">
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
+                  <Button variant="outline" onClick={() => { setTheme('dark' as any); setCurrentTheme('dark'); }}>Dark</Button>
+                  <Button variant="outline" onClick={() => setShowStore(true)}>Trippy</Button>
                 </div>
-                {showPremiumModal && (
-                  <MonetizationModals
-                    onClose={() => setShowPremiumModal(false)}
-                    onSuccess={() => {
-                      setShowPremiumModal(false);
-                      handlePremiumPurchase();
-                    }}
-                  />
-                )}
+                <p className="text-xs text-brand-muted mt-2 text-center">Trippy includes premium themes.</p>
               </div>
-              {isOwnProfile && (
-                <Button
-                  onClick={() => setIsEditModalOpen(true)}
-                  variant="outline"
-                  size="sm"
-                  className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
-                >
-                  <Settings className="w-4 h-4 mr-2" />
-                  Edit Profile
-                </Button>
-              )}
+              <Button
+                onClick={handleEditProfile}
+                variant="outline"
+                size="sm"
+                className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
+              >
+                <Edit3 className="w-4 w-4 mr-2" />
+                Edit Profile
+              </Button>
+              <Button
+                onClick={handleLogout}
+                variant="outline"
+                size="sm"
+                className="mt-2 border-brand-border text-brand-muted hover:bg-brand-surface/80"
+              >
+                <LogOut className="w-4 h-4 mr-2" />
+                Log Out
+              </Button>
             </div>
           </div>
-        </CardHeader>
+        </CardContent>
       </Card>
 
-      {/* Date Picker and Prompt/Take for selected date */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
-          <h3 className="text-xl font-semibold text-brand-text flex items-center gap-2">
-            <CalendarIcon className="h-5 w-5" />
-            {format(selectedDate, 'MMM dd, yyyy')}
-          </h3>
-          <Popover>
-            <PopoverTrigger asChild>
-              <Button variant="outline" size="sm" className="gap-2">
-                <CalendarIcon className="h-4 w-4" />
-                {format(selectedDate, 'MMM dd, yyyy')}
-              </Button>
-            </PopoverTrigger>
-            <PopoverContent className="w-auto p-0" align="end">
-              <Calendar
-                mode="single"
-                selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
-                initialFocus
+      {/* Today's Prompt */}
+      <div className="flex items-center justify-between">
+        <h3 className="text-lg font-semibold text-brand-text flex items-center gap-2">
+          <span>📅</span>
+          {format(selectedDate, 'MMM dd, yyyy')}
+        </h3>
+      </div>
+      
+      {/* No date-specific prompt on profile */}
+
+      {/* User's Takes */}
+      <div className="flex-1 min-h-0">
+        <h3 className="text-lg font-semibold text-brand-text mb-4">Your Takes</h3>
+        {userTakes.length > 0 ? (
+          <div className="space-y-4">
+            {userTakes.map((take) => (
+              <TakeCard 
+                key={take.id}
+                take={take} 
+                onReact={handleReaction}
               />
-            </PopoverContent>
-          </Popover>
-        </div>
-        <Card className="bg-card-gradient">
-          <CardContent className="p-6">
-            <div className="mb-4">
-              <span className="font-semibold text-brand-accent">Prompt</span>
-              <div className="mt-2 text-brand-text">
-                {promptLoading ? (
-                  <span>Loading prompt...</span>
-                ) : promptText ? (
-                  promptText
-                ) : (
-                  <span className="text-brand-danger">No prompt found for this date!</span>
-                )}
-              </div>
-            </div>
-            <div>
-              <span className="font-semibold text-brand-accent">Your Take</span>
-              <div className="mt-2">
-                {userTake ? (
-                  <TakeCard 
-                    take={userTake} 
-                    onReact={handleReaction}
-                    showPrompt={false}
-                  />
-                ) : (
-                  <div className="text-brand-muted">No take posted for this prompt.</div>
-                )}
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            ))}
+          </div>
+        ) : (
+          <div className="text-center text-brand-muted py-8">
+            <p>No takes posted for this prompt yet.</p>
+            <p className="text-sm mt-2">Share your thoughts to get started!</p>
+          </div>
+        )}
       </div>
 
       <ProfileEditModal
-        isOpen={isEditModalOpen}
-        onClose={() => setIsEditModalOpen(false)}
-        profile={currentUser}
-        onUpdate={handleProfileUpdate}
+        isOpen={showEditModal}
+        onClose={() => setShowEditModal(false)}
+        profile={user}
+        onUpdate={() => {}}
       />
+      {showStore && (
+        <ThemeStoreModal isOpen={showStore} onClose={() => setShowStore(false)} />
+      )}
     </div>
   );
 };

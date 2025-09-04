@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { AppProvider } from '@/contexts/AppContext';
 import AppLayout from '@/components/AppLayout';
+import { ThemeProvider } from '@/components/theme-provider';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
 import './App.css';
@@ -74,8 +75,10 @@ function App() {
     <ErrorBoundary>
       <div className="app-container">
         <AppProvider>
-          <AppLayout />
-          <Toaster />
+          <ThemeProvider>
+            <AppLayout />
+            <Toaster />
+          </ThemeProvider>
         </AppProvider>
       </div>
     </ErrorBoundary>

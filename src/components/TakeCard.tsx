@@ -12,7 +12,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
 import { usePackSystem } from '@/hooks/usePackSystem';
 import ProfileView from './ProfileView';
-import { supabase } from '@/lib/supabase';
+import { supabase, addNotification } from '@/lib/supabase';
 import { ReactionType } from '@/lib/reactions';
 
 interface TakeCardProps {
@@ -96,6 +96,12 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     });
     setUserReaction(reaction);
     toast({ title: `Reacted with ${getReactionEmoji(reaction)}!`, duration: 1000 });
+    // Notify take owner (if not self)
+    try {
+      if (take.userId && user?.id && take.userId !== user.id) {
+        await addNotification(take.userId, 'reaction', `${user.username || 'Someone'} reacted to your take.`);
+      }
+    } catch {}
     // Optionally, refetch reactions
     const { data } = await supabase
       .from('take_reactions')
@@ -177,7 +183,9 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const commentCount = take.commentCount || 0;
 
   // Engagement = sum of all reactions + commentCount
-  const engagementCount = Object.values(reactionCounts || {}).reduce((sum, count) => sum + count, 0) + (take.commentCount || 0);
+  // Prefer server-provided counts if available, fallback to client counts
+  const serverReaction = (take as any).reactionCount ?? 0;
+  const engagementCount = (serverReaction || Object.values(reactionCounts || {}).reduce((sum, count) => sum + count, 0)) + (take.commentCount || 0);
 
   return (
     <>

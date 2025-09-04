@@ -81,49 +81,42 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
           reactions: takeData.reactions || {},
         });
         // Fetch prompt
-        if (takeData.prompt_date) {
+        if (takeData.prompt_id) {
           const { data: promptData } = await supabase
             .from('daily_prompts')
             .select('prompt_text')
-            .eq('id', takeData.prompt_date)
+            .eq('id', takeData.prompt_id)
+            .single();
+          setPrompt(promptData?.prompt_text || '');
+        } else if (takeData.prompt_date) {
+          const { data: promptData } = await supabase
+            .from('daily_prompts')
+            .select('prompt_text')
+            .eq('prompt_date', takeData.prompt_date)
             .single();
           setPrompt(promptData?.prompt_text || '');
         }
       }
-      // Fetch comments with like/dislike counts
-      const { data: commentData } = await supabase
-        .from('comments')
-        .select('*, profiles(username)')
-        .eq('take_id', takeId)
-        .order('created_at', { ascending: true });
-      let commentsWithVotes: Comment[] = [];
-      if (commentData && commentData.length > 0) {
-        // Get all comment ids
-        const commentIds = commentData.map((c: any) => c.id);
-        // Fetch votes for all comments
-        const { data: votesData } = await supabase
-          .from('comment_votes')
-          .select('comment_id, vote_type')
-          .in('comment_id', commentIds);
-        const voteMap: Record<string, { like: number; dislike: number }> = {};
-        (votesData || []).forEach((v: any) => {
-          if (!voteMap[v.comment_id]) voteMap[v.comment_id] = { like: 0, dislike: 0 };
-          if (v.vote_type === 'like') voteMap[v.comment_id].like++;
-          if (v.vote_type === 'dislike') voteMap[v.comment_id].dislike++;
-        });
-        commentsWithVotes = (commentData as RawComment[]).map((c) => ({
+      // Fetch comments via RPC with aggregated votes and usernames
+      const { data: rpcData, error: rpcError } = await supabase
+        .rpc('get_comments_with_votes', { take_id: takeId });
+      if (rpcError) {
+        console.error('Error loading comments via RPC:', rpcError);
+        setComments([]);
+      } else {
+        const commentsWithVotes: Comment[] = (rpcData || []).map((c: any) => ({
           id: c.id,
           user_id: c.user_id,
-          username: c.is_anonymous ? 'Anonymous' : (c.profiles?.username || 'User'),
+          username: c.is_anonymous ? 'Anonymous' : (c.username || 'User'),
           content: c.content,
           is_anonymous: c.is_anonymous,
           created_at: c.created_at,
           parent_comment_id: c.parent_comment_id,
-          like_count: voteMap[c.id]?.like || 0,
-          dislike_count: voteMap[c.id]?.dislike || 0,
+          like_count: c.like_count || 0,
+          dislike_count: c.dislike_count || 0,
         }));
+        setComments(buildCommentTree(commentsWithVotes));
       }
-      setComments(buildCommentTree(commentsWithVotes));
       setLoading(false);
     };
     fetchTakeAndComments();
@@ -272,7 +265,7 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
 
   return (
     <div className="max-w-2xl mx-auto py-6 px-2">
-      <Button variant="ghost" size="sm" className="mb-4 flex items-center gap-2" onClick={() => setCurrentScreen('notifications')}>
+      <Button variant="ghost" size="sm" className="mb-4 flex items-center gap-2" onClick={() => setCurrentScreen('main')}>
         <ArrowLeft className="w-4 h-4" /> Back
       </Button>
       {prompt && (

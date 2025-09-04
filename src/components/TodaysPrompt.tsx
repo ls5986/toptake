@@ -2,7 +2,6 @@ import React from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { MessageSquare, Flame } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
-import { Button } from '@/components/ui/button';
 import { format, isToday } from 'date-fns';
 
 interface TodaysPromptProps {
@@ -18,13 +17,7 @@ export const TodaysPrompt: React.FC<TodaysPromptProps> = ({
   selectedDate = new Date(),
   loading = false
 }) => {
-  const { user, setCurrentScreen } = useAppContext();
-  
-  const handleJoinConversation = () => {
-    if (!user?.hasPostedToday) {
-      setCurrentScreen('dailyPrompt');
-    }
-  };
+  const { user } = useAppContext();
 
   const displayPrompt = propPrompt || '';
   const isCurrentDay = isToday(selectedDate);
@@ -73,15 +66,7 @@ export const TodaysPrompt: React.FC<TodaysPromptProps> = ({
                   </span>
                 )}
               </div>
-              {!user?.hasPostedToday && isCurrentDay && (
-                <Button 
-                  onClick={handleJoinConversation}
-                  className="btn-primary"
-                  size="sm"
-                >
-                  <Flame className="w-4 h-4 mr-1 text-brand-primary" />Join the conversation
-                </Button>
-              )}
+              {/* CTA intentionally removed */}
             </div>
           </div>
         </div>

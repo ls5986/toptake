@@ -1,10 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/AppContext';
 import { useLateSubmission } from '@/hooks/useLateSubmission';
 import { useToast } from '@/hooks/use-toast';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Loader2 } from 'lucide-react';
+import { supabase } from '@/lib/supabase';
 
 interface LateSubmitModalProps {
   isOpen: boolean;
@@ -14,10 +15,15 @@ interface LateSubmitModalProps {
 }
 
 const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPurchase, date }) => {
-  const { userCredits, setUserCredits } = useAppContext();
+  const { userCredits, setUserCredits, submitTake } = useAppContext();
   const { processLateSubmission, loading, error } = useLateSubmission();
   const { toast } = useToast();
-  const [step, setStep] = useState<'initial' | 'processing' | 'success' | 'error'>('initial');
+  const [step, setStep] = useState<'initial' | 'processing' | 'compose' | 'success' | 'error'>('initial');
+  const [composeContent, setComposeContent] = useState('');
+  const [composeAnon, setComposeAnon] = useState(false);
+  const [composeLoading, setComposeLoading] = useState(false);
+  const [composeError, setComposeError] = useState<string | null>(null);
+  const [datePrompt, setDatePrompt] = useState<string>('');
 
   const handleLateSubmit = async () => {
     if (userCredits.late_submit > 0) {
@@ -48,7 +54,8 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
         }
 
         setUserCredits(prev => ({ ...prev, late_submit: prev.late_submit - 1 }));
-        setStep('success');
+        await loadPromptForDate();
+        setStep('compose');
         onPurchase();
       } catch (err) {
         console.error('Error using late submit credit:', err);
@@ -64,7 +71,8 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
       setStep('processing');
       const success = await processLateSubmission(date.toISOString().split('T')[0], 1.99);
       if (success) {
-        setStep('success');
+        await loadPromptForDate();
+        setStep('compose');
         onPurchase();
       } else {
         setStep('error');
@@ -75,6 +83,50 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
   const handleClose = () => {
     setStep('initial');
     onClose();
+  };
+
+  const loadPromptForDate = async () => {
+    try {
+      const dateStr = date.toISOString().split('T')[0];
+      const { data, error } = await supabase
+        .from('daily_prompts')
+        .select('prompt_text')
+        .eq('prompt_date', dateStr)
+        .maybeSingle();
+      if (error) {
+        console.error('LateSubmitModal: prompt fetch error', error);
+        setDatePrompt('');
+      } else {
+        setDatePrompt(data?.prompt_text || '');
+      }
+    } catch (e) {
+      setDatePrompt('');
+    }
+  };
+
+  const handleComposeSubmit = async () => {
+    try {
+      setComposeLoading(true);
+      setComposeError(null);
+      const trimmed = composeContent.trim();
+      if (!trimmed) {
+        setComposeError('Please enter your take first.');
+        setComposeLoading(false);
+        return;
+      }
+      const dateStr = date.toISOString().split('T')[0];
+      const ok = await submitTake(trimmed, composeAnon, undefined, dateStr);
+      if (!ok) {
+        setComposeError('Failed to submit take.');
+        setComposeLoading(false);
+        return;
+      }
+      setStep('success');
+    } catch (e: any) {
+      setComposeError(e?.message || 'Failed to submit take');
+    } finally {
+      setComposeLoading(false);
+    }
   };
 
   return (
@@ -116,12 +168,40 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
             </div>
           )}
 
+          {step === 'compose' && (
+            <div className="space-y-4">
+              <div className="p-3 rounded bg-brand-background text-sm text-brand-muted">
+                <div className="font-semibold text-brand-text mb-1">Prompt for {date.toLocaleDateString()}</div>
+                <div>{datePrompt || 'No prompt found for that day.'}</div>
+              </div>
+              <textarea
+                className="w-full p-2 border rounded bg-brand-surface border-brand-border text-brand-text"
+                placeholder="Write your take for this day..."
+                value={composeContent}
+                onChange={(e) => setComposeContent(e.target.value.slice(0, 2000))}
+                rows={4}
+                maxLength={2000}
+              />
+              <div className="flex items-center justify-between">
+                <label className="text-sm text-brand-muted flex items-center gap-2">
+                  <input type="checkbox" checked={composeAnon} onChange={(e) => setComposeAnon(e.target.checked)} />
+                  Post anonymously
+                </label>
+                <span className="text-xs text-brand-muted">{composeContent.length}/2000</span>
+              </div>
+              {composeError && (
+                <div className="text-brand-danger text-sm">{composeError}</div>
+              )}
+              <Button onClick={handleComposeSubmit} disabled={composeLoading || !composeContent.trim()} className="w-full">
+                {composeLoading ? 'Submitting...' : 'Submit Take for This Date'}
+              </Button>
+            </div>
+          )}
+
           {step === 'success' && (
             <div className="text-center py-4">
               <p className="text-sm text-brand-success">
-                {userCredits.late_submit > 0 
-                  ? 'Credit used successfully! You can now submit your take.'
-                  : 'Payment successful! You can now submit your take.'}
+                Take submitted for {date.toLocaleDateString()}!
               </p>
               <Button 
                 onClick={handleClose}

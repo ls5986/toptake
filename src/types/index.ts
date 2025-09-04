@@ -23,8 +23,7 @@ export interface Take {
   content: string;
   isAnonymous: boolean;
   timestamp: string;
-  prompt_id: string;
-  reactionsCount: number;
+  prompt_date: string;
   commentCount: number;
   isBoosted?: boolean;
 }

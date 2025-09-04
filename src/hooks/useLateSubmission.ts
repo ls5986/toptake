@@ -31,8 +31,9 @@ export const useLateSubmission = () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
 
-      // In development mode, always use mock payment
-      if (process.env.NODE_ENV === 'development') {
+      // In development mode, or if admin tester in production, use mock payment
+      const isAdminTester = (user.email || '').toLowerCase() === 'lindsey@letsclink.com';
+      if (process.env.NODE_ENV === 'development' || isAdminTester) {
         console.log('🧪 Development mode - using mock payment');
         const mockResult = await mockPayment(amount, user.id);
         
@@ -44,8 +45,6 @@ export const useLateSubmission = () => {
             credit_type: 'late_submit',
             amount: 1,
             action: 'purchase',
-            price: amount,
-            stripe_payment_id: mockResult.paymentIntentId,
             created_at: new Date().toISOString()
           });
 

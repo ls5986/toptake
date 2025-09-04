@@ -107,7 +107,8 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
         setLoading(false);
         return;
       }
-      // Only redirect on success
+      // Only redirect on success and notify parent
+      onSubmit();
       navigate('/');
     } catch (err) {
       console.error('Error submitting take:', err);
@@ -141,6 +142,8 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
     loading,
     buttonDisabled: loading || !response.trim()
   });
+
+  // No late-submit forced date handling here; the modal manages that flow
 
   // Don't render if user has already posted today
   if (hasPostedToday) return null;

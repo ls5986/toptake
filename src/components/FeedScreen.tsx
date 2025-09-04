@@ -4,6 +4,7 @@ import { AppBlocker } from './AppBlocker';
 import { TodaysPrompt } from './TodaysPrompt';
 import { Take, User } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { useTakesForDate } from '@/hooks/useTakesForDate';
 import { useAppContext } from '@/contexts/AppContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RefreshCw, CalendarIcon } from 'lucide-react';
@@ -12,169 +13,80 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { getTodayPrompt } from '@/lib/supabase';
-import { spendCredits } from '@/lib/credits';
-import BillingModal from './BillingModal';
 import { usePromptForDate } from '@/hooks/usePromptForDate';
 import { getReactionCounts, addReaction, ReactionType } from '@/lib/reactions';
 
 const FeedScreen: React.FC = () => {
-  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, userCredits, setUserCredits } = useAppContext();
+  const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
-  const [loading, setLoading] = useState(true);
+  // List loading comes from sharedLoading below; avoid duplicate spinners
   const [refreshing, setRefreshing] = useState(false);
-  const [reactionCounts, setReactionCounts] = useState<Record<string, Record<ReactionType, number>>>({});
+  const [loadingMore, setLoadingMore] = useState(false);
   const fetchInProgress = useRef(false);
-  const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
-  const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
+  
+  // Use selected date's prompt
   const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
+  
+  const { takes: sharedTakes, loading: sharedLoading, setBefore } = useTakesForDate(selectedDate);
+  useEffect(() => {
+    console.log('[Feed] page data', {
+      count: sharedTakes?.length,
+      first: sharedTakes?.[0]?.id,
+      last: sharedTakes?.[sharedTakes.length - 1]?.id
+    });
+  }, [sharedTakes]);
 
   useEffect(() => {
-    if (user && !isAppBlocked && !fetchInProgress.current) {
-      fetchInProgress.current = true;
-      loadPromptAndTakes().finally(() => {
-        fetchInProgress.current = false;
-      });
+    if (!user || isAppBlocked) return;
+    // Ensure the user's own take is pinned at the top if present
+    let next = [...(sharedTakes as any)]
+    if (user?.id) {
+      const idx = next.findIndex(t => t.userId === user.id)
+      if (idx > 0) {
+        const [mine] = next.splice(idx, 1)
+        next.unshift(mine)
+      }
     }
-  }, [user, isAppBlocked, selectedDate]);
-
-  const loadPromptAndTakes = async () => {
-    setLoading(true);
-    try {
-      // Fetch all takes for selected date
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('takes')
-        .select('*')
-        .eq('prompt_date', dateStr)
-        .order('created_at', { ascending: false });
-      // Fetch profiles for user_ids
-      const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
-      let profileMap: Record<string, Pick<User, 'id' | 'username'>> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('id', userIds);
-        profileMap = (profiles || []).reduce((acc: Record<string, Pick<User, 'id' | 'username'>>, profile: { id: string; username: string }) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {});
-      }
-      if (error) {
-        setTakes([]);
-        setLoading(false);
-        return;
-      }
-      // Fetch all comments for today's takes and count per take
-      const takeIds = (data || []).map((take: { id: string }) => take.id);
-      let commentCountMap: Record<string, number> = {};
-      if (takeIds.length > 0) {
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('comments')
-          .select('id, take_id')
-          .in('take_id', takeIds);
-        if (!commentsError && commentsData) {
-          commentCountMap = commentsData.reduce((acc: Record<string, number>, row: { take_id: string }) => {
-            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
-            return acc;
-          }, {});
-        }
-      }
-      // Format takes to match Take type
-      const formattedTakes: Take[] = (data || []).map((take: any) => ({
-        id: take.id,
-        userId: take.user_id,
-        content: take.content,
-        username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
-        isAnonymous: take.is_anonymous,
-        timestamp: take.created_at,
-        reactions: { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }, // Placeholder, will be replaced by reactionCounts
-        commentCount: commentCountMap[take.id] || 0
-      }));
-      setTakes(formattedTakes);
-
-      // Fetch reaction counts for all takes
-      const counts: Record<string, Record<ReactionType, number>> = {};
-      for (const take of formattedTakes) {
-        counts[take.id] = await getReactionCounts(take.id);
-      }
-      setReactionCounts(counts);
-    } catch (error) {
-      setTakes([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+    setTakes(next);
+  }, [user, isAppBlocked, sharedTakes, sharedLoading]);
 
   const handleReaction = async (takeId: string, reaction: ReactionType) => {
-    try {
-      if (!user?.id) return;
-
-      // Add reaction to database
-      await addReaction(takeId, user.id, reaction);
-
-      // Refetch reaction counts for this take
-      const counts = await getReactionCounts(takeId);
-      setReactionCounts(prev => ({
-        ...prev,
-        [takeId]: counts
-      }));
-    } catch (error) {
-      console.error('Error handling reaction:', error);
-    }
+    // Simplified: reactions handled inside TakeCard; keep signature for type safety
+    console.log('Reaction:', reaction, 'on take:', takeId);
   };
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadPromptAndTakes();
+    // no-op: hook auto refreshes on date change; force a light UI refresh
+    setTakes(sharedTakes as any);
     setTimeout(() => setRefreshing(false), 400);
+  };
+
+  const handleLoadMore = () => {
+    if (loadingMore || sharedLoading) return;
+    if (!takes || takes.length === 0) return;
+    setLoadingMore(true);
+    const last = takes[takes.length - 1];
+    if (last?.timestamp) {
+      setBefore(last.timestamp);
+      // give hook time to fetch; UI loading indicator handled by sharedLoading
+      setTimeout(() => setLoadingMore(false), 400);
+    } else {
+      setLoadingMore(false);
+    }
   };
 
   const handleUnlock = async () => {
     try {
       setIsAppBlocked(false);
       await checkDailyPost();
-      await loadPromptAndTakes();
+      // Light refresh: re-sync local list from sharedTakes
+      setTakes(sharedTakes as any);
     } catch (error) {
       console.error('Error unlocking:', error);
     }
-  };
-
-  // Helper: is take from future prompt?
-  const isFutureTake = (take) => {
-    const today = new Date();
-    const takeDate = new Date(take.timestamp);
-    return takeDate > today;
-  };
-
-  const canSneakPeek = user && userCredits.sneak_peek > 0;
-
-  const handleSneakPeekUnlock = async (take) => {
-    if (!canSneakPeek) {
-      setShowSneakPeekModal(true);
-      return;
-    }
-    setUnlockingTakeId(take.id);
-    const spent = await spendCredits(user.id, 'sneak_peek', 1);
-    if (!spent) {
-      toast({ 
-        title: 'Insufficient Credits', 
-        description: 'You need sneak peek credits to unlock this take. Purchase some credits to continue.', 
-        variant: 'destructive' 
-      });
-      setUnlockingTakeId(null);
-      return;
-    }
-    setUserCredits({ ...userCredits, sneak_peek: userCredits.sneak_peek - 1 });
-    // Insert into sneak_peeks and decrement credit
-    await supabase.from('sneak_peeks').insert({ user_id: user.id, take_id: take.id, created_at: new Date().toISOString() });
-    toast({ title: 'Sneak Peek Unlocked', description: 'You have unlocked a future take!' });
-    setUnlockingTakeId(null);
-    // Optionally, refetch or optimistically update UI to reveal take
   };
 
   if (isAppBlocked) {
@@ -192,7 +104,7 @@ const FeedScreen: React.FC = () => {
         />
       </div>
       <div className="flex-1 min-h-0">
-        {loading ? (
+        {sharedLoading && !promptText ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-brand-text">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-accent mx-auto mb-4"></div>
@@ -233,32 +145,18 @@ const FeedScreen: React.FC = () => {
                   </Button>
                 </div>
               </div>
-              {takes.map((take, index) => {
-                const futureTake = isFutureTake(take);
-                const canView = !futureTake || canSneakPeek;
-                return (
-                  <div key={take.id} className="relative">
-                    {!canView ? (
-                      <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
-                        <div className="text-white text-lg mb-2">🔒 Sneak Peek Locked</div>
-                        <Button
-                          onClick={() => handleSneakPeekUnlock(take)}
-                          className="bg-blue-500 text-white hover:bg-blue-600"
-                        >
-                          {canSneakPeek ? 'Unlock Sneak Peek' : 'Buy Sneak Peek Credit'}
-                        </Button>
-                      </div>
-                    ) : null}
-                    <div className={canView ? '' : 'blur-sm pointer-events-none select-none'}>
-                      <TakeCard 
-                        take={take} 
-                        onReact={handleReaction}
-                        reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
-                      />
-                    </div>
-                  </div>
-                );
-              })}
+              {takes.map((take) => (
+                <TakeCard 
+                  key={take.id}
+                  take={take} 
+                  onReact={handleReaction}
+                />
+              ))}
+              <div className="flex justify-center py-4">
+                <Button onClick={handleLoadMore} size="sm" variant="outline" disabled={loadingMore || sharedLoading}>
+                  {loadingMore || sharedLoading ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
               {takes.length === 0 && (
                 <div className="text-center text-brand-muted py-8">
                   <p>No takes yet today!</p>
@@ -268,7 +166,6 @@ const FeedScreen: React.FC = () => {
             </div>
           </ScrollArea>
         )}
-        <BillingModal isOpen={showSneakPeekModal} onClose={() => setShowSneakPeekModal(false)} />
       </div>
     </div>
   );

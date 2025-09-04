@@ -35,7 +35,7 @@ interface AppContextType {
   checkHasPostedToday: () => Promise<void>;
   currentPrompt: string;
   tomorrowPrompt: string | null;
-  submitTake: (content: string, isAnonymous: boolean, promptId?: string) => Promise<boolean>;
+  submitTake: (content: string, isAnonymous: boolean, promptId?: string, dateOverride?: string) => Promise<boolean>;
   isAppBlocked: boolean;
   setIsAppBlocked: (blocked: boolean) => void;
   currentTakeId: string | null;
@@ -327,8 +327,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .single();
         
       if (profileError || !profile) {
-        console.error('Failed to fetch profile:', profileError);
-        await forceLogoutAndRedirect('Invalid profile');
+        console.warn('No profile found for user. Redirecting to onboarding instead of logging out.', profileError);
+        // Keep the auth session. Route to auth so the screen can handle onboarding (username + carousel)
+        setUser(null);
+        setCurrentScreen('auth');
+        setIsLoading(false);
         return;
       }
 
@@ -342,6 +345,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         isPremium: profile.is_premium || false,
         is_admin: profile.is_admin || false,
         last_post_date: profile.last_post_date || undefined,
+        theme_id: profile.theme_id || undefined,
       };
       
       setUser(userObj);
@@ -438,7 +442,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // }, [checkHasPostedTodayFromBackend]);
 
   // ✅ ADD: Bulletproof Take Submission
-  const submitTake = async (content: string, isAnonymous: boolean, promptId?: string): Promise<boolean> => {
+  const submitTake = async (content: string, isAnonymous: boolean, promptId?: string, dateOverride?: string): Promise<boolean> => {
     console.log('🚀 submitTake called:', { 
       contentLength: content?.length, 
       isAnonymous, 
@@ -465,64 +469,23 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setIsSubmittingTake(true);
     
     try {
-      const today = new Date().toISOString().split('T')[0]; // ✅ Use correct ISO format
-      
-      // Get today's prompt if not provided
-      let actualPromptId = promptId;
-      if (!actualPromptId) {
-        const { data: promptData, error: promptError } = await supabase
-          .from('daily_prompts')
-          .select('id')
-          .eq('prompt_date', today)
-          .eq('is_active', true)
-          .single();
-          
-        if (promptError || !promptData) {
-          console.error('❌ No prompt found for today:', promptError);
-          return false;
-        }
-        actualPromptId = promptData.id;
-      }
+      const today = new Date().toISOString().split('T')[0];
+      const targetDate = dateOverride || today;
 
-      // Double-check if user already submitted (prevent duplicates)
-      const { data: existingTake } = await supabase
-        .from('takes')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('prompt_date', today)
-        .maybeSingle();
+      const { data: newId, error: rpcError } = await supabase
+        .rpc('submit_take', {
+          p_user_id: user.id,
+          p_content: content.trim(),
+          p_is_anonymous: isAnonymous,
+          p_date: targetDate,
+        });
 
-      if (existingTake) {
-        console.log('ℹ️ User already submitted today, updating state');
-        setHasPostedToday(true);
-        return true; // Still count as success
-      }
-
-      // ✅ Use Supabase client, not raw fetch
-      const { data: insertedTake, error: insertError } = await supabase
-        .from('takes')
-        .insert({
-          user_id: user.id,
-          content: content.trim(),
-          is_anonymous: isAnonymous,
-          prompt_id: actualPromptId,
-          prompt_date: today,
-          created_at: new Date().toISOString()
-        })
-        .select()
-        .single();
-
-      if (insertError) {
-        console.error('❌ Failed to insert take:', insertError);
+      if (rpcError) {
+        console.error('❌ submit_take RPC failed:', rpcError);
         return false;
       }
 
-      if (!insertedTake) {
-        console.error('❌ No take returned after insert');
-        return false;
-      }
-
-      console.log('✅ Take submitted successfully:', insertedTake.id);
+      console.log('✅ Take submitted successfully:', newId);
 
       // CRITICAL: Re-check backend state immediately
       await checkHasPostedTodayFromBackend(user.id);
@@ -535,7 +498,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           .update({
             current_streak: newStreak,
             longest_streak: Math.max(newStreak, user.longest_streak || 0),
-            last_post_date: today
+            last_post_date: targetDate
           })
           .eq('id', user.id);
           
@@ -544,7 +507,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ...user,
             current_streak: newStreak,
             longest_streak: Math.max(newStreak, user.longest_streak || 0),
-            last_post_date: today
+            last_post_date: targetDate
           });
         }
       }
