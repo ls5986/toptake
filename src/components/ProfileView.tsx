@@ -281,20 +281,32 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       if (isFollowing) {
         if (!window.confirm('Unfollow this user?')) return;
-        await supabase
+        const { error } = await supabase
           .from('follows')
           .delete()
           .eq('follower_id', user.id)
           .eq('followee_id', targetUserId);
+        if (error) {
+          toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
+          return;
+        }
         setIsFollowing(false);
         setFollowerCount(c => Math.max(0, c - 1));
       } else {
-        await supabase
+        const { error } = await supabase
           .from('follows')
           .insert({ follower_id: user.id, followee_id: targetUserId });
+        if (error) {
+          toast({ title: 'Failed to follow', description: error.message, variant: 'destructive' });
+          return;
+        }
         setIsFollowing(true);
         setFollowerCount(c => c + 1);
       }
+      // Refresh counts/lists from backend for accuracy
+      await loadFollowStats();
+      if (followersOpen) await openFollowers();
+      if (followingOpen) await openFollowing();
     } catch {}
   };
 
@@ -303,9 +315,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       setFollowBusy(prev => ({ ...prev, [otherId]: true }));
       if (currentlyFollowing) {
-        await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', otherId);
+        const { error } = await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', otherId);
+        if (error) toast({ title: 'Unfollow failed', description: error.message, variant: 'destructive' });
       } else {
-        await supabase.from('follows').insert({ follower_id: user.id, followee_id: otherId });
+        const { error } = await supabase.from('follows').insert({ follower_id: user.id, followee_id: otherId });
+        if (error) toast({ title: 'Follow failed', description: error.message, variant: 'destructive' });
       }
       await openFollowers();
       await openFollowing();
@@ -597,15 +611,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         </CardContent>
       </Card>
 
-      {/* Today's Prompt */}
-      <div className="flex items-center justify-between">
-        <h3 className="text-lg font-semibold text-brand-text flex items-center gap-2">
-          <span>📅</span>
-          {format(selectedDate, 'MMM dd, yyyy')}
-        </h3>
-      </div>
-      
-      {/* No date-specific prompt on profile */}
+      {/* No date-specific UI on profile */}
 
       {/* User's Takes */}
       <div className="flex-1 min-h-0">

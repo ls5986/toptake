@@ -81,9 +81,11 @@ function App() {
         <AppProvider>
           <ThemeProvider>
             <Routes>
+              {/* Always render AppLayout so header/nav/tabs remain visible */}
               <Route path="/" element={<AppLayout />} />
-              <Route path="profile" element={<ProfileSelfRoute />} />
-              <Route path=":username" element={<ProfileRoute />} />
+              <Route path="profile" element={<AppLayout />} />
+              <Route path=":username" element={<AppLayout />} />
+              {/* Deep take link can remain a dedicated route */}
               <Route path=":username/:date/:takeId" element={<TakeRoute />} />
             </Routes>
             <Toaster />

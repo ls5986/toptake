@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import { useParams } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Users, LogOut, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
@@ -13,6 +14,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import MainTabs from './MainTabs';
 import LeaderboardScreen from './LeaderboardScreen';
 import ProfileView from './ProfileView';
+import ProfileRoute from '@/pages/ProfileRoute';
 import TopTakesScreen from './TopTakesScreen';
 import FriendsScreen from './FriendsScreen';
 import AdminScreen from './AdminScreen';
@@ -30,6 +32,7 @@ import { fetchUnreadCount, subscribeNotifications } from '@/lib/notifications';
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt, hasPostedToday } = useAppContext();
+  const { username } = useParams();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications'>('feed');
@@ -158,6 +161,14 @@ const MainAppScreen: React.FC = () => {
 
   const renderContent = () => {
     try {
+      // If route contains a username, render that profile inside the main layout
+      if (username) {
+        return (
+          <div className="flex-1 p-0">
+            <ProfileRoute />
+          </div>
+        );
+      }
       if (currentTab === 'admin' && user?.is_admin) {
         return <AdminScreen />;
       }
