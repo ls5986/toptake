@@ -1,58 +1,61 @@
 import React, { useEffect, useState } from 'react';
-import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
 import { Card } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { MessageSquare, ThumbsUp, Star, User } from 'lucide-react';
-
-interface Notification {
-  id: string;
-  type: 'comment' | 'reaction';
-  actor: { id: string; username: string };
-  takeid: string;
-  created_at: string;
-  read: boolean;
-  extra?: any;
-}
+import { MessageSquare, ThumbsUp } from 'lucide-react';
+import { fetchNotifications, markRead, markAllRead, subscribeNotifications, type AppNotification } from '@/lib/notifications';
 
 export const NotificationsScreen: React.FC = () => {
   const { user, setCurrentScreen, setCurrentTakeId } = useAppContext();
-  const [notifications, setNotifications] = useState<Notification[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (!user) return;
-    fetchNotifications();
-  }, [user]);
+    let unsubscribe: (() => void) | null = null;
 
-  const fetchNotifications = async () => {
-    setLoading(true);
-    // Example: fetch from a 'notifications' table
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('id, type, actor:actor_id(id, username), takeid, created_at, read, extra')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false });
-    if (!error && data) {
-      setNotifications(data);
-    }
-    setLoading(false);
-  };
+    const load = async () => {
+      setLoading(true);
+      try {
+        const data = await fetchNotifications(user.id);
+        setNotifications(data);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  const markAsRead = async (notificationId: string) => {
+    load();
+    unsubscribe = subscribeNotifications(user.id, (n) => {
+      setNotifications(prev => [n, ...prev]);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user?.id]);
+
+  const handleMarkAsRead = async (notificationId: string) => {
     setNotifications((prev) => prev.map(n => n.id === notificationId ? { ...n, read: true } : n));
-    await supabase.from('notifications').update({ read: true }).eq('id', notificationId);
+    try { await markRead(notificationId); } catch {}
   };
 
-  const handleClick = (notification: Notification) => {
-    markAsRead(notification.id);
-    setCurrentTakeId(notification.takeid);
-    setCurrentScreen('take');
+  const handleMarkAllRead = async () => {
+    if (!user) return;
+    setNotifications(prev => prev.map(n => ({ ...n, read: true })));
+    try { await markAllRead(user.id); } catch {}
   };
 
-  const getReactionEmoji = (reaction: string) => {
+  const handleClick = (notification: AppNotification) => {
+    handleMarkAsRead(notification.id);
+    if (notification.takeid) {
+      setCurrentTakeId(notification.takeid);
+      setCurrentScreen('take');
+    }
+  };
+
+  const getReactionEmoji = (reaction?: string) => {
     switch (reaction) {
       case 'wildTake': return '🚨';
       case 'fairPoint': return '⚖️';
@@ -64,8 +67,11 @@ export const NotificationsScreen: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex-shrink-0 p-4 border-b border-brand-border bg-brand-surface">
+      <div className="flex-shrink-0 p-4 border-b border-brand-border bg-brand-surface flex items-center justify-between">
         <h2 className="text-xl font-semibold text-brand-text">Notifications</h2>
+        {notifications.some(n => !n.read) && (
+          <Button variant="outline" size="sm" onClick={handleMarkAllRead}>Mark all as read</Button>
+        )}
       </div>
       <div className="flex-1 min-h-0">
         {loading ? (
@@ -86,20 +92,25 @@ export const NotificationsScreen: React.FC = () => {
                   </span>
                   <div className="flex-1 min-w-0">
                     <div className="text-sm text-brand-text truncate">
-                      <span className="font-semibold">{n.actor?.username || 'Someone'}</span>
+                      <span className="font-semibold">{n.title || 'Notification'}</span>
                       {n.type === 'comment' ? (
                         <>
                           {' commented: '}
-                          <span className="italic text-brand-muted">{n.extra?.comment?.slice(0, 60) || 'on your take'}</span>
+                          <span className="italic text-brand-muted">{(n.extra as any)?.comment?.slice(0, 60) || 'on your take'}</span>
                         </>
-                      ) : (
+                      ) : n.type === 'reaction' ? (
                         <>
                           {' reacted '}
-                          <span className="mx-1">{getReactionEmoji(n.extra?.reaction)}</span>
-                          <span className="text-brand-muted">{n.extra?.reaction || ''}</span>
+                          <span className="mx-1">{getReactionEmoji((n.extra as any)?.reaction)}</span>
+                          <span className="text-brand-muted">{(n.extra as any)?.reaction || ''}</span>
                           {' to your take'}
                         </>
-                      )}
+                      ) : n.message ? (
+                        <>
+                          {' — '}
+                          <span className="text-brand-muted">{n.message}</span>
+                        </>
+                      ) : null}
                     </div>
                     <div className="text-xs text-brand-muted mt-0.5">{new Date(n.created_at).toLocaleString()}</div>
                   </div>

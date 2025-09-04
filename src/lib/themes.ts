@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
-export type Theme = "dark" | "light" | "system" | "orange_glow" | "midnight" | "sunset" | "forest" | "ocean" | "high_contrast"
+export type Theme = "dark" | "light" | "system" | "orange_glow" | "midnight" | "sunset" | "forest" | "ocean" | "high_contrast" | "retro_wave"
 
 export interface ThemeConfig {
   id: Theme
@@ -134,6 +134,19 @@ export const themes: ThemeConfig[] = [
       accent: "#FFFFFF",
       text: "#FFFFFF"
     }
+  },
+  {
+    id: "retro_wave",
+    name: "Retro Wave",
+    description: "Black base with warm rainbow band accents",
+    premium: false,
+    preview: {
+      background: "#0E0E0E",
+      primary: "#F59E0B", // amber
+      secondary: "#EF4444", // red
+      accent: "#8B5CF6", // violet
+      text: "#FFFFFF"
+    }
   }
 ]
 
@@ -166,7 +179,8 @@ export function getThemeClass(theme: Theme) {
       "theme-sunset": theme === "sunset",
       "theme-forest": theme === "forest",
       "theme-ocean": theme === "ocean",
-      "theme-high-contrast": theme === "high_contrast"
+      "theme-high-contrast": theme === "high_contrast",
+      "theme-retro-wave": theme === "retro_wave"
     }
   )
 } 

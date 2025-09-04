@@ -232,6 +232,38 @@
     --brand-danger: #FF3B30;
     --brand-success: #2ED573;
   }
+
+  .theme-retro-wave {
+    --background: #0E0E0E;
+    --foreground: #FFFFFF;
+    --card: #141414;
+    --card-foreground: #FFFFFF;
+    --popover: #141414;
+    --popover-foreground: #FFFFFF;
+    --primary: #F59E0B; /* amber */
+    --primary-foreground: #0E0E0E;
+    --secondary: #EF4444; /* red */
+    --secondary-foreground: #FFFFFF;
+    --muted: #1C1C1C;
+    --muted-foreground: #B0B0B0;
+    --accent: #8B5CF6; /* violet */
+    --accent-foreground: #0E0E0E;
+    --destructive: #F97316; /* orange */
+    --destructive-foreground: #0E0E0E;
+    --border: #232323;
+    --input: #232323;
+    --ring: #F59E0B;
+    --brand-primary: #F59E0B;
+    --brand-secondary: #EF4444;
+    --brand-accent: #8B5CF6;
+    --brand-background: #0E0E0E;
+    --brand-surface: #141414;
+    --brand-border: #232323;
+    --brand-text: #FFFFFF;
+    --brand-muted: #B0B0B0;
+    --brand-danger: #EF4444;
+    --brand-success: #22C55E;
+  }
 }
 
 @layer base {

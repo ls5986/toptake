@@ -26,6 +26,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 import { useTakesForDate } from '@/hooks/useTakesForDate';
+import { fetchUnreadCount, subscribeNotifications } from '@/lib/notifications';
 
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt, hasPostedToday } = useAppContext();
@@ -236,17 +237,25 @@ const MainAppScreen: React.FC = () => {
 
   useEffect(() => {
     if (!user) return;
-    // Fetch unread notifications count
-    const fetchUnread = async () => {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('read', false);
-      if (!error && data) setUnreadNotifications(data.length);
+    let unsubscribe: (() => void) | null = null;
+
+    const loadUnread = async () => {
+      try {
+        const count = await fetchUnreadCount(user.id);
+        setUnreadNotifications(count);
+      } catch {}
     };
-    fetchUnread();
-  }, [user]);
+
+    loadUnread();
+    unsubscribe = subscribeNotifications(user.id, () => {
+      // Increment optimistically; a more robust approach would refetch
+      setUnreadNotifications(prev => prev + 1);
+    });
+
+    return () => {
+      if (unsubscribe) unsubscribe();
+    };
+  }, [user?.id]);
 
   useEffect(() => {
     const now = new Date();
