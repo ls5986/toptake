@@ -412,18 +412,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // ✅ ADD: Auth listener with cleanup
+  // ✅ ADD: Auth listener with cleanup and more events handled
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
         console.log('🔐 Auth state changed:', event);
-        
-        if (event === 'SIGNED_OUT' || !session) {
-          setUser(null);
-          setHasPostedToday(false);
-        } else if (event === 'SIGNED_IN' && session) {
-          // Re-initialize on sign in
-          await initializeAuth();
+        switch (event) {
+          case 'SIGNED_OUT':
+            setUser(null);
+            setHasPostedToday(false);
+            break;
+          case 'SIGNED_IN':
+          case 'TOKEN_REFRESHED':
+          case 'INITIAL_SESSION':
+            if (session) {
+              await initializeAuth();
+            }
+            break;
+          default:
+            break;
         }
       }
     );
