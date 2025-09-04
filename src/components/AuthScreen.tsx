@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
@@ -24,6 +24,58 @@ const AuthScreen: React.FC = () => {
   const { toast } = useToast();
   const [onboardingStep, setOnboardingStep] = useState<'none'|'verify'|'username'|'carousel'>('none');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+
+  // If the user is already signed in (e.g., Vercel persisted cookie) but has no profile yet,
+  // automatically route them into onboarding rather than bouncing back to main.
+  useEffect(() => {
+    (async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.user) return;
+
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .eq('id', session.user.id)
+          .maybeSingle();
+
+        if (!profile) {
+          setOnboardingStep('username');
+        } else if (profile.username) {
+          // If profile exists with username, proceed to main
+          const { data: fullProfile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .maybeSingle();
+
+          if (fullProfile) {
+            const userProfile: AppUser = {
+              id: fullProfile.id,
+              username: fullProfile.username,
+              bio: fullProfile.bio || '',
+              full_name: fullProfile.full_name || '',
+              avatar_url: fullProfile.avatar_url || '',
+              is_premium: fullProfile.is_premium || false,
+              is_private: fullProfile.is_private || false,
+              is_banned: fullProfile.is_banned || false,
+              is_admin: fullProfile.is_admin || false,
+              is_verified: fullProfile.is_verified || false,
+              current_streak: fullProfile.current_streak || 0,
+              longest_streak: fullProfile.longest_streak || 0,
+              last_post_date: fullProfile.last_post_date || null,
+              last_active_at: fullProfile.last_active_at || null,
+              theme_id: fullProfile.theme_id || undefined
+            };
+            setUser(userProfile);
+            setCurrentScreen('main');
+          }
+        }
+      } catch (_e) {
+        // Best-effort; ignore
+      }
+    })();
+  }, [setUser, setCurrentScreen]);
 
   const handleAuthSuccess = async (authUser: any) => {
     try {

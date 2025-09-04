@@ -327,8 +327,11 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .single();
         
       if (profileError || !profile) {
-        console.error('Failed to fetch profile:', profileError);
-        await forceLogoutAndRedirect('Invalid profile');
+        console.warn('No profile found for user. Redirecting to onboarding instead of logging out.', profileError);
+        // Keep the auth session. Route to auth so the screen can handle onboarding (username + carousel)
+        setUser(null);
+        setCurrentScreen('auth');
+        setIsLoading(false);
         return;
       }
 
