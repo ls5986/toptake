@@ -35,6 +35,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [following, setFollowing] = useState<any[]>([]);
   const [followersSample, setFollowersSample] = useState<any[]>([]);
   const [followingSample, setFollowingSample] = useState<any[]>([]);
+  const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
@@ -259,6 +260,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     if (!user?.id || !targetUserId || user.id === targetUserId) return;
     try {
       if (isFollowing) {
+        if (!window.confirm('Unfollow this user?')) return;
         await supabase
           .from('follows')
           .delete()
@@ -279,6 +281,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const toggleFollowForId = async (otherId: string, currentlyFollowing: boolean) => {
     if (!user?.id || !otherId || user.id === otherId) return;
     try {
+      setFollowBusy(prev => ({ ...prev, [otherId]: true }));
       if (currentlyFollowing) {
         await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', otherId);
       } else {
@@ -288,6 +291,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       await openFollowing();
       await loadFollowStats();
     } catch {}
+    finally {
+      setFollowBusy(prev => ({ ...prev, [otherId]: false }));
+    }
   };
 
   const handleReaction = async (takeId: string, reaction: string) => {
@@ -372,6 +378,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 <button
                   className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
                   onClick={async () => {
+                    if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
                     try { await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId }).select(); } catch {}
                   }}
                 >
@@ -392,23 +399,56 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
               <div className="mt-3 grid grid-cols-2 gap-4 max-w-md mx-auto">
                 <div>
                   <div className="text-xs text-brand-muted mb-1">Followers</div>
-                  <div className="flex -space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     {followersSample.map(p => (
-                      <img key={p.id} src={p.avatar_url || ''} alt="avatar"
-                        className="w-7 h-7 rounded-full border border-brand-border bg-brand-muted object-cover"
-                        onError={(e:any)=>{e.currentTarget.style.display='none';}}
-                      />
+                      <div key={p.id} className="flex items-center gap-2 border border-brand-border rounded-full px-2 py-1">
+                        <img src={p.avatar_url || ''} alt="avatar"
+                          className="w-6 h-6 rounded-full bg-brand-muted object-cover"
+                          onError={(e:any)=>{e.currentTarget.style.display='none';}} />
+                        <span className="text-xs text-brand-text">{p.username || 'Unknown'}</span>
+                        {user?.id && user.id !== p.id && (
+                          <button
+                            className="text-[11px] border rounded px-2"
+                            disabled={!!followBusy[p.id]}
+                            onClick={async () => {
+                              // If I already follow p?
+                              const { data } = await supabase
+                                .from('follows')
+                                .select('id')
+                                .eq('follower_id', user.id)
+                                .eq('followee_id', p.id)
+                                .maybeSingle();
+                              await toggleFollowForId(p.id, !!data);
+                            }}
+                          >
+                            {followBusy[p.id] ? '...' : 'Follow'}
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
                 <div>
                   <div className="text-xs text-brand-muted mb-1">Following</div>
-                  <div className="flex -space-x-2">
+                  <div className="flex flex-wrap gap-2">
                     {followingSample.map(p => (
-                      <img key={p.id} src={p.avatar_url || ''} alt="avatar"
-                        className="w-7 h-7 rounded-full border border-brand-border bg-brand-muted object-cover"
-                        onError={(e:any)=>{e.currentTarget.style.display='none';}}
-                      />
+                      <div key={p.id} className="flex items-center gap-2 border border-brand-border rounded-full px-2 py-1">
+                        <img src={p.avatar_url || ''} alt="avatar"
+                          className="w-6 h-6 rounded-full bg-brand-muted object-cover"
+                          onError={(e:any)=>{e.currentTarget.style.display='none';}} />
+                        <span className="text-xs text-brand-text">{p.username || 'Unknown'}</span>
+                        {user?.id && user.id === targetUserId && (
+                          <button
+                            className="text-[11px] border rounded px-2"
+                            disabled={!!followBusy[p.id]}
+                            onClick={async () => {
+                              await toggleFollowForId(p.id, true);
+                            }}
+                          >
+                            {followBusy[p.id] ? '...' : 'Unfollow'}
+                          </button>
+                        )}
+                      </div>
                     ))}
                   </div>
                 </div>
