@@ -316,6 +316,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         new Promise<{ data: { session: any }, error: any }>((resolve) =>
           setTimeout(() => {
             console.warn('getSession timed out after 10s');
+            setError('Auth session check timed out. Possible network or CORS issue.');
             resolve({ data: { session: null }, error: new Error('timeout') });
           }, 10000)
         )
@@ -325,6 +326,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       if (error || !session) {
         if (debug) console.log('[INIT] No valid session');
+        if (error) setError(`No valid session: ${error?.message || 'unknown error'}`);
         setUser(null);
         setHasPostedToday(false);
         setIsLoading(false);
@@ -335,6 +337,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       const controller = new AbortController();
       const profileTimeout = setTimeout(() => {
         console.warn('Profile fetch timed out after 12s');
+        setError('Fetching profile timed out. Check Supabase CORS (add https://toptake.app) and env vars on Vercel.');
         controller.abort();
       }, 12000);
       const { data: profile, error: profileError } = await supabase
@@ -349,6 +352,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (profileError || !profile) {
         if (debug) console.warn('[INIT] No profile found; routing to auth', profileError);
         // Keep the auth session. Route to auth so the screen can handle onboarding (username + carousel)
+        setError('Signed in but no profile found. Complete onboarding to continue.');
         setUser(null);
         setCurrentScreen('auth');
         setIsLoading(false);
@@ -375,6 +379,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // This is the single source of truth
       await checkHasPostedTodayFromBackend(profile.id);
       if (debug) console.log('[INIT] hasPostedToday updated');
+      setError(null);
       
       setIsLoading(false);
       
@@ -384,6 +389,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         const err = error as any;
         console.log('[INIT][ERROR]', { message: err?.message, stack: err?.stack, name: err?.name });
       } catch {}
+      setError(`Auth failed: ${(error as any)?.message || 'Unknown error'}`);
       setUser(null);
       setHasPostedToday(false);
       setIsLoading(false);
@@ -691,6 +697,26 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }}
     >
       {children}
+      {/* Error overlay for startup and runtime errors */}
+      {error && (
+        <div style={{ position: 'fixed', bottom: 12, left: 12, right: 12, zIndex: 9999 }}>
+          <div className="p-3 rounded-md" style={{ background: 'rgba(220,38,38,0.95)', color: '#fff' }}>
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">{error}</div>
+              <div className="flex gap-2">
+                <button
+                  onClick={() => initializeAuth()}
+                  className="px-2 py-1 rounded bg-white text-red-600 text-xs font-semibold"
+                >Retry</button>
+                <button
+                  onClick={() => forceLogoutAndRedirect('User requested sign out from error banner')}
+                  className="px-2 py-1 rounded bg-white/80 text-red-700 text-xs"
+                >Sign out</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </AppContext.Provider>
   );
 };
