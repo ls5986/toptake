@@ -308,8 +308,17 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     try {
       setIsLoading(true);
       
-      // Simple session check - let Supabase handle timeouts
-      const { data: { session }, error } = await supabase.auth.getSession();
+      // Session check with timeout guard
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<{ data: { session: any }, error: any }>((resolve) =>
+          setTimeout(() => {
+            console.warn('getSession timed out after 10s');
+            resolve({ data: { session: null }, error: new Error('timeout') });
+          }, 10000)
+        )
+      ]);
+      const { data: { session }, error } = sessionResult as any;
       
       if (error || !session) {
         console.log('No valid session');
@@ -320,11 +329,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Get user profile
+      const controller = new AbortController();
+      const profileTimeout = setTimeout(() => {
+        console.warn('Profile fetch timed out after 12s');
+        controller.abort();
+      }, 12000);
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .single()
+        .abortSignal(controller.signal);
+      clearTimeout(profileTimeout);
         
       if (profileError || !profile) {
         console.warn('No profile found for user. Redirecting to onboarding instead of logging out.', profileError);
