@@ -47,23 +47,42 @@ function setMemory<T>(key: string, value: T, ttlMs: number = DEFAULT_TTL_MS) {
 export async function fetchPromptForDateCached(dateStr: string): Promise<string> {
   const key = `prompt:${dateStr}`;
   const mem = getFromMemory<string>(key);
-  if (mem !== null && mem !== undefined) return mem;
+  if (mem) return mem; // only accept non-empty from memory
   try {
     const ls = localStorage.getItem(key);
     if (ls) {
-      try { const parsed = JSON.parse(ls); if (parsed && parsed.value && parsed.expiresAt > Date.now()) { setMemory(key, parsed.value, parsed.expiresAt - Date.now()); return parsed.value; } } catch {}
+      try {
+        const parsed = JSON.parse(ls);
+        if (parsed && parsed.value && parsed.expiresAt > Date.now()) {
+          setMemory(key, parsed.value, parsed.expiresAt - Date.now());
+          return parsed.value as string;
+        }
+      } catch {}
     }
   } catch {}
 
   // fetch
-  const { data } = await supabase
+  let { data } = await supabase
     .from('daily_prompts')
     .select('prompt_text')
     .eq('prompt_date', dateStr)
     .maybeSingle();
-  const promptText = data?.prompt_text || '';
-  setMemory(key, promptText);
-  try { localStorage.setItem(key, JSON.stringify({ value: promptText, expiresAt: Date.now() + DEFAULT_TTL_MS })); } catch {}
+  let promptText = (data?.prompt_text || '').trim();
+  if (!promptText) {
+    // Fallback: use the most recent prompt up to this date
+    const { data: latest } = await supabase
+      .from('daily_prompts')
+      .select('prompt_text, prompt_date')
+      .lte('prompt_date', dateStr)
+      .order('prompt_date', { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    promptText = (latest?.prompt_text || '').trim();
+  }
+  if (promptText) {
+    setMemory(key, promptText);
+    try { localStorage.setItem(key, JSON.stringify({ value: promptText, expiresAt: Date.now() + DEFAULT_TTL_MS })); } catch {}
+  }
   return promptText;
 }
 
