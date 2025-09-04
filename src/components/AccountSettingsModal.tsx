@@ -20,12 +20,24 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
   const { toast } = useToast();
   const { user, logout } = useAppContext();
   const [confirmText, setConfirmText] = useState('');
+  const [isPrivate, setIsPrivate] = useState(false);
 
   // Load current user data when modal opens
   useEffect(() => {
     if (isOpen && user) {
       setUsername(user.username || '');
       setFullName(user.full_name || '');
+      // Load privacy setting
+      (async () => {
+        try {
+          const { data } = await supabase
+            .from('profiles')
+            .select('is_private')
+            .eq('id', user.id)
+            .maybeSingle();
+          setIsPrivate(!!data?.is_private);
+        } catch {}
+      })();
     }
   }, [isOpen, user]);
 
@@ -49,6 +61,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
         .update({
           username: username.trim(),
           full_name: fullName.trim() || null,
+          is_private: isPrivate,
           updated_at: new Date().toISOString()
         })
         .eq('id', user.id);
@@ -156,6 +169,18 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
             onChange={e => setFullName(e.target.value)}
             disabled={loading}
           />
+          <div className="flex items-center justify-between border rounded-md px-3 py-2">
+            <div>
+              <div className="text-sm font-medium">Private account</div>
+              <div className="text-xs text-brand-muted">When on, only approved followers can view your profile</div>
+            </div>
+            <input
+              type="checkbox"
+              checked={isPrivate}
+              onChange={e => setIsPrivate(e.target.checked)}
+              disabled={loading}
+            />
+          </div>
           <Input
             type="password"
             placeholder="New Password (coming soon)"

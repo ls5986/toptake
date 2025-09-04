@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
+import { Edit3, LogOut, Flame, FileText, MoreVertical } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
@@ -24,6 +24,7 @@ interface ProfileViewProps {
 
 const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const { user, logout } = useAppContext();
+  const [isPrivateProfile, setIsPrivateProfile] = useState(false);
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,6 +108,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         // Use stored streak as a fallback only; accurate streak is computed below
         setStreak(profile.current_streak || 0);
         setCurrentTheme(profile.theme_id || 'light');
+        setIsPrivateProfile(!!profile.is_private);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -194,6 +196,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
               <CardTitle className="text-2xl text-brand-text">
                 {user?.username || 'Unknown User'}
               </CardTitle>
+              {isPrivateProfile && (
+                <div className="text-xs text-brand-muted mt-1">Private profile</div>
+              )}
               <div className="flex justify-center space-x-4 mt-3">
                 <Badge variant="outline" className="text-brand-primary border-brand-primary flex items-center gap-1">
                   <Flame className="w-4 h-4 text-brand-primary" />
@@ -203,6 +208,34 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   <FileText className="w-4 h-4 text-brand-accent" />
                   {totalTakes || 0} takes
                 </Badge>
+              </div>
+              <div className="mt-2 flex justify-center gap-3">
+                <button
+                  className="text-sm text-brand-muted hover:text-brand-accent underline"
+                  onClick={async () => {
+                    const url = `${window.location.origin}/?profile=${targetUserId}`;
+                    try {
+                      if ((navigator as any).share) {
+                        await (navigator as any).share({ title: 'TopTake', text: 'Check out this profile', url });
+                      } else {
+                        await navigator.clipboard.writeText(url);
+                        (useToast() as any).toast?.({ title: 'Link copied' });
+                      }
+                    } catch {}
+                  }}
+                >
+                  Share Profile
+                </button>
+                <div className="relative inline-block">
+                  <button className="text-sm text-brand-muted hover:text-brand-text p-1" title="More actions">
+                    <MoreVertical className="w-4 h-4" />
+                  </button>
+                  {/* Lightweight dropdown placeholder */}
+                  <div className="absolute right-0 mt-2 w-40 bg-brand-surface border border-brand-border rounded shadow-card hidden group-hover:block">
+                    <button className="block w-full text-left px-3 py-2 text-sm hover:bg-brand-background">Block User</button>
+                    <button className="block w-full text-left px-3 py-2 text-sm hover:bg-brand-background">Report</button>
+                  </div>
+                </div>
               </div>
               <div className="mt-4 w-full max-w-2xl mx-auto">
                 <div className="grid grid-cols-3 gap-2">
