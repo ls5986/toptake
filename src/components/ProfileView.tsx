@@ -189,11 +189,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const loadFollowStats = async () => {
     if (!targetUserId) return;
     try {
-      // Probe which followee column exists by trying a safe select
-      try {
-        await supabase.from('follows').select('id').eq('followee_id', targetUserId).limit(1);
+      // Probe which followee column exists via returned error instead of exceptions
+      const probeA = await supabase.from('follows').select('id', { head: true, count: 'exact' }).eq('followee_id', targetUserId).limit(1);
+      if (probeA && !probeA.error) {
         setFolloweeCol('followee_id');
-      } catch {
+      } else {
         setFolloweeCol('followed_id');
       }
       // Counts
