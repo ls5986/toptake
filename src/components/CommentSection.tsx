@@ -154,8 +154,27 @@ export const CommentSection = ({ takeId, isOpen, onClose, selectedDate }: Commen
         .single();
       if (error) throw error;
       const displayUsername = isAnonymous ? 'Anonymous' : (profile?.username || 'User');
-      const displayComment: CommentType = { ...inserted, username: displayUsername };
-      setComments((prev) => [...prev, displayComment]);
+      const displayComment: CommentType = { 
+        id: inserted.id,
+        content: inserted.content,
+        is_anonymous: inserted.is_anonymous,
+        created_at: inserted.created_at,
+        user_id: inserted.user_id,
+        parent_comment_id: inserted.parent_comment_id,
+        username: displayUsername
+      };
+      // If it's a reply, place it under its parent in the current tree; otherwise append as root
+      setComments((prev) => {
+        if (!parentId) return [...prev, displayComment];
+        const next = [...prev];
+        const idx = next.findIndex(c => c.id === parentId);
+        if (idx !== -1) {
+          // Append after parent so rebuild will nest properly on next refresh
+          next.splice(idx + 1, 0, displayComment);
+          return next;
+        }
+        return [...prev, displayComment];
+      });
       setNewComment('');
       toast({ title: 'Comment posted successfully!', duration: 2000 });
       setRefresh(r => r + 1);
