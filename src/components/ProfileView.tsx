@@ -36,6 +36,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [followersSample, setFollowersSample] = useState<any[]>([]);
   const [followingSample, setFollowingSample] = useState<any[]>([]);
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
+  const [profileUser, setProfileUser] = useState<any>(null);
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
@@ -83,12 +84,27 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       const { data: takesData } = await supabase
         .from('takes')
-        .select('*, profiles(username)')
+        .select('id, user_id, content, created_at, prompt_date, is_anonymous, profiles(username)')
         .eq('user_id', targetUserId)
         .order('created_at', { ascending: false });
       
       if (takesData) {
-        // Format takes to match Take type
+        const takeIds = takesData.map((t: any) => t.id);
+        let reactionsMap: Record<string, number> = {};
+        let commentsMap: Record<string, number> = {};
+        if (takeIds.length) {
+          const { data: rx } = await supabase
+            .from('take_reactions')
+            .select('take_id')
+            .in('take_id', takeIds);
+          (rx || []).forEach((r: any) => { reactionsMap[r.take_id] = (reactionsMap[r.take_id] || 0) + 1; });
+          const { data: cm } = await supabase
+            .from('comments')
+            .select('take_id')
+            .in('take_id', takeIds);
+          (cm || []).forEach((c: any) => { commentsMap[c.take_id] = (commentsMap[c.take_id] || 0) + 1; });
+        }
+
         const formattedTakes: Take[] = takesData.map((take: any) => ({
           id: take.id,
           userId: take.user_id,
@@ -97,9 +113,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           isAnonymous: take.is_anonymous,
           timestamp: take.created_at,
           prompt_date: take.prompt_date,
-          commentCount: 0
+          commentCount: commentsMap[take.id] || 0,
+          reactionCount: reactionsMap[take.id] || 0
         }));
-        
+
         setUserTakes(formattedTakes);
         setHasPostedForSelectedDate(formattedTakes.length > 0);
       }
@@ -122,6 +139,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         setStreak(profile.current_streak || 0);
         setCurrentTheme(profile.theme_id || 'light');
         setIsPrivateProfile(!!profile.is_private);
+        setProfileUser(profile);
       }
     } catch (error) {
       console.error('Error loading user data:', error);
@@ -331,12 +349,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           <div className="flex flex-col items-center space-y-4">
             <Avatar className="w-20 h-20">
               <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
-                {(user?.username || 'U')[0].toUpperCase()}
+                {(profileUser?.username || 'U')[0].toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="text-center">
               <CardTitle className="text-2xl text-brand-text">
-                {user?.username || 'Unknown User'}
+                {profileUser?.username || 'Unknown User'}
               </CardTitle>
               {isPrivateProfile && (
                 <div className="text-xs text-brand-muted mt-1">Private profile</div>
@@ -355,7 +373,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 <button
                   className="text-sm text-brand-muted hover:text-brand-accent underline"
                   onClick={async () => {
-                    const url = `${window.location.origin}/?profile=${targetUserId}`;
+                    const url = `${window.location.origin}/${profileUser?.username || targetUserId}`;
                     try {
                       if ((navigator as any).share) {
                         await (navigator as any).share({ title: 'TopTake', text: 'Check out this profile', url });
@@ -589,7 +607,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
       {/* User's Takes */}
       <div className="flex-1 min-h-0">
-        <h3 className="text-lg font-semibold text-brand-text mb-4">Your Takes</h3>
+        <h3 className="text-lg font-semibold text-brand-text mb-4">{viewingOwnProfile ? 'Your Takes' : 'Takes'}</h3>
         {userTakes.length > 0 ? (
           <div className="space-y-4">
             {userTakes.map((take) => (
@@ -602,8 +620,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           </div>
         ) : (
           <div className="text-center text-brand-muted py-8">
-            <p>No takes posted for this prompt yet.</p>
-            <p className="text-sm mt-2">Share your thoughts to get started!</p>
+            <p>No takes posted yet.</p>
+            {viewingOwnProfile && <p className="text-sm mt-2">Share your thoughts to get started!</p>}
           </div>
         )}
       </div>
