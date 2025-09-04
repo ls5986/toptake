@@ -120,6 +120,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [isCheckingPostStatus, setIsCheckingPostStatus] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
+  const initInProgressRef = useRef(false);
+  const lastInitAtRef = useRef<number>(0);
 
   const isAuthenticated = user !== null;
 
@@ -306,6 +308,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   // ✅ ADD: Simple, reliable auth initialization
   const initializeAuth = async () => {
     try {
+      // Gate to avoid duplicate inits from mount + INITIAL_SESSION
+      const now = Date.now();
+      if (initInProgressRef.current || now - lastInitAtRef.current < 800) {
+        return;
+      }
+      initInProgressRef.current = true;
+      lastInitAtRef.current = now;
+
       setIsLoading(true);
       const debug = (() => { try { return new URLSearchParams(window.location.search).get('debug') === '1'; } catch { return false; } })();
       if (debug) console.log('[INIT] starting initializeAuth');
@@ -339,7 +349,28 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
 
-      // Get user profile
+      // Fast-path: hydrate from cache immediately while fetching fresh
+      try {
+        const cached = localStorage.getItem(`profile:${session.user.id}`);
+        if (cached) {
+          const profile = JSON.parse(cached);
+          const userObj = {
+            id: profile.id,
+            username: profile.username,
+            email: session.user.email || '',
+            current_streak: profile.current_streak || 0,
+            timezone_offset: profile.timezone_offset || 0,
+            isPremium: profile.is_premium || false,
+            is_admin: profile.is_admin || false,
+            last_post_date: profile.last_post_date || undefined,
+            theme_id: profile.theme_id || undefined,
+          } as any;
+          setUser(userObj);
+          setIsLoading(false);
+        }
+      } catch {}
+
+      // Get user profile (authoritative)
       const controller = new AbortController();
       const profileTimeout = setTimeout(() => {
         console.warn('Profile fetch timed out after 12s');
@@ -379,6 +410,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       
       setUser(userObj);
+      try { localStorage.setItem(`profile:${profile.id}`, JSON.stringify(profile)); } catch {}
       if (debug) console.log('[INIT] user set, checking hasPostedToday');
       
       // CRITICAL: Always check backend for hasPostedToday
@@ -399,6 +431,8 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(null);
       setHasPostedToday(false);
       setIsLoading(false);
+    } finally {
+      initInProgressRef.current = false;
     }
   };
 

@@ -71,6 +71,7 @@ const ProfileView: React.FC = () => {
         }));
         
         setUserTakes(formattedTakes);
+        setTotalTakes(formattedTakes.length);
         setHasPostedForSelectedDate(formattedTakes.length > 0);
       }
     } catch (error) {
@@ -88,8 +89,7 @@ const ProfileView: React.FC = () => {
         .eq('id', user.id)
         .single();
       if (profile) {
-        setStreak(profile.streak || 0);
-        setTotalTakes(profile.total_takes || 0);
+        setStreak(profile.current_streak || 0);
         setCurrentTheme(profile.theme_id || 'light');
       }
     } catch (error) {
@@ -98,17 +98,6 @@ const ProfileView: React.FC = () => {
       setLoading(false);
     }
   };
-
-  useEffect(() => {
-    (async () => {
-      if (!user?.id) return;
-      const { count } = await supabase
-        .from('takes')
-        .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
-      setTotalTakes(count || 0);
-    })().catch(console.error);
-  }, [user?.id]);
 
   const handleReaction = async (takeId: string, reaction: string) => {
     // Simplified reaction handling - just log for now
@@ -120,8 +109,10 @@ const ProfileView: React.FC = () => {
   };
 
   const handleEditProfile = () => {
-    setShowEditModal(true);
+    setShowEditProfile(true);
   };
+
+  const setShowEditProfile = (val: boolean) => setShowEditModal(val);
 
   if (loading) {
     return (
@@ -168,7 +159,7 @@ const ProfileView: React.FC = () => {
                 <p className="text-xs text-brand-muted mt-2 text-center">Trippy includes premium themes.</p>
               </div>
               <Button
-                onClick={handleEditProfile}
+                onClick={() => setShowEditProfile(true)}
                 variant="outline"
                 size="sm"
                 className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
