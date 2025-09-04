@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
+import { Eye, EyeOff } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
@@ -25,6 +26,9 @@ const AuthScreen: React.FC = () => {
   const [onboardingStep, setOnboardingStep] = useState<'none'|'verify'|'username'|'carousel'>('none');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
   const [autoResent, setAutoResent] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirm, setShowConfirm] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
 
   // If the user is already signed in (e.g., Vercel persisted cookie) but has no profile yet,
   // automatically route them into onboarding rather than bouncing back to main.
@@ -358,21 +362,62 @@ const AuthScreen: React.FC = () => {
             onChange={(e) => setEmail(e.target.value)}
             disabled={loading}
           />
-          <Input
-            type="password"
-            placeholder="Password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            disabled={loading}
-          />
-          {!isLogin && (
+          <div className="relative">
             <Input
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) => setConfirmPassword(e.target.value)}
+              type={showPassword ? 'text' : 'password'}
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               disabled={loading}
             />
+            <button
+              type="button"
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-text"
+              onClick={() => setShowPassword(v => !v)}
+            >
+              {showPassword ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </button>
+          </div>
+          {!isLogin && (
+            <div className="relative">
+              <Input
+                type={showConfirm ? 'text' : 'password'}
+                placeholder="Confirm Password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                disabled={loading}
+              />
+              <button
+                type="button"
+                className="absolute right-2 top-1/2 -translate-y-1/2 text-brand-muted hover:text-brand-text"
+                onClick={() => setShowConfirm(v => !v)}
+              >
+                {showConfirm ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+              </button>
+            </div>
+          )}
+          {isLogin && (
+            <Button
+              variant="link"
+              onClick={async () => {
+                if (!email || !isValidEmail(email)) {
+                  toast({ title: 'Enter your email first', variant: 'destructive' });
+                  return;
+                }
+                try {
+                  console.log('[RESET] Sending password reset', { email: email.trim().toLowerCase() });
+                  await supabase.auth.resetPasswordForEmail(email.trim().toLowerCase(), {
+                    redirectTo: getEmailRedirectTo()
+                  } as any);
+                  toast({ title: 'Reset email sent', description: 'Check your inbox.' });
+                } catch (e: any) {
+                  toast({ title: 'Failed to send reset', description: e?.message || 'Try again', variant: 'destructive' });
+                }
+              }}
+              className="px-0"
+            >
+              Forgot password?
+            </Button>
           )}
           <Button
             onClick={isLogin ? handleLogin : handleRegister}

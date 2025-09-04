@@ -3,6 +3,7 @@ import { supabase, supabaseEnvOk, getSupabaseEnvError } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
+import ResetPasswordModal from '@/components/ResetPasswordModal';
 import type { User } from '@/types';
 import { getUserCredits, CreditType } from '@/lib/credits';
 
@@ -118,6 +119,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const [error, setError] = useState<string | null>(null);
   const [isSubmittingTake, setIsSubmittingTake] = useState(false);
   const [isCheckingPostStatus, setIsCheckingPostStatus] = useState(false);
+  const [showResetModal, setShowResetModal] = useState(false);
   const navigate = useNavigate();
   const { toast } = useToast();
   const initInProgressRef = useRef(false);
@@ -490,6 +492,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       async (event, session) => {
         console.log('🔐 Auth state changed:', event, { hasSession: !!session });
         switch (event) {
+          case 'PASSWORD_RECOVERY':
+            console.log('[RESET] PASSWORD_RECOVERY event received');
+            setShowResetModal(true);
+            break;
           case 'SIGNED_OUT':
             setUser(null);
             setHasPostedToday(false);
@@ -737,6 +743,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }}
     >
       {children}
+      <ResetPasswordModal isOpen={showResetModal} onClose={() => setShowResetModal(false)} />
       {/* Error overlay for startup and runtime errors */}
       {error && (
         <div style={{ position: 'fixed', bottom: 12, left: 12, right: 12, zIndex: 9999 }}>
