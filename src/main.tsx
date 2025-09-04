@@ -5,8 +5,20 @@ import App from './App.tsx';
 import './index.css';
 import { clearInvalidTokens } from '@/lib/supabase';
 
-// Clear any invalid tokens on app startup
-clearInvalidTokens().catch(console.error);
+// Clear invalid tokens only in development (prevents accidental sign-outs in production)
+if (import.meta.env.MODE === 'development') {
+  clearInvalidTokens().catch(console.error);
+}
+
+// Global production error logging and crash visibility
+if (typeof window !== 'undefined') {
+  window.addEventListener('error', (e) => {
+    console.error('[GLOBAL][error]', e?.error || e?.message || e);
+  });
+  window.addEventListener('unhandledrejection', (e) => {
+    console.error('[GLOBAL][unhandledrejection]', e?.reason || e);
+  });
+}
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>

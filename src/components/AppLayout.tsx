@@ -29,6 +29,17 @@ const AppLayout: React.FC = () => {
     shouldShowCarousel
   });
 
+  // Debug overlay when ?debug=1
+  const showDebug = (() => { try { return new URLSearchParams(window.location.search).get('debug') === '1'; } catch { return false; } })();
+  const DebugOverlay = () => (
+    <div style={{ position: 'fixed', bottom: 8, right: 8, zIndex: 9999, background: 'rgba(0,0,0,0.7)', color: '#fff', padding: '8px 10px', borderRadius: 6, fontSize: 12 }}>
+      <div>screen: {currentScreen}</div>
+      <div>loading: {String(isLoading)}</div>
+      <div>user: {String(!!user)}</div>
+      <div>postedToday: {String(hasPostedToday)}</div>
+    </div>
+  );
+
   // Manual refresh handler
   const handleManualRefresh = () => {
     console.log('🔄 Manual refresh triggered');
@@ -59,6 +70,7 @@ const AppLayout: React.FC = () => {
             <div>Posted: {hasPostedToday ? 'Yes' : 'No'}</div>
           </div>
         )}
+        {showDebug && <DebugOverlay />}
       </div>
     );
   }
@@ -68,10 +80,13 @@ const AppLayout: React.FC = () => {
     console.log('🔐 No user, currentScreen:', currentScreen);
     if (currentScreen === 'main') {
       console.log('🏠 Showing LandingPage');
-      return <LandingPage onGetStarted={() => {
+      return <>
+        {showDebug && <DebugOverlay />}
+        <LandingPage onGetStarted={() => {
         console.log('🚀 Get Started clicked, setting screen to auth');
         setCurrentScreen('auth');
-      }} />;
+        }} />
+      </>;
     }
     console.log('🔑 Showing AuthScreen');
     return (

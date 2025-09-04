@@ -307,12 +307,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const initializeAuth = async () => {
     try {
       setIsLoading(true);
-      
-      // Simple session check - let Supabase handle timeouts
-      const { data: { session }, error } = await supabase.auth.getSession();
+      const debug = (() => { try { return new URLSearchParams(window.location.search).get('debug') === '1'; } catch { return false; } })();
+      if (debug) console.log('[INIT] starting initializeAuth');
+
+      // Session check with timeout guard
+      const sessionResult = await Promise.race([
+        supabase.auth.getSession(),
+        new Promise<{ data: { session: any }, error: any }>((resolve) =>
+          setTimeout(() => {
+            console.warn('getSession timed out after 10s');
+            resolve({ data: { session: null }, error: new Error('timeout') });
+          }, 10000)
+        )
+      ]);
+      const { data: { session }, error } = sessionResult as any;
+      if (debug) console.log('[INIT] getSession result', { hasSession: !!session, error });
       
       if (error || !session) {
-        console.log('No valid session');
+        if (debug) console.log('[INIT] No valid session');
         setUser(null);
         setHasPostedToday(false);
         setIsLoading(false);
@@ -320,14 +332,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       }
 
       // Get user profile
+      const controller = new AbortController();
+      const profileTimeout = setTimeout(() => {
+        console.warn('Profile fetch timed out after 12s');
+        controller.abort();
+      }, 12000);
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', session.user.id)
-        .single();
+        .single()
+        .abortSignal(controller.signal);
+      clearTimeout(profileTimeout);
+      if (debug) console.log('[INIT] profile result', { hasProfile: !!profile, profileError });
         
       if (profileError || !profile) {
-        console.warn('No profile found for user. Redirecting to onboarding instead of logging out.', profileError);
+        if (debug) console.warn('[INIT] No profile found; routing to auth', profileError);
         // Keep the auth session. Route to auth so the screen can handle onboarding (username + carousel)
         setUser(null);
         setCurrentScreen('auth');
@@ -349,15 +369,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       
       setUser(userObj);
+      if (debug) console.log('[INIT] user set, checking hasPostedToday');
       
       // CRITICAL: Always check backend for hasPostedToday
       // This is the single source of truth
       await checkHasPostedTodayFromBackend(profile.id);
+      if (debug) console.log('[INIT] hasPostedToday updated');
       
       setIsLoading(false);
       
     } catch (error) {
       console.error('Auth failed:', error);
+      try {
+        const err = error as any;
+        console.log('[INIT][ERROR]', { message: err?.message, stack: err?.stack, name: err?.name });
+      } catch {}
       setUser(null);
       setHasPostedToday(false);
       setIsLoading(false);
@@ -412,18 +438,25 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
   }, []);
 
-  // ✅ ADD: Auth listener with cleanup
+  // ✅ ADD: Auth listener with cleanup and more events handled
   useEffect(() => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, session) => {
-        console.log('🔐 Auth state changed:', event);
-        
-        if (event === 'SIGNED_OUT' || !session) {
-          setUser(null);
-          setHasPostedToday(false);
-        } else if (event === 'SIGNED_IN' && session) {
-          // Re-initialize on sign in
-          await initializeAuth();
+        console.log('🔐 Auth state changed:', event, { hasSession: !!session });
+        switch (event) {
+          case 'SIGNED_OUT':
+            setUser(null);
+            setHasPostedToday(false);
+            break;
+          case 'SIGNED_IN':
+          case 'TOKEN_REFRESHED':
+          case 'INITIAL_SESSION':
+            if (session) {
+              await initializeAuth();
+            }
+            break;
+          default:
+            break;
         }
       }
     );

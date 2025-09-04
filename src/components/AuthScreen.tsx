@@ -79,12 +79,16 @@ const AuthScreen: React.FC = () => {
 
   const handleAuthSuccess = async (authUser: any) => {
     try {
+      console.log('[AUTH] handleAuthSuccess start', { userId: authUser?.id });
+      console.time('[AUTH] profileFetch');
       // Check if user has a profile with username
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('*')
         .eq('id', authUser.id)
         .maybeSingle();
+      console.timeEnd('[AUTH] profileFetch');
+      console.log('[AUTH] profile fetch result', { hasProfile: !!profile, profileError });
 
       if (profileError) {
         console.error('Profile error:', profileError);
@@ -115,7 +119,9 @@ const AuthScreen: React.FC = () => {
         setUser(userProfile);
         setCurrentScreen('main');
         toast({ title: `Welcome back, ${profile.username}!` });
+        console.log('[AUTH] user set and routed to main');
       } else {
+        console.log('[AUTH] no username; moving to onboarding step username');
         setOnboardingStep('username');
       }
     } catch (error) {
@@ -146,12 +152,14 @@ const AuthScreen: React.FC = () => {
     setLoading(true);
     
     try {
+      console.log('[AUTH] signInWithPassword start');
       const cleanEmail = email.trim().toLowerCase();
       const { data, error } = await supabase.auth.signInWithPassword({
         email: cleanEmail,
         password: password.trim()
       });
 
+      console.log('[AUTH] signInWithPassword result', { hasUser: !!data?.user, error });
       if (error) throw error;
 
       if (data.user) {
@@ -162,6 +170,7 @@ const AuthScreen: React.FC = () => {
           setOnboardingStep('verify');
           return;
         }
+        console.log('[AUTH] login verified; calling handleAuthSuccess');
         await handleAuthSuccess(data.user);
       }
     } catch (error: unknown) {

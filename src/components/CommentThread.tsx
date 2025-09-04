@@ -19,7 +19,7 @@ export interface Comment {
 
 interface CommentThreadProps {
   comment: Comment;
-  onReply: (parentId: string, content: string, isAnonymous: boolean) => Promise<void>;
+  onReply: (parentId: string | null, content: string, isAnonymous: boolean) => Promise<void>;
   onVote: (commentId: string, voteType: 'like' | 'dislike' | undefined) => void;
   likeCount: number;
   dislikeCount: number;
@@ -71,7 +71,7 @@ export const CommentThread: React.FC<CommentThreadProps> = ({ comment, onReply, 
   };
 
   return (
-    <div className={clsx('mt-2', depth > 0 && `ml-[${depth*20}px]`)}>
+    <div className={clsx('mt-2')} style={{ marginLeft: depth > 0 ? depth * 20 : 0 }}>
       <Card className="bg-brand-surface border-border">
         <CardContent className="p-3">
           <div className="flex justify-between items-start mb-2">

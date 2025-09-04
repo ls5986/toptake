@@ -154,15 +154,44 @@ export const CommentSection = ({ takeId, isOpen, onClose, selectedDate }: Commen
         .single();
       if (error) throw error;
       const displayUsername = isAnonymous ? 'Anonymous' : (profile?.username || 'User');
-      const displayComment: CommentType = { ...inserted, username: displayUsername };
-      setComments((prev) => [...prev, displayComment]);
+      const displayComment: CommentType = { 
+        id: inserted.id,
+        content: inserted.content,
+        is_anonymous: inserted.is_anonymous,
+        created_at: inserted.created_at,
+        user_id: inserted.user_id,
+        parent_comment_id: inserted.parent_comment_id,
+        username: displayUsername
+      };
+      // If it's a reply, place it under its parent in the current tree; otherwise append as root
+      setComments((prev) => {
+        if (!parentId) return [...prev, displayComment];
+        const next = [...prev];
+        const idx = next.findIndex(c => c.id === parentId);
+        if (idx !== -1) {
+          // Append after parent so rebuild will nest properly on next refresh
+          next.splice(idx + 1, 0, displayComment);
+          return next;
+        }
+        return [...prev, displayComment];
+      });
       setNewComment('');
       toast({ title: 'Comment posted successfully!', duration: 2000 });
       setRefresh(r => r + 1);
       // Notify take owner (if not self)
       const { data: take } = await supabase.from('takes').select('user_id').eq('id', takeId).single();
       if (take && take.user_id !== user.id) {
-        await addNotification(take.user_id, 'comment', `${profile?.username || 'User'} commented on your take: "${content.slice(0, 60)}"`);
+        await addNotification(
+          take.user_id,
+          'comment',
+          `${profile?.username || 'User'} commented on your take` ,
+          {
+            actorId: user.id,
+            takeId: takeId,
+            title: 'New comment',
+            extra: { comment: content.slice(0, 120) }
+          }
+        );
       }
     } catch (error: unknown) {
       toast({ title: 'Failed to post comment', description: (error as Error).message || 'Please try again', variant: 'destructive' });
