@@ -3,7 +3,7 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
-import { Edit3, LogOut, Flame, FileText, MoreVertical } from 'lucide-react';
+import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
@@ -25,6 +25,13 @@ interface ProfileViewProps {
 const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const { user, logout } = useAppContext();
   const [isPrivateProfile, setIsPrivateProfile] = useState(false);
+  const [followerCount, setFollowerCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState<boolean>(false);
+  const [followersOpen, setFollowersOpen] = useState(false);
+  const [followingOpen, setFollowingOpen] = useState(false);
+  const [followers, setFollowers] = useState<any[]>([]);
+  const [following, setFollowing] = useState<any[]>([]);
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
@@ -46,6 +53,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       loadUserData();
       fetchUserTakes();
       loadAccurateCounts();
+      loadFollowStats();
     }
   }, [targetUserId]);
 
@@ -70,7 +78,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       const { data: takesData } = await supabase
         .from('takes')
-        .select('*')
+        .select('*, profiles(username)')
         .eq('user_id', targetUserId)
         .order('created_at', { ascending: false });
       
@@ -80,7 +88,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           id: take.id,
           userId: take.user_id,
           content: take.content,
-          username: take.is_anonymous ? 'Anonymous' : (take.username || 'Unknown'),
+          username: take.is_anonymous ? 'Anonymous' : (take.profiles?.username || 'Unknown'),
           isAnonymous: take.is_anonymous,
           timestamp: take.created_at,
           prompt_date: take.prompt_date,
@@ -155,6 +163,93 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     }
   };
 
+  const loadFollowStats = async () => {
+    if (!targetUserId) return;
+    try {
+      // Counts
+      const { count: followersCnt } = await supabase
+        .from('follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('followee_id', targetUserId);
+      const { count: followingCnt } = await supabase
+        .from('follows')
+        .select('id', { count: 'exact', head: true })
+        .eq('follower_id', targetUserId);
+      setFollowerCount(followersCnt || 0);
+      setFollowingCount(followingCnt || 0);
+
+      // Status for current viewer
+      if (user?.id && user.id !== targetUserId) {
+        const { data: meFollows } = await supabase
+          .from('follows')
+          .select('id')
+          .eq('follower_id', user.id)
+          .eq('followee_id', targetUserId)
+          .maybeSingle();
+        setIsFollowing(!!meFollows);
+      } else {
+        setIsFollowing(false);
+      }
+    } catch (e) {
+      // ignore
+    }
+  };
+
+  const openFollowers = async () => {
+    setFollowersOpen(true);
+    try {
+      const { data } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('followee_id', targetUserId);
+      const ids = (data || []).map(r => r.follower_id);
+      if (!ids.length) { setFollowers([]); return; }
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', ids);
+      setFollowers(profiles || []);
+    } catch {}
+  };
+
+  const openFollowing = async () => {
+    setFollowingOpen(true);
+    try {
+      const { data } = await supabase
+        .from('follows')
+        .select('followee_id')
+        .eq('follower_id', targetUserId);
+      const ids = (data || []).map(r => r.followee_id);
+      if (!ids.length) { setFollowing([]); return; }
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', ids);
+      setFollowing(profiles || []);
+    } catch {}
+  };
+
+  const toggleFollow = async () => {
+    if (!user?.id || !targetUserId || user.id === targetUserId) return;
+    try {
+      if (isFollowing) {
+        await supabase
+          .from('follows')
+          .delete()
+          .eq('follower_id', user.id)
+          .eq('followee_id', targetUserId);
+        setIsFollowing(false);
+        setFollowerCount(c => Math.max(0, c - 1));
+      } else {
+        await supabase
+          .from('follows')
+          .insert({ follower_id: user.id, followee_id: targetUserId });
+        setIsFollowing(true);
+        setFollowerCount(c => c + 1);
+      }
+    } catch {}
+  };
+
   const handleReaction = async (takeId: string, reaction: string) => {
     // Simplified reaction handling - just log for now
     console.log('Reaction:', reaction, 'on take:', takeId);
@@ -226,17 +321,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 >
                   Share Profile
                 </button>
-                <button
-                  className="text-sm text-brand-muted hover:text-brand-text p-1 border rounded px-2"
-                  onClick={async () => {
-                    // simple follow toggle
-                    try {
-                      await supabase.from('follows').insert({ follower_id: user?.id, followee_id: targetUserId }).select();
-                    } catch {}
-                  }}
-                >
-                  Follow
-                </button>
+                {user?.id !== targetUserId && (
+                  <button
+                    className="text-sm p-1 border rounded px-2 \n                      "
+                    onClick={toggleFollow}
+                  >
+                    {isFollowing ? 'Unfollow' : 'Follow'}
+                  </button>
+                )}
                 <button
                   className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
                   onClick={async () => {
@@ -244,6 +336,15 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   }}
                 >
                   Block
+                </button>
+              </div>
+
+              <div className="mt-2 flex justify-center gap-4 text-sm">
+                <button className="text-brand-muted hover:text-brand-text" onClick={openFollowers}>
+                  Followers {followerCount}
+                </button>
+                <button className="text-brand-muted hover:text-brand-text" onClick={openFollowing}>
+                  Following {followingCount}
                 </button>
               </div>
               <div className="mt-4 w-full max-w-2xl mx-auto">
