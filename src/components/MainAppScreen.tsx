@@ -34,8 +34,7 @@ import { fetchUnreadCount, subscribeNotifications } from '@/lib/notifications';
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt, hasPostedToday } = useAppContext();
   const { username } = useParams();
-  const [takes, setTakes] = useState<Take[]>([]);
-  const [loading, setLoading] = useState(true);
+  // Remove local duplicated takes/loading; rely on hook state
   const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications'>('feed');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
@@ -66,7 +65,6 @@ const MainAppScreen: React.FC = () => {
     const initializeScreen = async () => {
       try {
         await checkDailyPost();
-        await loadTakes();
         // Ensure prompt + takes for selectedDate are fetched immediately on app open
         if (currentTab === 'feed') {
           console.log('[init] fetching prompt/takes for date on mount', { date: selectedDate.toISOString().split('T')[0] });
@@ -74,7 +72,7 @@ const MainAppScreen: React.FC = () => {
         }
       } catch (error) {
         console.error('Error initializing screen:', error);
-        setLoading(false);
+        // no-op; hook drives loading
       } finally {
         fetchInProgress.current = false;
       }
@@ -87,10 +85,7 @@ const MainAppScreen: React.FC = () => {
     if (username) setCurrentTab('profile');
   }, [username]);
 
-  const loadTakes = React.useCallback(async () => {
-    setTakes(sharedTakes as any);
-    setLoading(sharedLoading);
-  }, [sharedTakes, sharedLoading]);
+  // Removed loadTakes; use hook values directly
 
   const loadFakeTakes = () => {
     try {
@@ -126,7 +121,6 @@ const MainAppScreen: React.FC = () => {
     try {
       setIsAppBlocked(false);
       await checkDailyPost();
-      await loadTakes();
     } catch (error) {
       console.error('Error unlocking:', error);
     }
@@ -144,6 +138,10 @@ const MainAppScreen: React.FC = () => {
     try {
       if (tab === 'admin' && !user?.is_admin) {
         return;
+      }
+      // If we are on a /:username route, clear it for any non-profile tabs
+      if (tab !== 'profile' && username) {
+        window.history.pushState({}, '', '/');
       }
       setCurrentTab(tab);
     } catch (error) {
@@ -213,13 +211,13 @@ const MainAppScreen: React.FC = () => {
           <div className="flex-shrink-0">
           <TodaysPrompt 
             prompt={promptText} 
-            takeCount={takes.length} 
-            loading={loading && !promptText}
+            takeCount={(sharedTakes as any)?.length || 0} 
+            loading={!promptText && sharedLoading}
           />
           </div>
           
           <div className="flex-1 min-h-0">
-            { (loading || sharedLoading) ? (
+            { (sharedLoading) ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center text-brand-text">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
@@ -230,12 +228,12 @@ const MainAppScreen: React.FC = () => {
               <ScrollArea className="h-full">
                 <div className="p-4 space-y-4">
                   <h2 className="text-xl font-semibold text-brand-text sticky top-0 bg-brand-surface py-2 z-10">
-                    💬 Today's Hot Takes ({takes.length})
+                    💬 Today's Hot Takes ({(sharedTakes as any)?.length || 0})
                   </h2>
-                  {takes.map((take) => (
+                  {(sharedTakes as any)?.map((take: any) => (
                     <TakeCard key={take.id} take={take} onReact={handleReaction} />
                   ))}
-                  {takes.length === 0 && (
+                  {(!(sharedTakes as any)?.length) && (
                     <div className="text-center text-brand-muted py-8">
                       <p>No takes yet today!</p>
                       <p className="text-sm mt-2">Be the first to share your take</p>
