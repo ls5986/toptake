@@ -181,7 +181,17 @@ export const CommentSection = ({ takeId, isOpen, onClose, selectedDate }: Commen
       // Notify take owner (if not self)
       const { data: take } = await supabase.from('takes').select('user_id').eq('id', takeId).single();
       if (take && take.user_id !== user.id) {
-        await addNotification(take.user_id, 'comment', `${profile?.username || 'User'} commented on your take: "${content.slice(0, 60)}"`);
+        await addNotification(
+          take.user_id,
+          'comment',
+          `${profile?.username || 'User'} commented on your take` ,
+          {
+            actorId: user.id,
+            takeId: takeId,
+            title: 'New comment',
+            extra: { comment: content.slice(0, 120) }
+          }
+        );
       }
     } catch (error: unknown) {
       toast({ title: 'Failed to post comment', description: (error as Error).message || 'Please try again', variant: 'destructive' });

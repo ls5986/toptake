@@ -108,8 +108,17 @@ export const getTodayPrompt = async () => {
   return { data, error: null };
 };
 
-export async function addNotification(userId: string, type: string, message: string) {
-  return supabase.from('notifications').insert({ user_id: userId, type, message });
+export async function addNotification(userId: string, type: 'comment' | 'reaction' | 'follow' | 'mention' | 'system', message: string, options?: { actorId?: string; takeId?: string; title?: string; extra?: Record<string, any> }) {
+  const payload: any = {
+    user_id: userId,
+    type,
+    message,
+    title: options?.title || (type === 'comment' ? 'New comment' : type === 'reaction' ? 'New reaction' : 'Notification'),
+    actor_id: options?.actorId || null,
+    takeid: options?.takeId || null,
+    extra: options?.extra || {}
+  };
+  return supabase.from('notifications').insert(payload);
 }
 
 // Add a test function to debug Supabase client

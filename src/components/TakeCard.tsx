@@ -99,7 +99,17 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     // Notify take owner (if not self)
     try {
       if (take.userId && user?.id && take.userId !== user.id) {
-        await addNotification(take.userId, 'reaction', `${user.username || 'Someone'} reacted to your take.`);
+        await addNotification(
+          take.userId,
+          'reaction',
+          `${user.username || 'Someone'} reacted to your take`,
+          {
+            actorId: user.id,
+            takeId: take.id,
+            title: 'New reaction',
+            extra: { reaction }
+          }
+        );
       }
     } catch {}
     // Optionally, refetch reactions
