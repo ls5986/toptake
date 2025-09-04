@@ -9,6 +9,7 @@ import { CommentSection } from './CommentSection';
 import { PromptDisplay } from './PromptDisplay';
 import { PackUpgradeModal } from './PackUpgradeModal';
 import { useAppContext } from '@/contexts/AppContext';
+import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import { usePackSystem } from '@/hooks/usePackSystem';
 import ProfileView from './ProfileView';
@@ -39,6 +40,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   reactionCounts = { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }
 }) => {
   const { user, hasPostedToday } = useAppContext();
+  const navigate = useNavigate();
   const { packUsage, consumeUse } = usePackSystem(user?.id);
   const [showComments, setShowComments] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
@@ -137,15 +139,8 @@ export const TakeCard: React.FC<TakeCardProps> = ({
 
   const handleProfileClick = () => {
     if (take.isAnonymous) return;
-    try {
-      const ctx = useAppContext() as any;
-      if (ctx?.setCurrentScreen && ctx?.setSelectedProfile) {
-        ctx.setSelectedProfile(take.userId || take.user_id);
-        ctx.setCurrentScreen('userProfile');
-        return;
-      }
-    } catch {}
-    setShowProfile(true);
+    const username = take.username || '';
+    if (username) navigate(`/${username}`);
   };
 
   const handleShareTake = async () => {
@@ -343,26 +338,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
         <CommentSection takeId={take.id} isOpen={showComments} onClose={() => setShowComments(false)} selectedDate={selectedDate} />
       )}
       
-      {showProfile && (
-        <div className="fixed inset-0 bg-black/80 flex items-center justify-center p-4 z-50 backdrop-blur-sm">
-          <div className="bg-brand-surface rounded-lg max-w-2xl w-full max-h-[90vh] overflow-y-auto">
-            <div className="p-4 sm:p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h2 className="text-xl sm:text-2xl font-bold text-brand-text">Profile</h2>
-                <Button 
-                  onClick={() => setShowProfile(false)}
-                  variant="ghost"
-                  size="sm"
-                  className="text-brand-muted hover:text-brand-text p-1"
-                >
-                  ✕
-                </Button>
-              </div>
-              <ProfileView username={take.username} />
-            </div>
-          </div>
-        </div>
-      )}
+      {/* profile modal removed in favor of username routes */}
       
       {showUpgradeModal && (
         <PackUpgradeModal

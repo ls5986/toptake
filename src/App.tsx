@@ -5,6 +5,8 @@ import { ThemeProvider } from '@/components/theme-provider';
 import ErrorBoundary from '@/components/ErrorBoundary';
 import { Toaster } from '@/components/ui/toaster';
 import './App.css';
+import { Routes, Route } from 'react-router-dom';
+import ProfileRoute from '@/pages/ProfileRoute';
 
 function App() {
   // Emergency modal killer to prevent stuck modals
@@ -76,7 +78,10 @@ function App() {
       <div className="app-container">
         <AppProvider>
           <ThemeProvider>
-            <AppLayout />
+            <Routes>
+              <Route path="/" element={<AppLayout />} />
+              <Route path=":username" element={<ProfileRoute />} />
+            </Routes>
             <Toaster />
           </ThemeProvider>
         </AppProvider>
