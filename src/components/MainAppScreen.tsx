@@ -352,8 +352,8 @@ const MainAppScreen: React.FC = () => {
       .select('id')
       .eq('user_id', user.id)
       .eq('prompt_date', formatDate(date))
-      .maybeSingle();
-    setHasPostedForSelectedDate(!!data);
+      .limit(1);
+    setHasPostedForSelectedDate(Array.isArray(data) && data.length > 0);
   };
 
   // Watch selectedDate and user, check if posted
