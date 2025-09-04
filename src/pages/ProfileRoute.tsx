@@ -13,10 +13,11 @@ const ProfileRoute: React.FC = () => {
     (async () => {
       setLoading(true);
       try {
+        const uname = (String(username || '') || '').toLowerCase();
         const { data, error } = await supabase
           .from('profiles')
-          .select('id')
-          .eq('username', String(username))
+          .select('id, username')
+          .ilike('username', uname)
           .maybeSingle();
         if (!error && data?.id) setUserId(data.id);
       } finally {

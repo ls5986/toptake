@@ -109,7 +109,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           id: take.id,
           userId: take.user_id,
           content: take.content,
-          username: take.is_anonymous ? 'Anonymous' : (take.profiles?.username || 'Unknown'),
+          username: take.is_anonymous ? 'Anonymous' : (take.profiles?.username || take.username || 'Unknown'),
           isAnonymous: take.is_anonymous,
           timestamp: take.created_at,
           prompt_date: take.prompt_date,

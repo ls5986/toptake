@@ -167,7 +167,7 @@ const MainAppScreen: React.FC = () => {
   const renderContent = () => {
     try {
       // If route contains a username, render that profile inside the main layout
-      if (username && currentTab === 'profile') {
+      if (username) {
         return (
           <div className="flex-1 p-0">
             <ProfileRoute />

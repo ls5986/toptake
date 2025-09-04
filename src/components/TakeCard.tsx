@@ -140,11 +140,11 @@ export const TakeCard: React.FC<TakeCardProps> = ({
 
   const handleProfileClick = () => {
     if (take.isAnonymous) return;
-    const username = take.username || '';
+    const username = (take.username || '').toString().trim();
     if (username) {
       // fire-and-forget logging
       try { logClientEvent('profile_click', { username, takeId: take.id }); } catch {}
-      navigate(`/${username}`);
+      navigate(`/${encodeURIComponent(username)}`);
     }
   };
 
