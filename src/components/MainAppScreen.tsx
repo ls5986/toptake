@@ -66,6 +66,11 @@ const MainAppScreen: React.FC = () => {
       try {
         await checkDailyPost();
         await loadTakes();
+        // Ensure prompt + takes for selectedDate are fetched immediately on app open
+        if (currentTab === 'feed') {
+          console.log('[init] fetching prompt/takes for date on mount', { date: selectedDate.toISOString().split('T')[0] });
+          await fetchPromptAndTakesForDate(selectedDate);
+        }
       } catch (error) {
         console.error('Error initializing screen:', error);
         setLoading(false);
@@ -309,6 +314,7 @@ const MainAppScreen: React.FC = () => {
       setTakes(sharedTakes as any);
       setLoading(sharedLoading);
     } catch (error) {
+      console.error('[fetchPromptAndTakesForDate] failed', { date: formatDate(date), error });
       setPromptText('');
       setTakes([]);
       setLoading(false);
@@ -322,6 +328,15 @@ const MainAppScreen: React.FC = () => {
     }
     // eslint-disable-next-line
   }, [selectedDate, currentTab]);
+
+  // Belt-and-suspenders: on first mount, trigger a fetch for feed if promptText is empty
+  useEffect(() => {
+    if (currentTab === 'feed' && !promptText) {
+      console.log('[mount] prompt empty, fetching for date', { date: selectedDate.toISOString().split('T')[0] });
+      fetchPromptAndTakesForDate(selectedDate);
+    }
+    // eslint-disable-next-line
+  }, []);
 
   // Removed forced-date alignment to always start at today on refresh
 
