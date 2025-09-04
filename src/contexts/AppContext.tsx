@@ -263,7 +263,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .select('prompt_text')
         .eq('prompt_date', tomorrowStr)
         .eq('is_active', true)
-        .single();
+        .maybeSingle();
       
       if (error || !promptData) {
         setTomorrowPrompt(null);

@@ -66,7 +66,7 @@ const PromptScreen: React.FC = () => {
       .select('id')
       .eq('prompt_date', todayStr)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
     if (!prompt) {
       toast({ 
         title: 'No Prompt Available', 
@@ -118,7 +118,7 @@ const PromptScreen: React.FC = () => {
       .select('id, created_at')
       .eq('prompt_date', today)
       .eq('is_active', true)
-      .single();
+      .maybeSingle();
     
     const takeData = {
       content: takeContent,

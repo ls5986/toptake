@@ -118,7 +118,7 @@ export const getTodayPrompt = async () => {
     .from('daily_prompts')
     .select('*')
     .eq('prompt_date', todayStr)
-    .single();
+    .maybeSingle();
   if (error) {
     console.error('Prompt fetch error:', error);
     if (error.code === '406') {

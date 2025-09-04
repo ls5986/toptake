@@ -43,7 +43,7 @@ export function useTodayPrompt(targetDate?: Date) {
           .select('*')
           .eq('prompt_date', dateStr)
           .eq('is_active', true)
-          .single()
+          .maybeSingle()
           .then(({ data, error }) => {
             if (error) throw error;
             promptCache[dateStr] = data;
