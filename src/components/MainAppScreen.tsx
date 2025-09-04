@@ -307,11 +307,9 @@ const MainAppScreen: React.FC = () => {
       const cachedPrompt = await fetchPromptForDateCached(dateStr);
       console.log('[fetchPromptAndTakesForDate] prompt', { dateStr, cached: !!cachedPrompt });
       setPromptText(cachedPrompt || '');
-      setTakes(sharedTakes as any);
     } catch (error) {
       console.error('[fetchPromptAndTakesForDate] failed', { date: formatDate(date), error });
       setPromptText('');
-      setTakes([]);
     }
   };
 
