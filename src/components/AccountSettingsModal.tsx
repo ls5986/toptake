@@ -19,6 +19,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
   const [deleting, setDeleting] = useState(false);
   const { toast } = useToast();
   const { user, logout } = useAppContext();
+  const [confirmText, setConfirmText] = useState('');
 
   // Load current user data when modal opens
   useEffect(() => {
@@ -176,13 +177,23 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
             </Button>
           </div>
           <hr className="my-4" />
-          <Button 
-            onClick={handleDeleteAccount} 
-            className="w-full bg-red-600 hover:bg-red-700" 
-            disabled={deleting || loading}
-          >
-            {deleting ? 'Deleting Account...' : 'Delete Account'}
-          </Button>
+          <div className="space-y-2 p-3 rounded-md border border-red-700/40 bg-red-900/10">
+            <div className="text-sm font-semibold text-red-400">Danger Zone</div>
+            <div className="text-xs text-red-300">Type DELETE to enable account deletion</div>
+            <Input
+              placeholder="Type DELETE"
+              value={confirmText}
+              onChange={e => setConfirmText(e.target.value)}
+              disabled={deleting || loading}
+            />
+            <Button 
+              onClick={handleDeleteAccount} 
+              className="w-full bg-red-600 hover:bg-red-700" 
+              disabled={deleting || loading || confirmText !== 'DELETE'}
+            >
+              {deleting ? 'Deleting Account...' : 'Delete Account'}
+            </Button>
+          </div>
         </div>
       </DialogContent>
     </Dialog>

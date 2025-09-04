@@ -512,12 +512,7 @@ const MainAppScreen: React.FC = () => {
             >
               Account Settings
             </button>
-            <button
-              className="mb-4 w-full text-left text-brand-danger py-2 px-3 rounded hover:bg-brand-danger hover:text-brand-text"
-              onClick={() => { setShowAccountSettingsModal(true); setMenuOpen(false); }}
-            >
-              Delete Account
-            </button>
+            {/* Delete account entry removed from quick menu to reduce accidental access */}
             <button
               className="mt-auto w-full text-left text-brand-danger py-2 px-3 rounded hover:bg-brand-danger hover:text-brand-text"
               onClick={handleLogout}
