@@ -20,6 +20,7 @@ import FriendsScreen from './FriendsScreen';
 import AdminScreen from './AdminScreen';
 import PromptRecommendations from './PromptRecommendations';
 import { getTodayPrompt } from '@/lib/supabase';
+import { fetchPromptForDateCached } from '@/lib/utils';
 import BillingModal from './BillingModal';
 import AccountSettingsModal from './AccountSettingsModal';
 import NotificationsScreen from './NotificationsScreen';
@@ -305,13 +306,10 @@ const MainAppScreen: React.FC = () => {
   const fetchPromptAndTakesForDate = async (date: Date) => {
     setLoading(true);
     try {
-      const { data: promptData } = await supabase
-        .from('daily_prompts')
-        .select('id, prompt_text')
-        .eq('prompt_date', formatDate(date))
-        .maybeSingle();
-      console.log('[fetchPromptAndTakesForDate] promptData', promptData);
-      setPromptText(promptData?.prompt_text || '');
+      const dateStr = formatDate(date);
+      const cachedPrompt = await fetchPromptForDateCached(dateStr);
+      console.log('[fetchPromptAndTakesForDate] prompt', { dateStr, cached: !!cachedPrompt });
+      setPromptText(cachedPrompt || '');
       setTakes(sharedTakes as any);
       setLoading(sharedLoading);
     } catch (error) {

@@ -38,6 +38,18 @@ export function useTakesForDate(date: Date) {
       setError(null);
       try {
         const dateStr = date.toISOString().split('T')[0];
+        // quick in-memory cache for takes by date (short TTL)
+        const cacheKey = `takes:${dateStr}`;
+        try {
+          const ls = localStorage.getItem(cacheKey);
+          if (ls && !before) {
+            const parsed = JSON.parse(ls);
+            if (parsed && parsed.expiresAt > Date.now() && Array.isArray(parsed.value)) {
+              setTakes(parsed.value);
+              setLoading(false);
+            }
+          }
+        } catch {}
         const args: any = { p_date: dateStr };
         if (before) args.p_before_created_at = before;
         console.log('[useTakesForDate] fetch', { dateStr, before })
@@ -69,6 +81,7 @@ export function useTakesForDate(date: Date) {
             });
           } else {
             setTakes(formatted);
+            try { localStorage.setItem(cacheKey, JSON.stringify({ value: formatted, expiresAt: Date.now() + 30_000 })); } catch {}
           }
         }
       } catch (e: any) {
