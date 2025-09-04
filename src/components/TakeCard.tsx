@@ -137,8 +137,29 @@ export const TakeCard: React.FC<TakeCardProps> = ({
 
   const handleProfileClick = () => {
     if (!take.isAnonymous) {
+      try {
+        // Prefer full-screen profile route via context when available
+        const { setCurrentScreen, setSelectedProfile } = useAppContext() as any;
+        if (setCurrentScreen && setSelectedProfile) {
+          setSelectedProfile(take.userId || take.user_id);
+          setCurrentScreen('profile');
+          return;
+        }
+      } catch {}
       setShowProfile(true);
     }
+  };
+
+  const handleShareTake = async () => {
+    const url = `${window.location.origin}/?take=${take.id}`;
+    try {
+      if ((navigator as any).share) {
+        await (navigator as any).share({ title: 'TopTake', text: 'Check out this take', url });
+      } else {
+        await navigator.clipboard.writeText(url);
+        toast({ title: 'Link copied', description: 'Share it anywhere!' });
+      }
+    } catch {}
   };
 
   const getReactionEmoji = (reaction: string) => {
@@ -258,8 +279,17 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                       </Badge>
                     )}
                   </div>
-                  <div className="inline-block px-2 py-1 rounded bg-brand-surface text-brand-accent text-xs font-semibold border border-brand-accent">
-                    🔥 {engagementCount}
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={handleShareTake}
+                      className="text-xs text-brand-muted hover:text-brand-accent underline"
+                      title="Share take"
+                    >
+                      Share
+                    </button>
+                    <div className="inline-block px-2 py-1 rounded bg-brand-surface text-brand-accent text-xs font-semibold border border-brand-accent">
+                      🔥 {engagementCount}
+                    </div>
                   </div>
                   
                   {isOwnTake && onDelete && (

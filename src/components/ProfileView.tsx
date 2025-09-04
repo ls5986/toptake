@@ -18,7 +18,11 @@ import { Take } from '@/types';
 import { useAppContext } from '@/contexts/AppContext';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 
-const ProfileView: React.FC = () => {
+interface ProfileViewProps {
+  userId?: string;
+}
+
+const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const { user, logout } = useAppContext();
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
@@ -34,13 +38,15 @@ const ProfileView: React.FC = () => {
   
   // Profile is not date-specific for prompt display; omit prompt
 
+  const targetUserId = userId || user?.id;
+
   useEffect(() => {
-    if (user?.id) {
+    if (targetUserId) {
       loadUserData();
       fetchUserTakes();
       loadAccurateCounts();
     }
-  }, [user?.id]);
+  }, [targetUserId]);
 
   const localDate = (d: Date) => {
     const y = d.getFullYear();
@@ -59,12 +65,12 @@ const ProfileView: React.FC = () => {
   };
 
   const fetchUserTakes = async () => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     try {
       const { data: takesData } = await supabase
         .from('takes')
         .select('*')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .order('created_at', { ascending: false });
       
       if (takesData) {
@@ -73,7 +79,7 @@ const ProfileView: React.FC = () => {
           id: take.id,
           userId: take.user_id,
           content: take.content,
-          username: take.is_anonymous ? 'Anonymous' : user.username || 'Unknown',
+          username: take.is_anonymous ? 'Anonymous' : (take.username || 'Unknown'),
           isAnonymous: take.is_anonymous,
           timestamp: take.created_at,
           prompt_date: take.prompt_date,
@@ -89,13 +95,13 @@ const ProfileView: React.FC = () => {
   };
 
   const loadUserData = async () => {
-    if (!user?.id) return;
+    if (!targetUserId) return;
     setLoading(true);
     try {
       const { data: profile } = await supabase
         .from('profiles')
         .select('*')
-        .eq('id', user.id)
+        .eq('id', targetUserId)
         .single();
       if (profile) {
         // Use stored streak as a fallback only; accurate streak is computed below
@@ -116,14 +122,14 @@ const ProfileView: React.FC = () => {
       const { count } = await supabase
         .from('takes')
         .select('id', { count: 'exact', head: true })
-        .eq('user_id', user.id);
+        .eq('user_id', targetUserId);
       setTotalTakes(count || 0);
 
       // Accurate streak computed from distinct prompt_date values up to last 60 days
       const { data: dateRows, error } = await supabase
         .from('takes')
         .select('prompt_date')
-        .eq('user_id', user.id)
+        .eq('user_id', targetUserId)
         .order('prompt_date', { ascending: false })
         .limit(90);
       if (error) throw error;

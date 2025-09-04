@@ -279,7 +279,9 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
         <Card className="mb-6 bg-brand-surface border-brand-border">
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
-              <span className="text-sm font-medium text-brand-text">{take.username}</span>
+              <button className="text-sm font-medium text-brand-text underline-offset-2 hover:underline" onClick={() => setCurrentScreen('profile')}>
+                {take.username}
+              </button>
               <span className="text-xs text-brand-muted">{formatTime(take.created_at)}</span>
             </div>
             <div className="text-brand-text text-lg mb-2">{take.content}</div>
