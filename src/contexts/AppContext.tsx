@@ -323,18 +323,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         supabase.auth.getSession(),
         new Promise<{ data: { session: any }, error: any }>((resolve) =>
           setTimeout(() => {
-            console.warn('getSession timed out after 10s');
-            setError('Auth session check timed out. Possible network or CORS issue.');
-            resolve({ data: { session: null }, error: new Error('timeout') });
-          }, 10000)
+            // Avoid noisy errors: rely on auth state events (INITIAL_SESSION/SIGNED_IN)
+            resolve({ data: { session: null }, error: null });
+          }, 15000)
         )
       ]);
       const { data: { session }, error } = sessionResult as any;
       if (debug) console.log('[INIT] getSession result', { hasSession: !!session, error });
       
       if (error || !session) {
-        if (debug) console.log('[INIT] No valid session');
-        if (error) setError(`No valid session: ${error?.message || 'unknown error'}`);
+        if (debug) console.log('[INIT] No valid session from getSession – waiting for auth events');
         setUser(null);
         setHasPostedToday(false);
         setIsLoading(false);
