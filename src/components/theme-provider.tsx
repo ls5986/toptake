@@ -39,7 +39,13 @@ export function ThemeProvider({
 
   useEffect(() => {
     const root = window.document.documentElement
-    root.classList.remove(...themes.map(t => `theme-${t.id}`))
+    // Remove any existing theme classes (both underscore and hyphen variants)
+    const classesToRemove: string[] = []
+    themes.forEach(t => {
+      classesToRemove.push(`theme-${t.id}`)
+      classesToRemove.push(`theme-${String(t.id).replace(/_/g, '-')}`)
+    })
+    root.classList.remove(...classesToRemove)
     // Add transition classes safely (no spaces in classList tokens)
     const transition = getThemeTransition()
     if (transition) {
