@@ -310,6 +310,7 @@ const MainAppScreen: React.FC = () => {
         .select('id, prompt_text')
         .eq('prompt_date', formatDate(date))
         .maybeSingle();
+      console.log('[fetchPromptAndTakesForDate] promptData', promptData);
       setPromptText(promptData?.prompt_text || '');
       setTakes(sharedTakes as any);
       setLoading(sharedLoading);
@@ -337,6 +338,14 @@ const MainAppScreen: React.FC = () => {
     }
     // eslint-disable-next-line
   }, []);
+
+  // If hook provided a prompt, adopt it as a fallback source
+  useEffect(() => {
+    if (prompt && !promptText) {
+      console.log('[hook] useTodayPrompt delivered prompt; adopting');
+      setPromptText(prompt);
+    }
+  }, [prompt]);
 
   // Removed forced-date alignment to always start at today on refresh
 
