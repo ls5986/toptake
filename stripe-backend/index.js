@@ -9,18 +9,27 @@ const PORT = process.env.PORT || 3000;
 const stripe = Stripe(process.env.STRIPE_SECRET_KEY);
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY);
 
-const allowedOrigins = [
+const allowedOrigins = new Set([
+  'http://localhost:5173',
   'http://localhost:8080',
   'http://192.168.1.66:8080',
-  'https://toptake.onrender.com',
   'https://toptake.app',
-  'https://your-frontend.com'
-];
+  'https://www.toptake.app',
+  'https://toptake.onrender.com'
+]);
 
-app.use(cors({
-  origin: allowedOrigins,
-  credentials: true
-}));
+app.use((req, res, next) => {
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, stripe-signature');
+  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  next();
+});
 
 // For webhook, Stripe requires the raw body
 app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), async (req, res) => {
@@ -200,12 +209,14 @@ app.post('/api/create-checkout-session', async (req, res) => {
       line_items = [{ price: priceId, quantity: 1 }];
     }
 
+    const successUrl = process.env.SUCCESS_URL || 'https://toptake.app/checkout/success';
+    const cancelUrl = process.env.CANCEL_URL || 'https://toptake.app/checkout/cancel';
     const params = {
       payment_method_types: ['card'],
       line_items,
       mode: mode || 'payment',
-      success_url: process.env.SUCCESS_URL || 'https://your-frontend.com/success',
-      cancel_url: process.env.CANCEL_URL || 'https://your-frontend.com/cancel',
+      success_url: successUrl,
+      cancel_url: cancelUrl,
       client_reference_id: userId,
       metadata: { priceId: priceId || '', lookupKey: lookupKey || '', ...(metadata || {}) },
       allow_promotion_codes: true,
