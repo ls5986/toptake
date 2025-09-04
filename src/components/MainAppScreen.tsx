@@ -199,7 +199,7 @@ const MainAppScreen: React.FC = () => {
           <div className="flex-1 min-h-0">
             {loading ? (
               <div className="flex items-center justify-center h-full">
-                <div className="text-center text-white">
+                <div className="text-center text-brand-text">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
                   <p>Loading today's takes...</p>
                 </div>
@@ -423,9 +423,9 @@ const MainAppScreen: React.FC = () => {
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
             >
-              <Menu className="w-6 h-6 text-white" />
+              <Menu className="w-6 h-6 text-brand-text" />
             </button>
-            <h1 className="text-2xl font-bold text-white">🔥 TopTake</h1>
+            <h1 className="text-2xl font-bold text-brand-text">🔥 TopTake</h1>
           </div>
         </div>
         
