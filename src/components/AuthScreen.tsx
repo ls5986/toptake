@@ -167,6 +167,7 @@ const AuthScreen: React.FC = () => {
         setPendingUserId(data.user.id);
         // Check if email is verified
         if (!data.user.email_confirmed_at) {
+          console.log('[VERIFY] Unconfirmed login. Showing verify modal', { email: cleanEmail });
           setPendingEmail(cleanEmail);
           setOnboardingStep('verify');
           return;
@@ -230,6 +231,7 @@ const AuthScreen: React.FC = () => {
     
     try {
       const cleanEmail = email.trim().toLowerCase();
+      console.log('[SIGNUP] Attempting signUp', { email: cleanEmail });
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
         password: password.trim(),
@@ -241,19 +243,22 @@ const AuthScreen: React.FC = () => {
       if (error) throw error;
 
       if (data.user) {
+        console.log('[SIGNUP] signUp success. Opening verify modal', { userId: data.user.id, email: cleanEmail });
         setPendingUserId(data.user.id);
         setPendingEmail(cleanEmail);
         setOnboardingStep('verify');
         // Best-effort: immediately resend once to improve deliverability
         try {
+          console.log('[VERIFY] Auto resend after signup start', { email: cleanEmail });
           await supabase.auth.resend({
             type: 'signup',
             email: cleanEmail,
             options: { emailRedirectTo: getEmailRedirectTo() }
           });
+          console.log('[VERIFY] Auto resend after signup done');
           toast({ title: 'Verification email sent', description: 'Please check your inbox.' });
         } catch (e) {
-          // ignore
+          console.warn('[VERIFY] Auto resend after signup failed', e);
         }
         setEmail('');
         setPassword('');
@@ -286,11 +291,14 @@ const AuthScreen: React.FC = () => {
     if (!pendingUserId) return;
     
     try {
+      console.log('[VERIFY] Checking verification status via getUser');
       // Re-fetch user
       const { data: { user: authUser } } = await supabase.auth.getUser();
       if (authUser && authUser.email_confirmed_at) {
+        console.log('[VERIFY] Email confirmed. Proceeding to handleAuthSuccess', { userId: authUser.id });
         await handleAuthSuccess(authUser);
       } else {
+        console.log('[VERIFY] Email not yet confirmed for user', { pendingUserId });
         toast({ 
           title: 'Email not verified yet', 
           description: 'Please check your inbox and click the verification link.', 
@@ -298,7 +306,7 @@ const AuthScreen: React.FC = () => {
         });
       }
     } catch (error) {
-      console.error('Error handling verified user:', error);
+      console.error('[VERIFY] Error handling verified user:', error);
       toast({ 
         title: 'Error', 
         description: 'Failed to verify email. Please try again.',

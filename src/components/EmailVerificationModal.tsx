@@ -31,6 +31,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     setResending(true);
     
     try {
+      console.log('[VERIFY] Manual resend requested', { email });
       const { error } = await supabase.auth.resend({
         type: 'signup',
         email: email,
@@ -55,6 +56,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
           variant: 'destructive' 
         });
       } else {
+        console.log('[VERIFY] Manual resend succeeded');
         toast({ 
           title: 'Email Sent!', 
           description: 'Please check your inbox for the verification link.' 
@@ -78,11 +80,13 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       setInitialResent(true);
       (async () => {
         try {
+          console.log('[VERIFY] Auto resend on modal open start', { email });
           await supabase.auth.resend({
             type: 'signup',
             email,
             options: { emailRedirectTo: getEmailRedirectTo() }
           });
+          console.log('[VERIFY] Auto resend on modal open done');
           toast({ title: 'Verification email sent', description: 'Please check your inbox.' });
         } catch {}
       })();
