@@ -197,6 +197,19 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const serverReaction = (take as any).reactionCount ?? 0;
   const engagementCount = (serverReaction || Object.values(reactionCounts || {}).reduce((sum, count) => sum + count, 0)) + (take.commentCount || 0);
 
+  // Format the prompt date if available on the take
+  const promptDateLabel = (() => {
+    const d = (take as any).prompt_date || (take as any).promptDate;
+    if (!d) return null;
+    try {
+      const date = new Date(d);
+      if (Number.isNaN(date.getTime())) return String(d);
+      return date.toLocaleDateString();
+    } catch {
+      return String(d);
+    }
+  })();
+
   return (
     <>
       <div className="space-y-3">
@@ -236,6 +249,9 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                       </Badge>
                     )}
                     <span className="text-brand-muted text-xs">{formatTimestamp(take.timestamp)}</span>
+                    {promptDateLabel && (
+                      <span className="text-brand-muted text-xs">• For {promptDateLabel}</span>
+                    )}
                     {take.is_late_submit && (
                       <Badge className="bg-yellow-400 text-yellow-900 text-xs px-2 py-1 flex-shrink-0 ml-2" title="Late Submit">
                         ⏰ Late Submit
