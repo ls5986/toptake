@@ -9,6 +9,11 @@ export default defineConfig(({ mode }) => ({
     host: "::",
     port: 8080,
   },
+  preview: {
+    allowedHosts: [
+      'toptake.onrender.com',
+    ],
+  },
   plugins: [
     react()
   ].filter(Boolean),

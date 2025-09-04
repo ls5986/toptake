@@ -1,25 +1,9 @@
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useEffect } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { themes, Theme, isPremiumTheme, getThemeColors } from '@/lib/themes';
 import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
-
-async function createThemeCheckout(userId: string, themeId: string, promoCode?: string) {
-  const resp = await fetch('https://toptake.onrender.com/api/create-checkout-session', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({
-      lookupKey: 'theme_single_099',
-      userId,
-      mode: 'payment',
-      promoCode,
-      metadata: { theme_id: themeId }
-    })
-  });
-  if (!resp.ok) throw new Error('Checkout creation failed');
-  return resp.json();
-}
 
 interface ThemeStoreModalProps {
   isOpen: boolean;
@@ -46,14 +30,44 @@ const ThemePreview: React.FC<{ themeId: Theme, selected: boolean, onSelect: () =
   );
 };
 
+async function createThemeCheckout(userId: string, themeId: string, promoCode?: string) {
+  const resp = await fetch('https://toptake.onrender.com/api/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      lookupKey: 'theme_single_099',
+      userId,
+      mode: 'payment',
+      promoCode,
+      metadata: { theme_id: themeId }
+    })
+  });
+  if (!resp.ok) throw new Error('Checkout creation failed');
+  return resp.json();
+}
+
 const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) => {
   const { user, setUser } = useAppContext();
   const [selectedTheme, setSelectedTheme] = useState<Theme>('light');
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [purchasing, setPurchasing] = useState(false);
+  const [ownedThemes, setOwnedThemes] = useState<string[]>([]);
 
   const isAdminTester = (user?.email || '').toLowerCase() === 'lindsey@letsclink.com';
+
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!user?.id) return;
+        const { data } = await supabase
+          .from('user_themes')
+          .select('theme_id')
+          .eq('user_id', user.id);
+        setOwnedThemes((data || []).map(r => r.theme_id));
+      } catch {}
+    })();
+  }, [user?.id, isOpen]);
 
   const preview = useMemo(() => getThemeColors(selectedTheme), [selectedTheme]);
 
@@ -63,8 +77,9 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
     setError(null);
     try {
       const premium = isPremiumTheme(selectedTheme);
-      if (premium && !user.isPremium) {
-        setError(`This is a premium theme. Purchase required ($${THEME_PRICE}).`);
+      const owns = ownedThemes.includes(selectedTheme);
+      if (premium && !owns) {
+        setError(`This is a premium theme. Please purchase first ($${THEME_PRICE}).`);
         setSaving(false);
         return;
       }
@@ -96,6 +111,8 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
       setPurchasing(false);
     }
   };
+
+  const ownsSelected = ownedThemes.includes(selectedTheme);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
@@ -135,20 +152,17 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
           ))}
         </div>
         {isPremiumTheme(selectedTheme) && (
-          <div className="text-sm text-brand-muted mt-2">Selected theme is premium. Price: ${THEME_PRICE.toFixed(2)}</div>
+          <div className="text-sm text-brand-muted mt-2">
+            {ownsSelected ? 'Owned' : `Price: $${THEME_PRICE.toFixed(2)}`}
+          </div>
         )}
         {error && <div className="text-brand-danger text-sm mt-2">{error}</div>}
         <div className="flex justify-end gap-2 mt-4">
           <Button variant="outline" onClick={onClose} disabled={saving || purchasing}>Cancel</Button>
-          {isPremiumTheme(selectedTheme) && !user?.isPremium ? (
-            <>
-              <Button onClick={handlePurchase} disabled={purchasing}>
-                {purchasing ? 'Processing...' : `Purchase Theme ($${THEME_PRICE.toFixed(2)})`}
-              </Button>
-              {isAdminTester && (
-                <Button variant="secondary" onClick={handlePurchase} disabled={purchasing}>Demo Purchase</Button>
-              )}
-            </>
+          {isPremiumTheme(selectedTheme) && !ownsSelected ? (
+            <Button onClick={handlePurchase} disabled={purchasing}>
+              {purchasing ? 'Processing...' : `Purchase Theme ($${THEME_PRICE.toFixed(2)})`}
+            </Button>
           ) : (
             <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Apply Theme'}</Button>
           )}

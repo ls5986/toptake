@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
@@ -32,6 +33,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [followingOpen, setFollowingOpen] = useState(false);
   const [followers, setFollowers] = useState<any[]>([]);
   const [following, setFollowing] = useState<any[]>([]);
+  const [followersSample, setFollowersSample] = useState<any[]>([]);
+  const [followingSample, setFollowingSample] = useState<any[]>([]);
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
@@ -190,6 +193,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       } else {
         setIsFollowing(false);
       }
+
+      // Samples for compact UI
+      const { data: follRows } = await supabase
+        .from('follows')
+        .select('follower_id')
+        .eq('followee_id', targetUserId)
+        .limit(6);
+      const follIds = (follRows || []).map(r => r.follower_id);
+      const { data: follProfiles } = follIds.length
+        ? await supabase.from('profiles').select('id, username, avatar_url').in('id', follIds)
+        : { data: [] } as any;
+      setFollowersSample(follProfiles || []);
+
+      const { data: ingRows } = await supabase
+        .from('follows')
+        .select('followee_id')
+        .eq('follower_id', targetUserId)
+        .limit(6);
+      const ingIds = (ingRows || []).map(r => r.followee_id);
+      const { data: ingProfiles } = ingIds.length
+        ? await supabase.from('profiles').select('id, username, avatar_url').in('id', ingIds)
+        : { data: [] } as any;
+      setFollowingSample(ingProfiles || []);
     } catch (e) {
       // ignore
     }
@@ -247,6 +273,20 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         setIsFollowing(true);
         setFollowerCount(c => c + 1);
       }
+    } catch {}
+  };
+
+  const toggleFollowForId = async (otherId: string, currentlyFollowing: boolean) => {
+    if (!user?.id || !otherId || user.id === otherId) return;
+    try {
+      if (currentlyFollowing) {
+        await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', otherId);
+      } else {
+        await supabase.from('follows').insert({ follower_id: user.id, followee_id: otherId });
+      }
+      await openFollowers();
+      await openFollowing();
+      await loadFollowStats();
     } catch {}
   };
 
@@ -347,6 +387,118 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   Following {followingCount}
                 </button>
               </div>
+
+              {/* Compact avatar rows */}
+              <div className="mt-3 grid grid-cols-2 gap-4 max-w-md mx-auto">
+                <div>
+                  <div className="text-xs text-brand-muted mb-1">Followers</div>
+                  <div className="flex -space-x-2">
+                    {followersSample.map(p => (
+                      <img key={p.id} src={p.avatar_url || ''} alt="avatar"
+                        className="w-7 h-7 rounded-full border border-brand-border bg-brand-muted object-cover"
+                        onError={(e:any)=>{e.currentTarget.style.display='none';}}
+                      />
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <div className="text-xs text-brand-muted mb-1">Following</div>
+                  <div className="flex -space-x-2">
+                    {followingSample.map(p => (
+                      <img key={p.id} src={p.avatar_url || ''} alt="avatar"
+                        className="w-7 h-7 rounded-full border border-brand-border bg-brand-muted object-cover"
+                        onError={(e:any)=>{e.currentTarget.style.display='none';}}
+                      />
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Followers Modal */}
+              <Dialog open={followersOpen} onOpenChange={setFollowersOpen}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Followers</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    {followers.length === 0 ? (
+                      <div className="text-brand-muted text-sm">No followers yet.</div>
+                    ) : (
+                      followers.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between border border-brand-border rounded p-2">
+                          <div className="flex items-center gap-2">
+                            {p.avatar_url ? (
+                              <img src={p.avatar_url} alt="avatar" className="w-8 h-8 rounded-full" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-brand-muted flex items-center justify-center text-brand-primary font-bold">
+                                {p.username?.[0] || '?'}
+                              </div>
+                            )}
+                            <span className="text-brand-text text-sm">{p.username || 'Unknown'}</span>
+                          </div>
+                          {user?.id && user.id !== p.id && (
+                            <button
+                              className="text-xs border rounded px-2 py-1"
+                              onClick={async () => {
+                                // determine if current user follows p
+                                const { data } = await supabase
+                                  .from('follows')
+                                  .select('id')
+                                  .eq('follower_id', user.id)
+                                  .eq('followee_id', p.id)
+                                  .maybeSingle();
+                                await toggleFollowForId(p.id, !!data);
+                              }}
+                            >
+                              Follow/Unfollow
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
+
+              {/* Following Modal */}
+              <Dialog open={followingOpen} onOpenChange={setFollowingOpen}>
+                <DialogContent className="sm:max-w-md">
+                  <DialogHeader>
+                    <DialogTitle>Following</DialogTitle>
+                  </DialogHeader>
+                  <div className="space-y-2">
+                    {following.length === 0 ? (
+                      <div className="text-brand-muted text-sm">Not following anyone yet.</div>
+                    ) : (
+                      following.map((p) => (
+                        <div key={p.id} className="flex items-center justify-between border border-brand-border rounded p-2">
+                          <div className="flex items-center gap-2">
+                            {p.avatar_url ? (
+                              <img src={p.avatar_url} alt="avatar" className="w-8 h-8 rounded-full" />
+                            ) : (
+                              <div className="w-8 h-8 rounded-full bg-brand-muted flex items-center justify-center text-brand-primary font-bold">
+                                {p.username?.[0] || '?'}
+                              </div>
+                            )}
+                            <span className="text-brand-text text-sm">{p.username || 'Unknown'}</span>
+                          </div>
+                          {user?.id && user.id !== p.id && (
+                            <button
+                              className="text-xs border rounded px-2 py-1"
+                              onClick={async () => {
+                                // current user already follows p (since list is following); toggle will unfollow
+                                await toggleFollowForId(p.id, true);
+                              }}
+                            >
+                              Unfollow
+                            </button>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                </DialogContent>
+              </Dialog>
               <div className="mt-4 w-full max-w-2xl mx-auto">
                 <div className="grid grid-cols-3 gap-2">
                   <Button variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
