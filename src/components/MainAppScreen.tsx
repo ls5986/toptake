@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Users, LogOut, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
@@ -34,6 +34,7 @@ import { fetchUnreadCount, subscribeNotifications } from '@/lib/notifications';
 const MainAppScreen: React.FC = () => {
   const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt, hasPostedToday } = useAppContext();
   const { username } = useParams();
+  const navigate = useNavigate();
   // Remove local duplicated takes/loading; rely on hook state
   const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications'>('feed');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
@@ -141,7 +142,7 @@ const MainAppScreen: React.FC = () => {
       }
       // If we are on a /:username route, clear it for any non-profile tabs
       if (tab !== 'profile' && username) {
-        window.history.pushState({}, '', '/');
+        navigate('/');
       }
       setCurrentTab(tab);
     } catch (error) {
@@ -468,12 +469,12 @@ const MainAppScreen: React.FC = () => {
           <div className="max-w-2xl mx-auto">
             <MainTabs currentTab={currentTab} onTabChange={(tab)=>{
               if (tab === 'feed') {
-                window.history.pushState({}, '', '/');
+                navigate('/');
                 setCurrentTab('feed');
                 return;
               }
               if (tab === 'profile') {
-                window.history.pushState({}, '', '/profile');
+                navigate('/profile');
                 setCurrentTab('profile');
                 return;
               }
