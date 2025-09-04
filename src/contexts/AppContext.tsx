@@ -307,7 +307,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   const initializeAuth = async () => {
     try {
       setIsLoading(true);
-      
+      const debug = (() => { try { return new URLSearchParams(window.location.search).get('debug') === '1'; } catch { return false; } })();
+      if (debug) console.log('[INIT] starting initializeAuth');
+
       // Session check with timeout guard
       const sessionResult = await Promise.race([
         supabase.auth.getSession(),
@@ -319,9 +321,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         )
       ]);
       const { data: { session }, error } = sessionResult as any;
+      if (debug) console.log('[INIT] getSession result', { hasSession: !!session, error });
       
       if (error || !session) {
-        console.log('No valid session');
+        if (debug) console.log('[INIT] No valid session');
         setUser(null);
         setHasPostedToday(false);
         setIsLoading(false);
@@ -341,9 +344,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         .single()
         .abortSignal(controller.signal);
       clearTimeout(profileTimeout);
+      if (debug) console.log('[INIT] profile result', { hasProfile: !!profile, profileError });
         
       if (profileError || !profile) {
-        console.warn('No profile found for user. Redirecting to onboarding instead of logging out.', profileError);
+        if (debug) console.warn('[INIT] No profile found; routing to auth', profileError);
         // Keep the auth session. Route to auth so the screen can handle onboarding (username + carousel)
         setUser(null);
         setCurrentScreen('auth');
@@ -365,15 +369,21 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       };
       
       setUser(userObj);
+      if (debug) console.log('[INIT] user set, checking hasPostedToday');
       
       // CRITICAL: Always check backend for hasPostedToday
       // This is the single source of truth
       await checkHasPostedTodayFromBackend(profile.id);
+      if (debug) console.log('[INIT] hasPostedToday updated');
       
       setIsLoading(false);
       
     } catch (error) {
       console.error('Auth failed:', error);
+      try {
+        const err = error as any;
+        console.log('[INIT][ERROR]', { message: err?.message, stack: err?.stack, name: err?.name });
+      } catch {}
       setUser(null);
       setHasPostedToday(false);
       setIsLoading(false);
