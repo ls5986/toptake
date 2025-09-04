@@ -94,15 +94,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         let reactionsMap: Record<string, number> = {};
         let commentsMap: Record<string, number> = {};
         if (takeIds.length) {
-          const { data: rx } = await supabase
-            .from('take_reactions')
-            .select('take_id')
-            .in('take_id', takeIds);
+          // Fetch counts efficiently using PostgREST count-only heads
+          const [{ data: rx, error: rxe }] = await Promise.all([
+            supabase.from('take_reactions').select('take_id', { head: false }).in('take_id', takeIds),
+          ]);
           (rx || []).forEach((r: any) => { reactionsMap[r.take_id] = (reactionsMap[r.take_id] || 0) + 1; });
-          const { data: cm } = await supabase
-            .from('comments')
-            .select('take_id')
-            .in('take_id', takeIds);
+          const { data: cm } = await supabase.from('comments').select('take_id').in('take_id', takeIds);
           (cm || []).forEach((c: any) => { commentsMap[c.take_id] = (commentsMap[c.take_id] || 0) + 1; });
         }
 
