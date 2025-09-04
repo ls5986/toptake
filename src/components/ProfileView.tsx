@@ -49,6 +49,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [totalTakes, setTotalTakes] = useState(0);
   const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
   const { toast } = useToast();
+  // Some projects still have follows.followed_id; probe and adapt
+  const [followeeCol, setFolloweeCol] = useState<'followee_id' | 'followed_id'>('followee_id');
   
   // Profile is not date-specific for prompt display; omit prompt
 
@@ -187,11 +189,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const loadFollowStats = async () => {
     if (!targetUserId) return;
     try {
+      // Probe which followee column exists by trying a safe select
+      try {
+        await supabase.from('follows').select('id').eq('followee_id', targetUserId).limit(1);
+        setFolloweeCol('followee_id');
+      } catch {
+        setFolloweeCol('followed_id');
+      }
       // Counts
       const { count: followersCnt } = await supabase
         .from('follows')
         .select('id', { count: 'exact', head: true })
-        .eq('followee_id', targetUserId);
+        .eq(followeeCol, targetUserId as any);
       const { count: followingCnt } = await supabase
         .from('follows')
         .select('id', { count: 'exact', head: true })
@@ -205,7 +214,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           .from('follows')
           .select('id')
           .eq('follower_id', user.id)
-          .eq('followee_id', targetUserId)
+          .eq(followeeCol, targetUserId as any)
           .maybeSingle();
         setIsFollowing(!!meFollows);
       } else {
@@ -216,7 +225,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       const { data: follRows } = await supabase
         .from('follows')
         .select('follower_id')
-        .eq('followee_id', targetUserId)
+        .eq(followeeCol, targetUserId as any)
         .limit(6);
       const follIds = (follRows || []).map(r => r.follower_id);
       const { data: follProfiles } = follIds.length
@@ -282,7 +291,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           .from('follows')
           .delete()
           .eq('follower_id', user.id)
-          .eq('followee_id', targetUserId);
+          .eq(followeeCol, targetUserId as any);
         if (error) {
           toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
           return;
@@ -292,7 +301,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       } else {
         const { error } = await supabase
           .from('follows')
-          .insert({ follower_id: user.id, followee_id: targetUserId });
+          .insert({ follower_id: user.id, [followeeCol]: targetUserId } as any);
         if (error) {
           toast({ title: 'Failed to follow', description: error.message, variant: 'destructive' });
           return;
@@ -312,10 +321,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       setFollowBusy(prev => ({ ...prev, [otherId]: true }));
       if (currentlyFollowing) {
-        const { error } = await supabase.from('follows').delete().eq('follower_id', user.id).eq('followee_id', otherId);
+        const { error } = await supabase.from('follows').delete().eq('follower_id', user.id).eq(followeeCol, otherId as any);
         if (error) toast({ title: 'Unfollow failed', description: error.message, variant: 'destructive' });
       } else {
-        const { error } = await supabase.from('follows').insert({ follower_id: user.id, followee_id: otherId });
+        const { error } = await supabase.from('follows').insert({ follower_id: user.id, [followeeCol]: otherId } as any);
         if (error) toast({ title: 'Follow failed', description: error.message, variant: 'destructive' });
       }
       await openFollowers();
