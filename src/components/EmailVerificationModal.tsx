@@ -3,7 +3,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Button } from '@/components/ui/button';
 import { Mail, RefreshCw } from 'lucide-react';
 import { useToast } from '@/hooks/use-toast';
-import { supabase } from '@/lib/supabase';
+import { supabase, getEmailRedirectTo } from '@/lib/supabase';
 
 interface EmailVerificationModalProps {
   isOpen: boolean;
@@ -32,7 +32,10 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
     try {
       const { error } = await supabase.auth.resend({
         type: 'signup',
-        email: email
+        email: email,
+        options: {
+          emailRedirectTo: getEmailRedirectTo()
+        }
       });
 
       if (error) {

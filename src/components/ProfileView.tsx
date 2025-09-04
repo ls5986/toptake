@@ -38,10 +38,20 @@ const ProfileView: React.FC = () => {
     if (user?.id) {
       loadUserData();
       fetchUserTakes();
+      loadAccurateCounts();
     }
   }, [user?.id]);
 
   const localDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
+
+  const formatDateWithOffset = (date: Date, offsetMinutes: number | undefined) => {
+    const ms = date.getTime() + (offsetMinutes || 0) * 60000;
+    const d = new Date(ms);
     const y = d.getFullYear();
     const m = String(d.getMonth() + 1).padStart(2, '0');
     const day = String(d.getDate()).padStart(2, '0');
@@ -71,7 +81,6 @@ const ProfileView: React.FC = () => {
         }));
         
         setUserTakes(formattedTakes);
-        setTotalTakes(formattedTakes.length);
         setHasPostedForSelectedDate(formattedTakes.length > 0);
       }
     } catch (error) {
@@ -89,6 +98,7 @@ const ProfileView: React.FC = () => {
         .eq('id', user.id)
         .single();
       if (profile) {
+        // Use stored streak as a fallback only; accurate streak is computed below
         setStreak(profile.current_streak || 0);
         setCurrentTheme(profile.theme_id || 'light');
       }
@@ -96,6 +106,44 @@ const ProfileView: React.FC = () => {
       console.error('Error loading user data:', error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const loadAccurateCounts = async () => {
+    if (!user?.id) return;
+    try {
+      // Accurate takes count
+      const { count } = await supabase
+        .from('takes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      setTotalTakes(count || 0);
+
+      // Accurate streak computed from distinct prompt_date values up to last 60 days
+      const { data: dateRows, error } = await supabase
+        .from('takes')
+        .select('prompt_date')
+        .eq('user_id', user.id)
+        .order('prompt_date', { ascending: false })
+        .limit(90);
+      if (error) throw error;
+      const dates = new Set<string>((dateRows || []).map(r => r.prompt_date));
+      const offset = user?.timezone_offset || 0;
+      let current = new Date();
+      let s = 0;
+      // Walk back day by day until a gap
+      while (true) {
+        const key = formatDateWithOffset(current, offset);
+        if (dates.has(key)) {
+          s += 1;
+          current.setDate(current.getDate() - 1);
+        } else {
+          break;
+        }
+      }
+      setStreak(s);
+    } catch (err) {
+      console.error('Error loading accurate counts:', err);
     }
   };
 

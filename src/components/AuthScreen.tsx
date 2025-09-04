@@ -4,7 +4,7 @@ import { Input } from '@/components/ui/input';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/AppContext';
 import { useToast } from '@/hooks/use-toast';
-import { supabase, handleAuthError, isValidEmail } from '@/lib/supabase';
+import { supabase, handleAuthError, isValidEmail, getEmailRedirectTo } from '@/lib/supabase';
 import EmailVerificationModal from './EmailVerificationModal';
 import { UsernameModal } from './UsernameModal';
 import WelcomeCarousel from './WelcomeCarousel';
@@ -173,13 +173,20 @@ const AuthScreen: React.FC = () => {
         console.log('[AUTH] login verified; calling handleAuthSuccess');
         await handleAuthSuccess(data.user);
       }
-    } catch (error: unknown) {
+    } catch (error: any) {
       console.error('Login failed:', error);
-      toast({ 
-        title: 'Login failed', 
-        description: handleAuthError(error),
-        variant: 'destructive' 
-      });
+      const message = (error?.message || '').toLowerCase();
+      // If credentials are valid but email is unconfirmed, guide user to verify
+      if (message.includes('email not confirmed') || message.includes('email_not_confirmed')) {
+        setPendingEmail(email.trim().toLowerCase());
+        setOnboardingStep('verify');
+      } else {
+        toast({ 
+          title: 'Login failed', 
+          description: handleAuthError(error),
+          variant: 'destructive' 
+        });
+      }
     } finally {
       setLoading(false);
     }
@@ -224,7 +231,10 @@ const AuthScreen: React.FC = () => {
       const cleanEmail = email.trim().toLowerCase();
       const { data, error } = await supabase.auth.signUp({
         email: cleanEmail,
-        password: password.trim()
+        password: password.trim(),
+        options: {
+          emailRedirectTo: getEmailRedirectTo()
+        }
       });
 
       if (error) throw error;

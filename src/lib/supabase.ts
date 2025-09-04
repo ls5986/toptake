@@ -14,6 +14,19 @@ export function getSupabaseEnvError(): string | null {
   return null;
 }
 
+// Compute a safe email redirect URL for Supabase auth emails
+export const getEmailRedirectTo = (): string => {
+  try {
+    const origin = typeof window !== 'undefined' ? window.location.origin : '';
+    // Fallbacks for server or build-time usage
+    const siteUrl = (import.meta as any)?.env?.VITE_SITE_URL || origin || 'http://localhost:5173';
+    // Supabase requires absolute URLs
+    return `${siteUrl}`;
+  } catch {
+    return 'http://localhost:5173';
+  }
+};
+
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     autoRefreshToken: true,
