@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Button } from '@/components/ui/button';
 import { Mail, RefreshCw } from 'lucide-react';
@@ -20,6 +20,7 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
 }) => {
   const [resending, setResending] = useState(false);
   const { toast } = useToast();
+  const [initialResent, setInitialResent] = useState(false);
 
   const handleResendEmail = async () => {
     if (!email) {
@@ -70,6 +71,23 @@ const EmailVerificationModal: React.FC<EmailVerificationModalProps> = ({
       setResending(false);
     }
   };
+
+  // Automatically try one resend on first open for reliability
+  useEffect(() => {
+    if (isOpen && email && !initialResent) {
+      setInitialResent(true);
+      (async () => {
+        try {
+          await supabase.auth.resend({
+            type: 'signup',
+            email,
+            options: { emailRedirectTo: getEmailRedirectTo() }
+          });
+          toast({ title: 'Verification email sent', description: 'Please check your inbox.' });
+        } catch {}
+      })();
+    }
+  }, [isOpen, email, initialResent, toast]);
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>

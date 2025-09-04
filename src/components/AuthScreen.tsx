@@ -24,6 +24,7 @@ const AuthScreen: React.FC = () => {
   const { toast } = useToast();
   const [onboardingStep, setOnboardingStep] = useState<'none'|'verify'|'username'|'carousel'>('none');
   const [pendingUserId, setPendingUserId] = useState<string | null>(null);
+  const [autoResent, setAutoResent] = useState(false);
 
   // If the user is already signed in (e.g., Vercel persisted cookie) but has no profile yet,
   // automatically route them into onboarding rather than bouncing back to main.
@@ -243,6 +244,17 @@ const AuthScreen: React.FC = () => {
         setPendingUserId(data.user.id);
         setPendingEmail(cleanEmail);
         setOnboardingStep('verify');
+        // Best-effort: immediately resend once to improve deliverability
+        try {
+          await supabase.auth.resend({
+            type: 'signup',
+            email: cleanEmail,
+            options: { emailRedirectTo: getEmailRedirectTo() }
+          });
+          toast({ title: 'Verification email sent', description: 'Please check your inbox.' });
+        } catch (e) {
+          // ignore
+        }
         setEmail('');
         setPassword('');
         setConfirmPassword('');
