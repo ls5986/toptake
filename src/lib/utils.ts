@@ -66,3 +66,29 @@ export async function fetchPromptForDateCached(dateStr: string): Promise<string>
   try { localStorage.setItem(key, JSON.stringify({ value: promptText, expiresAt: Date.now() + DEFAULT_TTL_MS })); } catch {}
   return promptText;
 }
+
+// Follow stats micro-cache (defaults to 30s)
+type FollowStats = { followers_count: number; following_count: number; is_following: boolean };
+export async function fetchFollowStatsCached(viewerId: string | null, targetUserId: string, ttlMs: number = 30_000): Promise<FollowStats> {
+  const key = `followstats:${viewerId || 'anon'}:${targetUserId}`;
+  const mem = getFromMemory<FollowStats>(key);
+  if (mem) return mem;
+  try {
+    const ls = localStorage.getItem(key);
+    if (ls) {
+      const parsed = JSON.parse(ls);
+      if (parsed && parsed.value && parsed.expiresAt > Date.now()) {
+        setMemory(key, parsed.value, parsed.expiresAt - Date.now());
+        return parsed.value as FollowStats;
+      }
+    }
+  } catch {}
+
+  const { data } = await supabase.rpc('get_follow_stats', { p_viewer: viewerId, p_target: targetUserId });
+  const stats: FollowStats = data && data[0]
+    ? { followers_count: data[0].followers_count || 0, following_count: data[0].following_count || 0, is_following: !!data[0].is_following }
+    : { followers_count: 0, following_count: 0, is_following: false };
+  setMemory(key, stats, ttlMs);
+  try { localStorage.setItem(key, JSON.stringify({ value: stats, expiresAt: Date.now() + ttlMs })); } catch {}
+  return stats;
+}

@@ -6,7 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
-import { logClientEvent } from '@/lib/utils';
+import { logClientEvent, fetchFollowStatsCached } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import ProfileEditModal from './ProfileEditModal';
@@ -198,13 +198,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       }
       // Counts + following status via RPC to avoid schema drift
       const viewerId = user?.id || null;
-      const { data: stats } = await supabase
-        .rpc('get_follow_stats', { p_viewer: viewerId, p_target: targetUserId });
-      if (stats && stats[0]) {
-        setFollowerCount(stats[0].followers_count || 0);
-        setFollowingCount(stats[0].following_count || 0);
-        setIsFollowing(!!stats[0].is_following);
-      }
+      const cachedStats = await fetchFollowStatsCached(viewerId, targetUserId);
+      setFollowerCount(cachedStats.followers_count || 0);
+      setFollowingCount(cachedStats.following_count || 0);
+      setIsFollowing(!!cachedStats.is_following);
 
       // Samples for compact UI
       const { data: follRows } = await supabase
