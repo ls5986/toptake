@@ -16,7 +16,8 @@ export const useLateSubmission = () => {
       if (!user) throw new Error('User not authenticated');
 
       // Real Stripe flow: create a checkout for late submission credit
-      const resp = await fetch('https://toptake.onrender.com/api/create-checkout-session', {
+      const backendUrl = (import.meta as any)?.env?.VITE_BACKEND_URL || 'https://toptake.onrender.com';
+      const resp = await fetch(`${backendUrl}/api/create-checkout-session`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({

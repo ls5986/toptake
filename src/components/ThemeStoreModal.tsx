@@ -31,7 +31,8 @@ const ThemePreview: React.FC<{ themeId: Theme, selected: boolean, onSelect: () =
 };
 
 async function createThemeCheckout(userId: string, themeId: string, promoCode?: string) {
-  const resp = await fetch('https://toptake.onrender.com/api/create-checkout-session', {
+  const backendUrl = (import.meta as any)?.env?.VITE_BACKEND_URL || 'https://toptake.onrender.com';
+  const resp = await fetch(`${backendUrl}/api/create-checkout-session`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
