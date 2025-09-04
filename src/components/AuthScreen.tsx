@@ -421,7 +421,7 @@ const AuthScreen: React.FC = () => {
           )}
           <Button
             onClick={isLogin ? handleLogin : handleRegister}
-            className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+            className="w-full btn-primary"
             disabled={loading}
           >
             {loading ? (isLogin ? 'Logging in...' : 'Creating account...') : (isLogin ? 'Login' : 'Sign Up')}

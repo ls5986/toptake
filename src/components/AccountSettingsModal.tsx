@@ -170,7 +170,7 @@ const AccountSettingsModal: React.FC<AccountSettingsModalProps> = ({ isOpen, onC
             </Button>
             <Button 
               onClick={handleSave} 
-              className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 mb-2"
+              className="w-full btn-primary mb-2"
               disabled={loading || deleting}
             >
               {loading ? 'Saving...' : 'Save'}

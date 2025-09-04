@@ -49,7 +49,7 @@ const AccountSettingsPage: React.FC = () => {
             />
             <div className="flex justify-between mt-4">
               <Button variant="outline">Cancel</Button>
-              <Button onClick={handleSave} className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600 mb-2">
+              <Button onClick={handleSave} className="w-full btn-primary mb-2">
                 Save
               </Button>
             </div>

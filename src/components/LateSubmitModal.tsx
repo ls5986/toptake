@@ -152,7 +152,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               </p>
               <Button 
                 onClick={handleLateSubmit}
-                className="w-full bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+                className="w-full btn-primary"
               >
                 {userCredits.late_submit > 0 ? 'Use Credit' : 'Purchase Credit ($1.99)'}
               </Button>

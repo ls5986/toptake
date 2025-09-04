@@ -104,7 +104,7 @@ const BoostTakeModal: React.FC<BoostTakeModalProps> = ({
             </Button>
             <Button 
               onClick={handleBoost} 
-              className="bg-gradient-to-r from-pink-500 to-violet-500 hover:from-pink-600 hover:to-violet-600"
+              className="btn-primary"
               disabled={isBoosting || userCredits.boost <= 0}
             >
               {isBoosting ? 'Boosting...' : 'Boost Take'}
