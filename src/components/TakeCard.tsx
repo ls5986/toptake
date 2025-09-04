@@ -136,18 +136,16 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   };
 
   const handleProfileClick = () => {
-    if (!take.isAnonymous) {
-      try {
-        // Prefer full-screen profile route via context when available
-        const { setCurrentScreen, setSelectedProfile } = useAppContext() as any;
-        if (setCurrentScreen && setSelectedProfile) {
-          setSelectedProfile(take.userId || take.user_id);
-          setCurrentScreen('profile');
-          return;
-        }
-      } catch {}
-      setShowProfile(true);
-    }
+    if (take.isAnonymous) return;
+    try {
+      const ctx = useAppContext() as any;
+      if (ctx?.setCurrentScreen && ctx?.setSelectedProfile) {
+        ctx.setSelectedProfile(take.userId || take.user_id);
+        ctx.setCurrentScreen('userProfile');
+        return;
+      }
+    } catch {}
+    setShowProfile(true);
   };
 
   const handleShareTake = async () => {

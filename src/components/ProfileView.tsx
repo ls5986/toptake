@@ -226,16 +226,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 >
                   Share Profile
                 </button>
-                <div className="relative inline-block">
-                  <button className="text-sm text-brand-muted hover:text-brand-text p-1" title="More actions">
-                    <MoreVertical className="w-4 h-4" />
-                  </button>
-                  {/* Lightweight dropdown placeholder */}
-                  <div className="absolute right-0 mt-2 w-40 bg-brand-surface border border-brand-border rounded shadow-card hidden group-hover:block">
-                    <button className="block w-full text-left px-3 py-2 text-sm hover:bg-brand-background">Block User</button>
-                    <button className="block w-full text-left px-3 py-2 text-sm hover:bg-brand-background">Report</button>
-                  </div>
-                </div>
+                <button
+                  className="text-sm text-brand-muted hover:text-brand-text p-1 border rounded px-2"
+                  onClick={async () => {
+                    // simple follow toggle
+                    try {
+                      await supabase.from('follows').insert({ follower_id: user?.id, followee_id: targetUserId }).select();
+                    } catch {}
+                  }}
+                >
+                  Follow
+                </button>
+                <button
+                  className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
+                  onClick={async () => {
+                    try { await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId }).select(); } catch {}
+                  }}
+                >
+                  Block
+                </button>
               </div>
               <div className="mt-4 w-full max-w-2xl mx-auto">
                 <div className="grid grid-cols-3 gap-2">
