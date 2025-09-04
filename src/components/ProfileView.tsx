@@ -289,25 +289,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       if (isFollowing) {
         if (!window.confirm('Unfollow this user?')) return;
-        const { error } = await supabase
-          .from('follows')
-          .delete()
-          .eq('follower_id', user.id)
-          .eq(followeeCol, targetUserId as any);
-        if (error) {
-          toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
-          return;
-        }
+        const { error } = await supabase.rpc('unfollow_user', { p_viewer: user.id, p_target: targetUserId });
+        if (error) toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
         setIsFollowing(false);
         setFollowerCount(c => Math.max(0, c - 1));
       } else {
-        const { error } = await supabase
-          .from('follows')
-          .insert({ follower_id: user.id, [followeeCol]: targetUserId } as any);
-        if (error) {
-          toast({ title: 'Failed to follow', description: error.message, variant: 'destructive' });
-          return;
-        }
+        const { error } = await supabase.rpc('follow_user', { p_viewer: user.id, p_target: targetUserId });
+        if (error) toast({ title: 'Failed to follow', description: error.message, variant: 'destructive' });
         setIsFollowing(true);
         setFollowerCount(c => c + 1);
       }
@@ -323,10 +311,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       setFollowBusy(prev => ({ ...prev, [otherId]: true }));
       if (currentlyFollowing) {
-        const { error } = await supabase.from('follows').delete().eq('follower_id', user.id).eq(followeeCol, otherId as any);
+        const { error } = await supabase.rpc('unfollow_user', { p_viewer: user.id, p_target: otherId });
         if (error) toast({ title: 'Unfollow failed', description: error.message, variant: 'destructive' });
       } else {
-        const { error } = await supabase.from('follows').insert({ follower_id: user.id, [followeeCol]: otherId } as any);
+        const { error } = await supabase.rpc('follow_user', { p_viewer: user.id, p_target: otherId });
         if (error) toast({ title: 'Follow failed', description: error.message, variant: 'destructive' });
       }
       await openFollowers();
