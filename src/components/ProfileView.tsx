@@ -51,6 +51,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   // Profile is not date-specific for prompt display; omit prompt
 
   const targetUserId = userId || user?.id;
+  const viewingOwnProfile = !!user?.id && targetUserId === user.id;
 
   useEffect(() => {
     if (targetUserId) {
@@ -549,24 +550,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 </div>
                 <p className="text-xs text-brand-muted mt-2 text-center">Trippy includes premium themes.</p>
               </div>
-              <Button
-                onClick={() => setShowEditProfile(true)}
-                variant="outline"
-                size="sm"
-                className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
-              >
-                <Edit3 className="w-4 w-4 mr-2" />
-                Edit Profile
-              </Button>
-              <Button
-                onClick={handleLogout}
-                variant="outline"
-                size="sm"
-                className="mt-2 border-brand-border text-brand-muted hover:bg-brand-surface/80"
-              >
-                <LogOut className="w-4 h-4 mr-2" />
-                Log Out
-              </Button>
+              {viewingOwnProfile && (
+                <>
+                  <Button
+                    onClick={() => setShowEditProfile(true)}
+                    variant="outline"
+                    size="sm"
+                    className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
+                  >
+                    <Edit3 className="w-4 w-4 mr-2" />
+                    Edit Profile
+                  </Button>
+                  <Button
+                    onClick={handleLogout}
+                    variant="outline"
+                    size="sm"
+                    className="mt-2 border-brand-border text-brand-muted hover:bg-brand-surface/80"
+                  >
+                    <LogOut className="w-4 h-4 mr-2" />
+                    Log Out
+                  </Button>
+                </>
+              )}
             </div>
           </div>
         </CardContent>

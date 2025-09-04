@@ -7,6 +7,7 @@ import { Toaster } from '@/components/ui/toaster';
 import './App.css';
 import { Routes, Route } from 'react-router-dom';
 import ProfileRoute from '@/pages/ProfileRoute';
+import ProfileSelfRoute from '@/pages/ProfileSelfRoute';
 
 function App() {
   // Emergency modal killer to prevent stuck modals
@@ -80,6 +81,7 @@ function App() {
           <ThemeProvider>
             <Routes>
               <Route path="/" element={<AppLayout />} />
+              <Route path="profile" element={<ProfileSelfRoute />} />
               <Route path=":username" element={<ProfileRoute />} />
             </Routes>
             <Toaster />
