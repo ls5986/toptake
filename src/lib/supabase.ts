@@ -1,7 +1,18 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+export const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+export const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
+
+export const supabaseEnvOk = Boolean(supabaseUrl && supabaseAnonKey);
+export function getSupabaseEnvError(): string | null {
+  const missing: string[] = [];
+  if (!supabaseUrl) missing.push('VITE_SUPABASE_URL');
+  if (!supabaseAnonKey) missing.push('VITE_SUPABASE_ANON_KEY');
+  if (missing.length) {
+    return `Missing env: ${missing.join(', ')}. Set these in Vercel (Production).`;
+  }
+  return null;
+}
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {

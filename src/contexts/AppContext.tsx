@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { supabase } from '@/lib/supabase';
+import { supabase, supabaseEnvOk, getSupabaseEnvError } from '@/lib/supabase';
 import { useNavigate } from 'react-router-dom';
 import { useToast } from '@/hooks/use-toast';
 import LoadingSpinner from '@/components/LoadingSpinner';
@@ -309,6 +309,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setIsLoading(true);
       const debug = (() => { try { return new URLSearchParams(window.location.search).get('debug') === '1'; } catch { return false; } })();
       if (debug) console.log('[INIT] starting initializeAuth');
+
+      // Immediate env check
+      if (!supabaseEnvOk) {
+        const msg = getSupabaseEnvError() || 'Supabase env not configured.';
+        setError(msg + ' Visit Vercel → Project → Settings → Environment Variables (Production).');
+        setIsLoading(false);
+        return;
+      }
 
       // Session check with timeout guard
       const sessionResult = await Promise.race([
