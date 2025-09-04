@@ -76,6 +76,11 @@ const MainAppScreen: React.FC = () => {
     initializeScreen();
   }, [user, checkDailyPost]);
 
+  // If we are on /:username, keep the Profile tab visually active
+  useEffect(() => {
+    if (username) setCurrentTab('profile');
+  }, [username]);
+
   const loadTakes = React.useCallback(async () => {
     setTakes(sharedTakes as any);
     setLoading(sharedLoading);
@@ -162,7 +167,7 @@ const MainAppScreen: React.FC = () => {
   const renderContent = () => {
     try {
       // If route contains a username, render that profile inside the main layout
-      if (username) {
+      if (username && currentTab === 'profile') {
         return (
           <div className="flex-1 p-0">
             <ProfileRoute />
@@ -446,6 +451,11 @@ const MainAppScreen: React.FC = () => {
               if (tab === 'feed') {
                 window.history.pushState({}, '', '/');
                 setCurrentTab('feed');
+                return;
+              }
+              if (tab === 'profile') {
+                window.history.pushState({}, '', '/profile');
+                setCurrentTab('profile');
                 return;
               }
               handleTabChange(tab);
