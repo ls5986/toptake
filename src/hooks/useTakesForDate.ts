@@ -60,7 +60,7 @@ export function useTakesForDate(date: Date) {
           throw error;
         }
         console.log('[useTakesForDate] received', (data as any)?.length)
-        const formatted: FormattedTake[] = (data as RpcTakeRow[] || []).map((t) => ({
+        let formatted: FormattedTake[] = (data as RpcTakeRow[] || []).map((t) => ({
           id: t.id,
           userId: t.user_id,
           content: t.content,
@@ -71,6 +71,27 @@ export function useTakesForDate(date: Date) {
           commentCount: t.comment_count || 0,
           reactionCount: t.reaction_count || 0,
         }));
+
+        // Fallback: resolve usernames for any non-anonymous items that are still Unknown
+        const missingUserIds = Array.from(new Set(
+          (data as RpcTakeRow[] || [])
+            .filter(t => !t.is_anonymous && (!t.username || t.username.toLowerCase() === 'unknown'))
+            .map(t => t.user_id)
+        ));
+        if (missingUserIds.length) {
+          try {
+            const { data: profiles } = await supabase
+              .from('profiles')
+              .select('id, username')
+              .in('id', missingUserIds);
+            const map = new Map<string,string>((profiles||[]).map(p => [p.id, p.username]));
+            formatted = formatted.map(t => (
+              (!t.isAnonymous && (!t.username || t.username.toLowerCase() === 'unknown'))
+                ? { ...t, username: map.get(t.userId) || t.username }
+                : t
+            ));
+          } catch {}
+        }
         if (!cancelled) {
           if (before) {
             // append with dedupe by id
