@@ -281,7 +281,15 @@ app.post('/api/sync-products', async (req, res) => {
 });
 
 app.get('/', (req, res) => {
-  res.send('Stripe + Supabase backend is running.');
+  const origin = req.headers.origin;
+  if (origin && allowedOrigins.has(origin)) {
+    res.header('Access-Control-Allow-Origin', origin);
+    res.header('Vary', 'Origin');
+  }
+  res.header('Access-Control-Allow-Credentials', 'true');
+  res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, stripe-signature');
+  res.status(200).send('Stripe + Supabase backend is running.');
 });
 
 app.listen(PORT, () => {
