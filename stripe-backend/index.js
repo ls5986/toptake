@@ -40,14 +40,26 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
     const userId = session.client_reference_id;
     
     try {
-      // Get the actual price ID from line items
-      const lineItems = await stripe.checkout.sessions.listLineItems(session.id);
-      const priceId = lineItems.data[0]?.price?.id;
+      // Get the actual price (expand to get lookup_key)
+      const lineItems = await stripe.checkout.sessions.listLineItems(session.id, { expand: ['data.price'] });
+      const price = lineItems.data[0]?.price;
+      const priceId = price?.id;
+      const lookupKey = price?.lookup_key;
       
-      console.log('Processing payment:', { userId, priceId, sessionId: session.id });
+      console.log('Processing payment:', { userId, priceId, lookupKey, sessionId: session.id, mode: session.mode });
       
-      // Map price IDs to credit types and amounts
+      // Map price LOOKUP KEYS (preferred) and legacy price IDs to credit types
       const creditMapping = {
+        // Preferred lookup keys
+        'credits_anonymous_10_299': { type: 'anonymous', amount: 10 },
+        'credits_late_submit_5_199': { type: 'late_submit', amount: 5 },
+        'credits_sneak_peek_5_399': { type: 'sneak_peek', amount: 5 },
+        'credits_boost_3_499': { type: 'boost', amount: 3 },
+        'credits_extra_takes_5_299': { type: 'extra_takes', amount: 5 },
+        'credits_delete_5_199': { type: 'delete', amount: 5 },
+        'suggestion_boost_1_299': { type: 'suggestion_boost', amount: 1 },
+
+        // Legacy price IDs (optional, if you already created prices before)
         'price_anonymous_1': { type: 'anonymous', amount: 1 },
         'price_anonymous_5': { type: 'anonymous', amount: 5 },
         'price_anonymous_10': { type: 'anonymous', amount: 10 },
@@ -60,7 +72,53 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
         'price_delete_1': { type: 'delete', amount: 1 }
       };
       
-      const creditInfo = creditMapping[priceId];
+      // Membership handling
+      if ((lookupKey === 'sub_toptake_plus_monthly') && userId) {
+        try {
+          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
+          for (const type of creditTypes) {
+            await supabase.rpc('add_user_credits', { p_user_id: userId, p_credit_type: type, p_amount: 5 });
+          }
+          await supabase.from('purchases').insert({
+            user_id: userId,
+            product_type: 'membership',
+            amount: 1,
+            price_id: priceId,
+            stripe_session_id: session.id,
+            amount_paid: (session.amount_total || 0) / 100
+          });
+          console.log('✅ Granted TopTake+ monthly starter credits');
+        } catch (err) {
+          console.error('Error granting membership credits:', err);
+        }
+
+        return res.json({ received: true });
+      }
+
+      // Theme one-off purchase (record only; entitlement implementation TBD)
+      if (lookupKey === 'theme_single_099' && userId) {
+        try {
+          const themeId = session.metadata?.theme_id || 'default_theme';
+          await supabase.from('purchases').insert({
+            user_id: userId,
+            product_type: 'theme',
+            amount: 1,
+            price_id: priceId,
+            stripe_session_id: session.id,
+            amount_paid: (session.amount_total || 0) / 100,
+            metadata: session.metadata || null
+          });
+          // grant entitlement
+          await supabase.from('user_themes').insert({ user_id: userId, theme_id: themeId }).select();
+          console.log('✅ Recorded theme purchase');
+        } catch (err) {
+          console.error('Error recording theme purchase:', err);
+        }
+
+        return res.json({ received: true });
+      }
+
+      const creditInfo = creditMapping[lookupKey] || creditMapping[priceId];
       if (creditInfo && userId) {
         try {
           // Use the add_user_credits function from the database
@@ -85,6 +143,11 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
               stripe_session_id: session.id,
               amount_paid: session.amount_total / 100 // Convert from cents
             });
+
+            // If suggestion_boost, record request for admin review
+            if (creditInfo.type === 'suggestion_boost') {
+              await supabase.from('suggestion_boosts').insert({ user_id: userId, prompt_text: session.metadata?.prompt_text || null });
+            }
           }
         } catch (err) {
           console.error('Error processing credit purchase:', err);
@@ -105,23 +168,55 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
 // For all other endpoints, use JSON body
 app.use(bodyParser.json());
 
+// Helper: ensure the LINDSEY 100% promo exists and return promotion_code id
+async function getOrCreateLindseyPromo(isSubscription) {
+  try {
+    const existing = await stripe.promotionCodes.list({ code: 'LINDSEY', limit: 1 });
+    if (existing.data[0]) return existing.data[0].id;
+  } catch (e) {
+    console.warn('Promo lookup failed, will attempt create:', e?.message);
+  }
+  const coupon = await stripe.coupons.create({ percent_off: 100, duration: isSubscription ? 'forever' : 'once' });
+  const promo = await stripe.promotionCodes.create({ coupon: coupon.id, code: 'LINDSEY' });
+  return promo.id;
+}
+
 app.post('/api/create-checkout-session', async (req, res) => {
-  const { priceId, userId } = req.body;
+  const { priceId, lookupKey, userId, mode, promoCode } = req.body;
   
-  if (!priceId || !userId) {
-    return res.status(400).json({ error: 'Missing priceId or userId' });
+  if ((!priceId && !lookupKey) || !userId) {
+    return res.status(400).json({ error: 'Missing priceId/lookupKey or userId' });
   }
   
   try {
-    const session = await stripe.checkout.sessions.create({
+    let line_items;
+    if (lookupKey) {
+      // Retrieve price by lookup_key to avoid hardcoding IDs
+      const prices = await stripe.prices.list({ lookup_keys: [lookupKey], expand: ['data.product'] });
+      const price = prices.data[0];
+      if (!price) return res.status(400).json({ error: 'Lookup key not found' });
+      line_items = [{ price: price.id, quantity: 1 }];
+    } else {
+      line_items = [{ price: priceId, quantity: 1 }];
+    }
+
+    const params = {
       payment_method_types: ['card'],
-      line_items: [{ price: priceId, quantity: 1 }],
-      mode: 'payment',
+      line_items,
+      mode: mode || 'payment',
       success_url: process.env.SUCCESS_URL || 'https://your-frontend.com/success',
       cancel_url: process.env.CANCEL_URL || 'https://your-frontend.com/cancel',
       client_reference_id: userId,
-      metadata: { priceId }
-    });
+      metadata: { priceId: priceId || '', lookupKey: lookupKey || '' },
+      allow_promotion_codes: true,
+    };
+
+    if ((promoCode || '').toUpperCase() === 'LINDSEY') {
+      const promotion_code = await getOrCreateLindseyPromo((mode || 'payment') === 'subscription');
+      params.discounts = [{ promotion_code }];
+    }
+
+    const session = await stripe.checkout.sessions.create(params);
     
     console.log('Created checkout session:', { sessionId: session.id, userId, priceId });
     res.json({ sessionId: session.id });
@@ -140,6 +235,38 @@ app.get('/api/products', async (req, res) => {
     console.error('Error fetching products:', err);
     res.status(500).json({ error: err.message });
   }
+});
+
+// Optional: sync helper to ensure required lookup keys exist (dry-run by default)
+app.post('/api/sync-products', async (req, res) => {
+  const required = [
+    { name: 'Anonymous Credits (10)', lookup_key: 'credits_anonymous_10_299', amount: 299, currency: 'usd' },
+    { name: 'Late Submit Credits (5)', lookup_key: 'credits_late_submit_5_199', amount: 199, currency: 'usd' },
+    { name: 'Sneak Peek Credits (5)', lookup_key: 'credits_sneak_peek_5_399', amount: 399, currency: 'usd' },
+    { name: 'Boost Credits (3)', lookup_key: 'credits_boost_3_499', amount: 499, currency: 'usd' },
+    { name: 'Extra Takes Credits (5)', lookup_key: 'credits_extra_takes_5_299', amount: 299, currency: 'usd' },
+    { name: 'Delete Credits (5)', lookup_key: 'credits_delete_5_199', amount: 199, currency: 'usd' },
+    { name: 'Suggestion Boost', lookup_key: 'suggestion_boost_1_299', amount: 299, currency: 'usd' },
+    { name: 'Theme (single)', lookup_key: 'theme_single_099', amount: 99, currency: 'usd' },
+  ];
+  const sub = { name: 'TopTake+ Monthly', lookup_key: 'sub_toptake_plus_monthly', amount: 799, currency: 'usd' };
+
+  const created = [];
+  for (const r of required) {
+    const existing = await stripe.prices.list({ lookup_keys: [r.lookup_key] });
+    if (!existing.data.length) {
+      const prod = await stripe.products.create({ name: r.name });
+      const price = await stripe.prices.create({ product: prod.id, unit_amount: r.amount, currency: r.currency, lookup_key: r.lookup_key });
+      created.push({ type: 'one_time', lookup_key: r.lookup_key, price: price.id });
+    }
+  }
+  const subExisting = await stripe.prices.list({ lookup_keys: [sub.lookup_key] });
+  if (!subExisting.data.length) {
+    const prod = await stripe.products.create({ name: sub.name });
+    const price = await stripe.prices.create({ product: prod.id, unit_amount: sub.amount, currency: sub.currency, lookup_key: sub.lookup_key, recurring: { interval: 'month' } });
+    created.push({ type: 'subscription', lookup_key: sub.lookup_key, price: price.id });
+  }
+  res.json({ created });
 });
 
 app.get('/', (req, res) => {
