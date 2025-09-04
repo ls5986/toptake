@@ -15,6 +15,7 @@ import { usePackSystem } from '@/hooks/usePackSystem';
 import ProfileView from './ProfileView';
 import { supabase, addNotification } from '@/lib/supabase';
 import { ReactionType } from '@/lib/reactions';
+import { logClientEvent } from '@/lib/utils';
 
 interface TakeCardProps {
   take: Take;
@@ -140,7 +141,11 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const handleProfileClick = () => {
     if (take.isAnonymous) return;
     const username = take.username || '';
-    if (username) navigate(`/${username}`);
+    if (username) {
+      // fire-and-forget logging
+      try { logClientEvent('profile_click', { username, takeId: take.id }); } catch {}
+      navigate(`/${username}`);
+    }
   };
 
   const handleShareTake = async () => {
@@ -148,6 +153,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     const date = (take as any).prompt_date || new Date(take.timestamp).toISOString().slice(0,10);
     const username = take.username || 'user';
     const url = `${window.location.origin}/${username}/${date}/${take.id}`;
+    try { logClientEvent('share_take', { takeId: take.id, username, date, url }); } catch {}
     try {
       if ((navigator as any).share) {
         await (navigator as any).share({ title: 'TopTake', text: 'Check out this take', url });

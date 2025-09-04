@@ -6,6 +6,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
+import { logClientEvent } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import ProfileEditModal from './ProfileEditModal';
@@ -374,6 +375,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   className="text-sm text-brand-muted hover:text-brand-accent underline"
                   onClick={async () => {
                     const url = `${window.location.origin}/${profileUser?.username || targetUserId}`;
+                    try { logClientEvent('share_profile', { username: profileUser?.username || null, targetUserId, url }); } catch {}
                     try {
                       if ((navigator as any).share) {
                         await (navigator as any).share({ title: 'TopTake', text: 'Check out this profile', url });
