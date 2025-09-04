@@ -448,7 +448,7 @@ const MainAppScreen: React.FC = () => {
         
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl mx-auto h-full">
-            <div className="flex items-center justify-center gap-4 my-4">
+            <div className="flex items-center justify-center gap-4 my-4" style={{ display: username ? 'none' as any : undefined }}>
               <Button variant="ghost" onClick={goToPrevDay}><ChevronLeft /></Button>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>

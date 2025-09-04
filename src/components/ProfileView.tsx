@@ -404,7 +404,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 </button>
                 {user?.id !== targetUserId && (
                   <button
-                    className="text-sm p-1 border rounded px-2 \n                      "
+                    className="text-sm p-1 border rounded px-2 "
                     onClick={toggleFollow}
                   >
                     {isFollowing ? 'Unfollow' : 'Follow'}
@@ -415,7 +415,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                     className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
                     onClick={async () => {
                       if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
-                      try { await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId }).select(); } catch {}
+                      try {
+                        const { error } = await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId });
+                        if (error && String((error as any).code) === '23505') {
+                          // Already blocked
+                        }
+                      } catch {}
                     }}
                   >
                     Block
