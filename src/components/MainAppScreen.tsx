@@ -219,7 +219,7 @@ const MainAppScreen: React.FC = () => {
           </div>
           
           <div className="flex-1 min-h-0">
-            {loading ? (
+            { (loading || sharedLoading) ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center text-brand-text">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
@@ -304,19 +304,16 @@ const MainAppScreen: React.FC = () => {
 
   // Fetch prompt and takes for selectedDate
   const fetchPromptAndTakesForDate = async (date: Date) => {
-    setLoading(true);
     try {
       const dateStr = formatDate(date);
       const cachedPrompt = await fetchPromptForDateCached(dateStr);
       console.log('[fetchPromptAndTakesForDate] prompt', { dateStr, cached: !!cachedPrompt });
       setPromptText(cachedPrompt || '');
       setTakes(sharedTakes as any);
-      setLoading(sharedLoading);
     } catch (error) {
       console.error('[fetchPromptAndTakesForDate] failed', { date: formatDate(date), error });
       setPromptText('');
       setTakes([]);
-      setLoading(false);
     }
   };
 
