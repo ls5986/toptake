@@ -182,7 +182,7 @@ async function getOrCreateLindseyPromo(isSubscription) {
 }
 
 app.post('/api/create-checkout-session', async (req, res) => {
-  const { priceId, lookupKey, userId, mode, promoCode } = req.body;
+  const { priceId, lookupKey, userId, mode, promoCode, metadata } = req.body;
   
   if ((!priceId && !lookupKey) || !userId) {
     return res.status(400).json({ error: 'Missing priceId/lookupKey or userId' });
@@ -207,7 +207,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
       success_url: process.env.SUCCESS_URL || 'https://your-frontend.com/success',
       cancel_url: process.env.CANCEL_URL || 'https://your-frontend.com/cancel',
       client_reference_id: userId,
-      metadata: { priceId: priceId || '', lookupKey: lookupKey || '' },
+      metadata: { priceId: priceId || '', lookupKey: lookupKey || '', ...(metadata || {}) },
       allow_promotion_codes: true,
     };
 
@@ -218,8 +218,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
 
     const session = await stripe.checkout.sessions.create(params);
     
-    console.log('Created checkout session:', { sessionId: session.id, userId, priceId });
-    res.json({ sessionId: session.id });
+    console.log('Created checkout session:', { sessionId: session.id, userId, priceId, lookupKey });
+    res.json({ sessionId: session.id, url: session.url });
   } catch (err) {
     console.error('Error creating checkout session:', err);
     res.status(500).json({ error: err.message });

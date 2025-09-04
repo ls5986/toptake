@@ -5,6 +5,22 @@ import { themes, Theme, isPremiumTheme, getThemeColors } from '@/lib/themes';
 import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
 
+async function createThemeCheckout(userId: string, themeId: string, promoCode?: string) {
+  const resp = await fetch('https://toptake.onrender.com/api/create-checkout-session', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      lookupKey: 'theme_single_099',
+      userId,
+      mode: 'payment',
+      promoCode,
+      metadata: { theme_id: themeId }
+    })
+  });
+  if (!resp.ok) throw new Error('Checkout creation failed');
+  return resp.json();
+}
+
 interface ThemeStoreModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -71,18 +87,9 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
     setPurchasing(true);
     setError(null);
     try {
-      if (process.env.NODE_ENV === 'development' || isAdminTester) {
-        // Mock purchase success; directly apply the theme
-        await new Promise(r => setTimeout(r, 800));
-        // Optionally record a purchase row if table exists
-        try {
-          await supabase.from('purchases').insert({ user_id: user.id, item_type: 'theme', item_id: selectedTheme, price: THEME_PRICE, created_at: new Date().toISOString() });
-        } catch {}
-        await handleSave();
-        return;
-      }
-      // Production: Stripe not wired; show info
-      setError('Payment is not enabled yet. Please use the demo purchase in development/admin.');
+      const promo = isAdminTester ? 'LINDSEY' : undefined;
+      const { url } = await createThemeCheckout(user.id, selectedTheme, promo);
+      window.location.href = url;
     } catch (e: any) {
       setError(e?.message || 'Failed to purchase');
     } finally {
