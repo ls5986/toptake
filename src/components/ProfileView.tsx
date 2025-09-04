@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { logClientEvent, fetchFollowStatsCached } from '@/lib/utils';
 import { supabase } from '@/lib/supabase';
@@ -50,8 +50,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [totalTakes, setTotalTakes] = useState(0);
   const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
   const { toast } = useToast();
-  // Some projects still have follows.followed_id; probe and adapt
-  const [followeeCol, setFolloweeCol] = useState<'followee_id' | 'followed_id'>('followee_id');
+  // Some projects still have follows.followed_id; treat dynamically at runtime without probing
+  const [followeeCol] = useState<'followee_id' | 'followed_id'>('followee_id');
   
   // Profile is not date-specific for prompt display; omit prompt
 
@@ -204,13 +204,6 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const loadFollowStats = async () => {
     if (!targetUserId) return;
     try {
-      // Probe which followee column exists via returned error instead of exceptions
-      const probeA = await supabase.from('follows').select('id', { head: true, count: 'exact' }).eq('followee_id', targetUserId).limit(1);
-      if (probeA && !probeA.error) {
-        setFolloweeCol('followee_id');
-      } else {
-        setFolloweeCol('followed_id');
-      }
       // Counts + following status via RPC to avoid schema drift
       const viewerId = user?.id || null;
       const cachedStats = await fetchFollowStatsCached(viewerId, targetUserId);
@@ -221,13 +214,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       // Samples for compact UI
       const { data: follRows } = await supabase
         .from('follows')
-        .select('follower_id, followee_id, followed_id')
+        .select('*')
         .limit(50);
       const followerIds = (follRows || [])
-        .filter((r:any)=> (r.followee_id === targetUserId) || (r.followed_id === targetUserId))
+        .filter((r:any)=> ((r.followee_id || r.followed_id) === targetUserId))
         .map((r:any)=> r.follower_id)
         .slice(0,6);
-      const follIds = (follRows || []).map(r => r.follower_id);
+      const follIds = followerIds;
       const { data: follProfiles } = follIds.length
         ? await supabase.from('profiles').select('id, username, avatar_url').in('id', follIds)
         : { data: [] } as any;
@@ -235,7 +228,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
       const { data: ingRows } = await supabase
         .from('follows')
-        .select('followee_id, followed_id, follower_id')
+        .select('*')
         .limit(50);
       const ingIds = (igRows => (igRows||[])
         .filter((r:any)=> r.follower_id === targetUserId)
@@ -255,9 +248,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       const { data } = await supabase
         .from('follows')
-        .select('follower_id')
-        .eq('followee_id', targetUserId);
-      const ids = (data || []).map(r => r.follower_id);
+        .select('*');
+      const ids = (data || [])
+        .filter((r:any)=> (r.followee_id || r.followed_id) === targetUserId)
+        .map((r:any)=> r.follower_id);
       if (!ids.length) { setFollowers([]); return; }
       const { data: profiles } = await supabase
         .from('profiles')
@@ -272,9 +266,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       const { data } = await supabase
         .from('follows')
-        .select('followee_id')
-        .eq('follower_id', targetUserId);
-      const ids = (data || []).map(r => r.followee_id);
+        .select('*');
+      const ids = (data || [])
+        .filter((r:any)=> r.follower_id === targetUserId)
+        .map((r:any)=> r.followee_id || r.followed_id);
       if (!ids.length) { setFollowing([]); return; }
       const { data: profiles } = await supabase
         .from('profiles')
@@ -497,6 +492,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>Followers</DialogTitle>
+                    <DialogDescription>People who follow this profile</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-2">
                     {followers.length === 0 ? (
@@ -543,6 +539,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 <DialogContent className="sm:max-w-md">
                   <DialogHeader>
                     <DialogTitle>Following</DialogTitle>
+                    <DialogDescription>Profiles this user is following</DialogDescription>
                   </DialogHeader>
                   <div className="space-y-2">
                     {following.length === 0 ? (

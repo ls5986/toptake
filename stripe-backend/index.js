@@ -26,8 +26,12 @@ app.use((req, res, next) => {
   }
   res.header('Access-Control-Allow-Credentials', 'true');
   res.header('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, stripe-signature');
-  if (req.method === 'OPTIONS') return res.sendStatus(204);
+  // Include all headers that browser may send during preflight
+  res.header('Access-Control-Allow-Headers', 'Content-Type, Authorization, stripe-signature, X-Requested-With, Accept, Origin');
+  if (req.method === 'OPTIONS') {
+    // Explicit 204 for preflight
+    return res.status(204).end();
+  }
   next();
 });
 
