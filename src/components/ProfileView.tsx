@@ -196,37 +196,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       } else {
         setFolloweeCol('followed_id');
       }
-      // Counts
-      const { count: followersCnt } = await supabase
-        .from('follows')
-        .select('id', { count: 'exact', head: true })
-        .eq(followeeCol, targetUserId as any);
-      const { count: followingCnt } = await supabase
-        .from('follows')
-        .select('id', { count: 'exact', head: true })
-        .eq('follower_id', targetUserId);
-      setFollowerCount(followersCnt || 0);
-      setFollowingCount(followingCnt || 0);
-
-      // Status for current viewer
-      if (user?.id && user.id !== targetUserId) {
-        const { data: meFollows } = await supabase
-          .from('follows')
-          .select('id')
-          .eq('follower_id', user.id)
-          .eq(followeeCol, targetUserId as any)
-          .maybeSingle();
-        setIsFollowing(!!meFollows);
-      } else {
-        setIsFollowing(false);
+      // Counts + following status via RPC to avoid schema drift
+      const viewerId = user?.id || null;
+      const { data: stats } = await supabase
+        .rpc('get_follow_stats', { p_viewer: viewerId, p_target: targetUserId });
+      if (stats && stats[0]) {
+        setFollowerCount(stats[0].followers_count || 0);
+        setFollowingCount(stats[0].following_count || 0);
+        setIsFollowing(!!stats[0].is_following);
       }
 
       // Samples for compact UI
       const { data: follRows } = await supabase
         .from('follows')
-        .select('follower_id')
-        .eq(followeeCol, targetUserId as any)
-        .limit(6);
+        .select('follower_id, followee_id, followed_id')
+        .limit(50);
+      const followerIds = (follRows || [])
+        .filter((r:any)=> (r.followee_id === targetUserId) || (r.followed_id === targetUserId))
+        .map((r:any)=> r.follower_id)
+        .slice(0,6);
       const follIds = (follRows || []).map(r => r.follower_id);
       const { data: follProfiles } = follIds.length
         ? await supabase.from('profiles').select('id, username, avatar_url').in('id', follIds)
@@ -235,10 +223,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
       const { data: ingRows } = await supabase
         .from('follows')
-        .select('followee_id')
-        .eq('follower_id', targetUserId)
-        .limit(6);
-      const ingIds = (ingRows || []).map(r => r.followee_id);
+        .select('followee_id, followed_id, follower_id')
+        .limit(50);
+      const ingIds = (igRows => (igRows||[])
+        .filter((r:any)=> r.follower_id === targetUserId)
+        .map((r:any)=> r.followee_id || r.followed_id)
+        .slice(0,6))(ingRows as any);
       const { data: ingProfiles } = ingIds.length
         ? await supabase.from('profiles').select('id, username, avatar_url').in('id', ingIds)
         : { data: [] } as any;
