@@ -15,14 +15,17 @@ import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { usePromptForDate } from '@/hooks/usePromptForDate';
+import { useTakesForDate } from '@/hooks/useTakesForDate';
 import { spendCredits } from '@/lib/credits';
 import { getReactionCounts, addReaction, ReactionType } from '@/lib/reactions';
 
 interface TopTakesScreenProps {
   focusedTakeId?: string | null;
+  selectedDate: Date;
+  onDateChange: (d: Date) => void;
 }
 
-const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
+const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selectedDate, onDateChange }) => {
   const { user, isAppBlocked, setIsAppBlocked, checkDailyPost, userCredits, setUserCredits } = useAppContext();
   const [topTakes, setTopTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
@@ -33,7 +36,6 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
   const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
   const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
   const { toast } = useToast();
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
   const [reactionCounts, setReactionCounts] = useState<Record<string, Record<ReactionType, number>>>({});
 
@@ -68,74 +70,37 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
     if (topTakes.length > 0) fetchAllReactions();
   }, [topTakes]);
 
+  const { takes: dateTakes, loading: takesLoading, setBefore } = useTakesForDate(selectedDate);
+  useEffect(() => {
+    console.log('[TopTakes] page data', {
+      count: dateTakes?.length,
+      first: dateTakes?.[0]?.id,
+      last: dateTakes?.[dateTakes.length - 1]?.id
+    });
+  }, [dateTakes]);
+  // Keep local list/loading in sync with hook output (mirrors FeedScreen)
+  useEffect(() => {
+    setTopTakes(dateTakes as any);
+    setLoading(takesLoading);
+  }, [dateTakes, takesLoading]);
   const loadPromptAndTopTakes = async () => {
     setLoading(true);
     try {
-      // Fetch all takes for today's date (not selectedDate)
-      const today = new Date();
-      const dateStr = today.toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('takes')
-        .select('*')
-        .eq('prompt_date', dateStr)
-        .order('created_at', { ascending: false });
-        
-      if (error) {
-        console.error('❌ TopTakesScreen: Error fetching takes for date:', error);
-        setTopTakes([]);
-        setLoading(false);
-        return;
-      }
-      
-      // Fetch profiles for user_ids
-      const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
-      let profileMap: Record<string, any> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('id', userIds);
-        profileMap = (profiles || []).reduce((acc: Record<string, any>, profile: { id: string; username: string }) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {});
-      }
-      
-      // Fetch all comments for today's takes and count per take
-      const takeIds = (data || []).map(take => take.id);
-      let commentCountMap: Record<string, number> = {};
-      if (takeIds.length > 0) {
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('comments')
-          .select('id, take_id')
-          .in('take_id', takeIds);
-        if (!commentsError && commentsData) {
-          commentCountMap = commentsData.reduce((acc: Record<string, number>, row: { take_id: string }) => {
-            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
-            return acc;
-          }, {});
-        }
-      }
-      
-      // Format takes to match Take type
-      const formattedTakes = (data || []).map(take => ({
-        id: take.id,
-        userId: take.user_id,
-        content: take.content,
-        username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
-        isAnonymous: take.is_anonymous,
-        timestamp: take.created_at,
-        prompt_date: take.prompt_date,
-        commentCount: commentCountMap[take.id] || 0
-      }));
-      
-      setTopTakes(formattedTakes);
-    } catch (error) {
-      console.error('❌ TopTakesScreen: Error in loadPromptAndTopTakes:', error);
-      setTopTakes([]);
+      setTopTakes(dateTakes as any);
     } finally {
-      setLoading(false);
+      setLoading(takesLoading);
       setRefreshing(false);
+    }
+  };
+
+  const handleLoadMore = () => {
+    if (loading || refreshing) return;
+    if (!topTakes || topTakes.length === 0) return;
+    const last = topTakes[topTakes.length - 1];
+    if (last?.timestamp) {
+      setRefreshing(true);
+      setBefore(last.timestamp);
+      setTimeout(() => setRefreshing(false), 400);
     }
   };
 
@@ -243,7 +208,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
                       <Calendar
                         mode="single"
                         selected={selectedDate}
-                        onSelect={(date) => date && setSelectedDate(date)}
+                        onSelect={(date) => date && onDateChange(date)}
                         initialFocus
                       />
                     </PopoverContent>
@@ -260,12 +225,6 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
               </div>
               
               {topTakes
-                .slice()
-                .sort((a, b) => {
-                  const engagementA = Object.values(reactionCounts[a.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof a.commentCount === 'number' ? a.commentCount : 0);
-                  const engagementB = Object.values(reactionCounts[b.id] || {}).reduce((sum, val) => sum + val, 0) + (typeof b.commentCount === 'number' ? b.commentCount : 0);
-                  return engagementB - engagementA;
-                })
                 .map((take, index) => {
                   const futureTake = isFutureTake(take);
                   const canView = !futureTake || canSneakPeek;
@@ -301,6 +260,13 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId }) => {
                 <div className="text-center text-gray-400 py-8">
                   <p>No top takes yet today!</p>
                   <p className="text-sm mt-2">Be the first to share your take</p>
+                </div>
+              )}
+              {topTakes.length > 0 && (
+                <div className="flex justify-center py-4">
+                  <Button onClick={handleLoadMore} variant="outline" size="sm" disabled={refreshing || loading}>
+                    {refreshing || loading ? 'Loading…' : 'Load more'}
+                  </Button>
                 </div>
               )}
             </div>

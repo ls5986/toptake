@@ -1,7 +1,7 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = 'https://qajtxngbrujlopzqjvfj.supabase.co';
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFhanR4bmdicnVqbG9wenFqdmZqIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NDg1NjU5ODEsImV4cCI6MjA2NDE0MTk4MX0.N-UphTEKPeFwxy8yoCpQCJYcsknHL8QTRuE4jzThLWw';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL as string;
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY as string;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
@@ -102,10 +102,10 @@ export const getTodayPrompt = async () => {
     }
     return { data: null, error };
   }
-  if (!data || data.length === 0) {
+  if (!data) {
     return { data: null, error: 'No prompt available for today.' };
   }
-  return { data: data[0], error: null };
+  return { data, error: null };
 };
 
 export async function addNotification(userId: string, type: string, message: string) {

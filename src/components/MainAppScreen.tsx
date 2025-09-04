@@ -25,9 +25,10 @@ import LateSubmitModal from './LateSubmitModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
+import { useTakesForDate } from '@/hooks/useTakesForDate';
 
 const MainAppScreen: React.FC = () => {
-  const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt } = useAppContext();
+  const { setCurrentScreen, user, currentScreen, checkDailyPost, logout, isAppBlocked, setIsAppBlocked, currentPrompt, hasPostedToday } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications'>('feed');
@@ -50,7 +51,8 @@ const MainAppScreen: React.FC = () => {
   const [calendarOpen, setCalendarOpen] = useState(false);
   const today = new Date();
   const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
-  const { prompt, loading: promptLoading, error, hasPostedToday } = useTodayPrompt();
+  const { prompt, loading: promptLoading, error } = useTodayPrompt();
+  const { takes: sharedTakes, loading: sharedLoading } = useTakesForDate(selectedDate);
 
   useEffect(() => {
     if (!user || fetchInProgress.current) return;
@@ -59,11 +61,7 @@ const MainAppScreen: React.FC = () => {
     const initializeScreen = async () => {
       try {
         await checkDailyPost();
-        if (user.hasPostedToday) {
-          await loadTakes();
-        } else {
-          setLoading(false);
-        }
+        await loadTakes();
       } catch (error) {
         console.error('Error initializing screen:', error);
         setLoading(false);
@@ -75,59 +73,9 @@ const MainAppScreen: React.FC = () => {
   }, [user, checkDailyPost]);
 
   const loadTakes = React.useCallback(async () => {
-    try {
-      const today = new Date().toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('takes')
-        .select('*')
-        .eq('prompt_date', today)
-        .order('created_at', { ascending: false });
-      if (error) {
-        console.error('Error loading takes:', error);
-        loadFakeTakes();
-        return;
-      }
-      const userIds = [...new Set(data.map(take => take.user_id).filter(Boolean))];
-      const { data: profiles } = await supabase
-        .from('profiles')
-        .select('id, username')
-        .in('id', userIds);
-      const profileMap: Record<string, { id: string; username: string }> = profiles?.reduce((acc, profile) => {
-        acc[profile.id] = profile;
-        return acc;
-      }, {} as Record<string, { id: string; username: string }>) || {};
-      // Fetch all comments for today's takes and count per take
-      const takeIds = data.map(take => take.id);
-      let commentCountMap: Record<string, number> = {};
-      if (takeIds.length > 0) {
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('comments')
-          .select('id, take_id')
-          .in('take_id', takeIds);
-        if (!commentsError && commentsData) {
-          commentCountMap = commentsData.reduce((acc, row) => {
-            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
-            return acc;
-          }, {} as Record<string, number>);
-        }
-      }
-      const formattedTakes = data.map(take => ({
-        id: take.id,
-        userId: take.user_id,
-        content: take.content,
-        username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
-        isAnonymous: take.is_anonymous,
-        commentCount: commentCountMap[take.id] || 0,
-        timestamp: take.created_at
-      }));
-      setTakes(formattedTakes);
-    } catch (error) {
-      console.error('Error loading takes:', error);
-      loadFakeTakes();
-    } finally {
-      setLoading(false);
-    }
-  }, []);
+    setTakes(sharedTakes as any);
+    setLoading(sharedLoading);
+  }, [sharedTakes, sharedLoading]);
 
   const loadFakeTakes = () => {
     try {
@@ -179,7 +127,7 @@ const MainAppScreen: React.FC = () => {
 
   const handleTabChange = (tab: typeof currentTab) => {
     try {
-      if (tab === 'admin' && user?.username !== 'ljstevens') {
+      if (tab === 'admin' && !user?.is_admin) {
         return;
       }
       setCurrentTab(tab);
@@ -209,7 +157,7 @@ const MainAppScreen: React.FC = () => {
 
   const renderContent = () => {
     try {
-      if (currentTab === 'admin' && user?.username === 'ljstevens') {
+      if (currentTab === 'admin' && user?.is_admin) {
         return <AdminScreen />;
       }
       
@@ -222,7 +170,7 @@ const MainAppScreen: React.FC = () => {
       }
 
       if (currentTab === 'toptakes') {
-        return <TopTakesScreen focusedTakeId={focusedTakeId} />;
+        return <TopTakesScreen focusedTakeId={focusedTakeId} selectedDate={selectedDate} onDateChange={setSelectedDate} />;
       }
 
       if (currentTab === 'suggestions') {
@@ -240,7 +188,11 @@ const MainAppScreen: React.FC = () => {
       return (
         <div className="flex-1 flex flex-col h-full">
           <div className="flex-shrink-0">
-          <TodaysPrompt prompt={prompt?.prompt_text || ''} takeCount={takes.length} loading={loading} />
+          <TodaysPrompt 
+            prompt={promptText} 
+            takeCount={takes.length} 
+            loading={loading && !promptText}
+          />
           </div>
           
           <div className="flex-1 min-h-0">
@@ -278,24 +230,9 @@ const MainAppScreen: React.FC = () => {
     }
   };
 
-  const showAdminTab = user?.username === 'ljstevens';
+  const showAdminTab = !!user?.is_admin;
 
-  useEffect(() => {
-    const fetchPrompt = async () => {
-      try {
-        const { data, error } = await getTodayPrompt();
-        if (error) {
-          console.error('Error fetching today\'s prompt:', error);
-        } else {
-          setPromptText(data?.prompt_text || '');
-        }
-      } catch (error) {
-        console.error('Error fetching today\'s prompt:', error);
-      }
-    };
-
-    fetchPrompt();
-  }, []);
+  // Removed redundant today-prompt effect; header prompt now follows selectedDate
 
   useEffect(() => {
     if (!user) return;
@@ -338,61 +275,17 @@ const MainAppScreen: React.FC = () => {
   const fetchPromptAndTakesForDate = async (date: Date) => {
     setLoading(true);
     try {
-      // Fetch prompt for selectedDate
-      const { data: promptData, error } = await supabase
+      const { data: promptData } = await supabase
         .from('daily_prompts')
         .select('id, prompt_text')
         .eq('prompt_date', formatDate(date))
-        .single();
+        .maybeSingle();
       setPromptText(promptData?.prompt_text || '');
-      // Fetch takes for selectedDate
-      const { data: takesData, error: takesError } = await supabase
-        .from('takes')
-        .select('*')
-        .eq('prompt_date', formatDate(date))
-        .order('created_at', { ascending: false });
-      // Fetch profiles for user_ids
-      const userIds = [...new Set((takesData || []).map(t => t.user_id).filter(Boolean))];
-      let profileMap: Record<string, { id: string; username: string }> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('id', userIds);
-        profileMap = (profiles || []).reduce((acc, profile) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {} as Record<string, { id: string; username: string }>);
-      }
-      // Fetch all comments for takes and count per take
-      const takeIds = (takesData || []).map((take: { id: string }) => take.id);
-      let commentCountMap: Record<string, number> = {};
-      if (takeIds.length > 0) {
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('comments')
-          .select('id, take_id')
-          .in('take_id', takeIds);
-        if (!commentsError && commentsData) {
-          commentCountMap = commentsData.reduce((acc: Record<string, number>, row: { take_id: string }) => {
-            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
-            return acc;
-          }, {});
-        }
-      }
-      const formattedTakes = (takesData || []).map(take => ({
-        id: take.id,
-        userId: take.user_id,
-        content: take.content,
-        username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
-        isAnonymous: take.is_anonymous,
-        commentCount: commentCountMap[take.id] || 0,
-        timestamp: take.created_at
-      }));
-      setTakes(formattedTakes);
+      setTakes(sharedTakes as any);
+      setLoading(sharedLoading);
     } catch (error) {
       setPromptText('');
       setTakes([]);
-    } finally {
       setLoading(false);
     }
   };
@@ -405,6 +298,8 @@ const MainAppScreen: React.FC = () => {
     // eslint-disable-next-line
   }, [selectedDate, currentTab]);
 
+  // Removed forced-date alignment to always start at today on refresh
+
   const checkHasPostedForDate = async (date: Date) => {
     if (!user) return;
     const { data, error } = await supabase
@@ -412,7 +307,7 @@ const MainAppScreen: React.FC = () => {
       .select('id')
       .eq('user_id', user.id)
       .eq('prompt_date', formatDate(date))
-      .single();
+      .maybeSingle();
     setHasPostedForSelectedDate(!!data);
   };
 
@@ -422,15 +317,17 @@ const MainAppScreen: React.FC = () => {
     // eslint-disable-next-line
   }, [selectedDate, user]);
 
-  // Show late submit modal if not posted, not today
+  // Show late submit modal if not posted, not today, and not already forcing blocker
   useEffect(() => {
     const isToday = formatDate(selectedDate) === formatDate(today);
-    if (!hasPostedForSelectedDate && !isToday) {
+    const forced = (() => { try { return localStorage.getItem('forceBlockerDate'); } catch { return null; } })();
+    const isForcedForThisDate = forced && forced === formatDate(selectedDate);
+    if (!hasPostedForSelectedDate && !isToday && !isForcedForThisDate && !isAppBlocked) {
       setShowLateSubmit(true);
     } else {
       setShowLateSubmit(false);
     }
-  }, [hasPostedForSelectedDate, selectedDate, today]);
+  }, [hasPostedForSelectedDate, selectedDate, today, isAppBlocked]);
 
   const checkLateSubmissionEligibility = async (date: Date) => {
     if (!user) return false;
@@ -629,7 +526,7 @@ const MainAppScreen: React.FC = () => {
       {showLateSubmit && (
         <LateSubmitModal
           isOpen={showLateSubmit}
-          onClose={() => setShowLateSubmit(false)}
+          onClose={() => { setShowLateSubmit(false); setSelectedDate(today); }}
           onPurchase={() => {/* billing/credit logic here */}}
           date={selectedDate}
         />

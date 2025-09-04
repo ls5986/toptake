@@ -45,20 +45,21 @@ export function ThemeSelector() {
   };
 
   return (
-    <Card className="bg-brand-surface border-brand-border">
+    <Card className="bg-brand-surface/80 backdrop-blur-sm border-brand-border">
       <CardHeader>
-        <CardTitle className="text-brand-text">Theme</CardTitle>
+        <CardTitle className="text-brand-text flex items-center justify-between">
+          <span>Theme</span>
+          <span className="text-xs text-brand-muted">Applies instantly</span>
+        </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
           {availableThemes.map((themeConfig) => (
             <Button
               key={themeConfig.id}
               variant="outline"
-              className={cn(
-                "h-auto p-0 overflow-hidden relative group",
-                theme === themeConfig.id && "ring-2 ring-brand-primary"
-              )}
+              className={cn("h-auto p-0 overflow-hidden relative group border-brand-border hover:border-brand-accent",
+                theme === themeConfig.id && "ring-2 ring-brand-primary")}
               onClick={() => handleThemeSelect(themeConfig.id, themeConfig.premium)}
             >
               <div
@@ -78,7 +79,7 @@ export function ThemeSelector() {
               </div>
               <div className="p-2 text-center">
                 <div className="font-medium text-brand-text">{themeConfig.name}</div>
-                <div className="text-xs text-brand-muted">{themeConfig.description}</div>
+                <div className="text-xs text-brand-muted line-clamp-2">{themeConfig.description}</div>
               </div>
             </Button>
           ))}

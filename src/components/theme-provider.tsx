@@ -40,18 +40,28 @@ export function ThemeProvider({
   useEffect(() => {
     const root = window.document.documentElement
     root.classList.remove(...themes.map(t => `theme-${t.id}`))
-    root.classList.add(getThemeTransition())
+    // Add transition classes safely (no spaces in classList tokens)
+    const transition = getThemeTransition()
+    if (transition) {
+      root.classList.add(...transition.split(' '))
+    }
 
     if (theme === "system") {
       const systemTheme = window.matchMedia("(prefers-color-scheme: dark)")
         .matches
         ? "dark"
         : "light"
-      root.classList.add(getThemeClass(systemTheme as Theme))
+      const themeClass = getThemeClass(systemTheme as Theme)
+      if (themeClass) {
+        root.classList.add(...themeClass.split(' '))
+      }
       return
     }
 
-    root.classList.add(getThemeClass(theme))
+    const themeClass = getThemeClass(theme)
+    if (themeClass) {
+      root.classList.add(...themeClass.split(' '))
+    }
   }, [theme])
 
   const value: ThemeContextType = {

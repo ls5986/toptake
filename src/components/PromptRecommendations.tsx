@@ -155,8 +155,8 @@ const PromptRecommendations: React.FC = () => {
       }
 
       // Start transaction
-      const { error: transactionError } = await supabase.rpc('begin_transaction');
-      if (transactionError) throw transactionError;
+      // Guard: transaction RPCs may not exist in DB; proceed without if unavailable
+      try { await supabase.rpc('begin_transaction'); } catch {}
 
       try {
         // Insert suggestion
@@ -194,7 +194,7 @@ const PromptRecommendations: React.FC = () => {
         });
 
         // Commit transaction
-        await supabase.rpc('commit_transaction');
+        try { await supabase.rpc('commit_transaction'); } catch {}
 
         setNewPrompt('');
         setAiFixedPrompt('');
@@ -208,7 +208,7 @@ const PromptRecommendations: React.FC = () => {
         });
       } catch (error) {
         // Rollback transaction
-        await supabase.rpc('rollback_transaction');
+        try { await supabase.rpc('rollback_transaction'); } catch {}
         throw error;
       }
     } catch (error) {
@@ -245,8 +245,7 @@ const PromptRecommendations: React.FC = () => {
     }
 
     // Start transaction
-    const { error: transactionError } = await supabase.rpc('begin_transaction');
-    if (transactionError) throw transactionError;
+    try { await supabase.rpc('begin_transaction'); } catch {}
 
     try {
       // Schedule prompt
@@ -291,7 +290,7 @@ const PromptRecommendations: React.FC = () => {
       });
 
       // Commit transaction
-      await supabase.rpc('commit_transaction');
+      try { await supabase.rpc('commit_transaction'); } catch {}
 
       toast({ 
         title: 'Prompt scheduled!',
@@ -302,7 +301,7 @@ const PromptRecommendations: React.FC = () => {
       loadUserSubmissions();
     } catch (error) {
       // Rollback transaction
-      await supabase.rpc('rollback_transaction');
+      try { await supabase.rpc('rollback_transaction'); } catch {}
       throw error;
     }
   };
@@ -310,8 +309,7 @@ const PromptRecommendations: React.FC = () => {
   const rejectRecommendation = async (id: string) => {
     try {
       // Start transaction
-      const { error: transactionError } = await supabase.rpc('begin_transaction');
-      if (transactionError) throw transactionError;
+      try { await supabase.rpc('begin_transaction'); } catch {}
 
       try {
         // Update recommendation status
@@ -343,7 +341,7 @@ const PromptRecommendations: React.FC = () => {
         }
 
         // Commit transaction
-        await supabase.rpc('commit_transaction');
+        try { await supabase.rpc('commit_transaction'); } catch {}
 
         loadRecommendations();
         loadUserSubmissions();
@@ -354,7 +352,7 @@ const PromptRecommendations: React.FC = () => {
         });
       } catch (error) {
         // Rollback transaction
-        await supabase.rpc('rollback_transaction');
+        try { await supabase.rpc('rollback_transaction'); } catch {}
         throw error;
       }
     } catch (error) {

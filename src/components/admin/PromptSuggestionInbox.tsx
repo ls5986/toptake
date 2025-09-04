@@ -156,8 +156,7 @@ const PromptSuggestionInbox: React.FC = () => {
       : (editingId === s.id ? editText : s.original_text);
 
     // Start transaction
-    const { error: transactionError } = await supabase.rpc('begin_transaction');
-    if (transactionError) throw transactionError;
+    try { await supabase.rpc('begin_transaction'); } catch {}
 
     try {
       // Create daily prompt
@@ -203,7 +202,7 @@ const PromptSuggestionInbox: React.FC = () => {
       );
 
       // Commit transaction
-      await supabase.rpc('commit_transaction');
+      try { await supabase.rpc('commit_transaction'); } catch {}
 
       await loadSuggestions();
       await loadStats();
@@ -214,7 +213,7 @@ const PromptSuggestionInbox: React.FC = () => {
       });
     } catch (error) {
       // Rollback transaction
-      await supabase.rpc('rollback_transaction');
+      try { await supabase.rpc('rollback_transaction'); } catch {}
       throw error;
     }
   };

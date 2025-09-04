@@ -4,6 +4,7 @@ import { AppBlocker } from './AppBlocker';
 import { TodaysPrompt } from './TodaysPrompt';
 import { Take, User } from '@/types';
 import { supabase } from '@/lib/supabase';
+import { useTakesForDate } from '@/hooks/useTakesForDate';
 import { useAppContext } from '@/contexts/AppContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { RefreshCw, CalendarIcon } from 'lucide-react';
@@ -12,101 +13,43 @@ import { useToast } from '@/hooks/use-toast';
 import { format } from 'date-fns';
 import { Calendar } from '@/components/ui/calendar';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
-import { useTodayPrompt } from '@/hooks/useTodayPrompt';
+import { usePromptForDate } from '@/hooks/usePromptForDate';
 
 const FeedScreen: React.FC = () => {
   const { user, isAppBlocked, setIsAppBlocked, checkDailyPost } = useAppContext();
   const [takes, setTakes] = useState<Take[]>([]);
-  const [loading, setLoading] = useState(true);
+  // List loading comes from sharedLoading below; avoid duplicate spinners
   const [refreshing, setRefreshing] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const fetchInProgress = useRef(false);
   const { toast } = useToast();
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Use the same prompt hook as other components for consistency
-  const { prompt, loading: promptLoading } = useTodayPrompt();
+  // Use selected date's prompt
+  const { promptText, loading: promptLoading } = usePromptForDate(selectedDate);
   
-  // Get prompt text for display - use today's prompt for consistency
-  const promptText = prompt?.prompt_text || '';
-  
-  const loadPromptAndTakes = async () => {
-    setLoading(true);
-    try {
-      // Fetch all takes for selected date
-      const dateStr = selectedDate.toISOString().split('T')[0];
-      const { data, error } = await supabase
-        .from('takes')
-        .select('*')
-        .eq('prompt_date', dateStr)
-        .order('created_at', { ascending: false });
-        
-      if (error) {
-        console.error('❌ FeedScreen: Error fetching takes for date:', error);
-        setTakes([]);
-        setLoading(false);
-        return;
-      }
-      
-      // Fetch profiles for user_ids
-      const userIds = [...new Set((data || []).map(t => t.user_id).filter(Boolean))];
-      let profileMap: Record<string, Pick<User, 'id' | 'username'>> = {};
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('id', userIds);
-        profileMap = (profiles || []).reduce((acc: Record<string, Pick<User, 'id' | 'username'>>, profile: { id: string; username: string }) => {
-          acc[profile.id] = profile;
-          return acc;
-        }, {});
-      }
-      
-      // Fetch all comments for today's takes and count per take
-      const takeIds = (data || []).map((take: { id: string }) => take.id);
-      let commentCountMap: Record<string, number> = {};
-      if (takeIds.length > 0) {
-        const { data: commentsData, error: commentsError } = await supabase
-          .from('comments')
-          .select('id, take_id')
-          .in('take_id', takeIds);
-        if (!commentsError && commentsData) {
-          commentCountMap = commentsData.reduce((acc: Record<string, number>, row: { take_id: string }) => {
-            acc[row.take_id] = (acc[row.take_id] || 0) + 1;
-            return acc;
-          }, {});
-        }
-      }
-      
-      // Format takes to match Take type
-      const formattedTakes: Take[] = (data || []).map((take: any) => ({
-        id: take.id,
-        userId: take.user_id,
-        content: take.content,
-        username: take.is_anonymous ? 'Anonymous' : profileMap[take.user_id]?.username || 'Unknown',
-        isAnonymous: take.is_anonymous,
-        timestamp: take.created_at,
-        prompt_date: take.prompt_date,
-        commentCount: commentCountMap[take.id] || 0
-      }));
-      
-      setTakes(formattedTakes);
-    } catch (error) {
-      console.error('❌ FeedScreen: Error in loadPromptAndTakes:', error);
-      setTakes([]);
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
-    }
-  };
+  const { takes: sharedTakes, loading: sharedLoading, setBefore } = useTakesForDate(selectedDate);
+  useEffect(() => {
+    console.log('[Feed] page data', {
+      count: sharedTakes?.length,
+      first: sharedTakes?.[0]?.id,
+      last: sharedTakes?.[sharedTakes.length - 1]?.id
+    });
+  }, [sharedTakes]);
 
   useEffect(() => {
-    if (user && !isAppBlocked && !fetchInProgress.current) {
-      fetchInProgress.current = true;
-      loadPromptAndTakes().finally(() => {
-        fetchInProgress.current = false;
-      });
+    if (!user || isAppBlocked) return;
+    // Ensure the user's own take is pinned at the top if present
+    let next = [...(sharedTakes as any)]
+    if (user?.id) {
+      const idx = next.findIndex(t => t.userId === user.id)
+      if (idx > 0) {
+        const [mine] = next.splice(idx, 1)
+        next.unshift(mine)
+      }
     }
-  }, [user, isAppBlocked, selectedDate]);
+    setTakes(next);
+  }, [user, isAppBlocked, sharedTakes, sharedLoading]);
 
   const handleReaction = async (takeId: string, reaction: string) => {
     // Simplified reaction handling - just log for now
@@ -115,8 +58,23 @@ const FeedScreen: React.FC = () => {
 
   const handleRefresh = async () => {
     setRefreshing(true);
-    await loadPromptAndTakes();
+    // no-op: hook auto refreshes on date change; force a light UI refresh
+    setTakes(sharedTakes as any);
     setTimeout(() => setRefreshing(false), 400);
+  };
+
+  const handleLoadMore = () => {
+    if (loadingMore || sharedLoading) return;
+    if (!takes || takes.length === 0) return;
+    setLoadingMore(true);
+    const last = takes[takes.length - 1];
+    if (last?.timestamp) {
+      setBefore(last.timestamp);
+      // give hook time to fetch; UI loading indicator handled by sharedLoading
+      setTimeout(() => setLoadingMore(false), 400);
+    } else {
+      setLoadingMore(false);
+    }
   };
 
   const handleUnlock = async () => {
@@ -144,7 +102,7 @@ const FeedScreen: React.FC = () => {
         />
       </div>
       <div className="flex-1 min-h-0">
-        {loading ? (
+        {sharedLoading && !promptText ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-brand-text">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand-accent mx-auto mb-4"></div>
@@ -192,6 +150,11 @@ const FeedScreen: React.FC = () => {
                   onReact={handleReaction}
                 />
               ))}
+              <div className="flex justify-center py-4">
+                <Button onClick={handleLoadMore} size="sm" variant="outline" disabled={loadingMore || sharedLoading}>
+                  {loadingMore || sharedLoading ? 'Loading…' : 'Load more'}
+                </Button>
+              </div>
               {takes.length === 0 && (
                 <div className="text-center text-brand-muted py-8">
                   <p>No takes yet today!</p>

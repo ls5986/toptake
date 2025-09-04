@@ -9,6 +9,10 @@ import { supabase } from '@/lib/supabase';
 import { format } from 'date-fns';
 import ProfileEditModal from './ProfileEditModal';
 import { TakeCard } from './TakeCard';
+import { ThemeSelector } from './ThemeSelector';
+import { useTheme } from '@/components/theme-provider';
+import { MonetizationModals } from './MonetizationModals';
+import ThemeStoreModal from './ThemeStoreModal';
 import { TodaysPrompt } from './TodaysPrompt';
 import { Take } from '@/types';
 import { useAppContext } from '@/contexts/AppContext';
@@ -16,38 +20,41 @@ import { useTodayPrompt } from '@/hooks/useTodayPrompt';
 
 const ProfileView: React.FC = () => {
   const { user, logout } = useAppContext();
-  const [selectedDate, setSelectedDate] = useState(new Date());
+  const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('light');
+  const { setTheme } = useTheme();
+  const [showStore, setShowStore] = useState(false);
   const [streak, setStreak] = useState(0);
   const [totalTakes, setTotalTakes] = useState(0);
   const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
   const { toast } = useToast();
   
-  // Use the same prompt hook as other components for consistency
-  const { prompt, loading: promptLoading } = useTodayPrompt();
-  
-  // Get prompt text for display - use today's prompt for consistency
-  const promptText = prompt?.prompt_text || '';
+  // Profile is not date-specific for prompt display; omit prompt
 
   useEffect(() => {
     if (user?.id) {
       loadUserData();
       fetchUserTakes();
     }
-  }, [user?.id, selectedDate]);
+  }, [user?.id]);
+
+  const localDate = (d: Date) => {
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  };
 
   const fetchUserTakes = async () => {
     if (!user?.id) return;
     try {
-      const dateStr = selectedDate.toISOString().split('T')[0];
       const { data: takesData } = await supabase
         .from('takes')
         .select('*')
         .eq('user_id', user.id)
-        .eq('prompt_date', dateStr)
         .order('created_at', { ascending: false });
       
       if (takesData) {
@@ -91,6 +98,17 @@ const ProfileView: React.FC = () => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    (async () => {
+      if (!user?.id) return;
+      const { count } = await supabase
+        .from('takes')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+      setTotalTakes(count || 0);
+    })().catch(console.error);
+  }, [user?.id]);
 
   const handleReaction = async (takeId: string, reaction: string) => {
     // Simplified reaction handling - just log for now
@@ -141,24 +159,13 @@ const ProfileView: React.FC = () => {
                   {totalTakes || 0} takes
                 </Badge>
               </div>
-              <div className="mt-4">
-                <div className="font-semibold text-brand-text mb-2">Theme</div>
-                <div className="flex gap-2 justify-center">
-                  <Button
-                    onClick={() => setCurrentTheme('light')}
-                    className={`px-3 py-1 rounded-full border ${currentTheme === 'light' ? 'border-brand-accent' : 'border-brand-border'}`}
-                    disabled={currentTheme === 'light'}
-                  >
-                    Light
-                  </Button>
-                  <Button
-                    onClick={() => setCurrentTheme('dark')}
-                    className={`px-3 py-1 rounded-full border ${currentTheme === 'dark' ? 'border-brand-accent' : 'border-border'}`}
-                    disabled={currentTheme === 'dark'}
-                  >
-                    Dark
-                  </Button>
+              <div className="mt-4 w-full max-w-2xl mx-auto">
+                <div className="grid grid-cols-3 gap-2">
+                  <Button variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
+                  <Button variant="outline" onClick={() => { setTheme('dark' as any); setCurrentTheme('dark'); }}>Dark</Button>
+                  <Button variant="outline" onClick={() => setShowStore(true)}>Trippy</Button>
                 </div>
+                <p className="text-xs text-brand-muted mt-2 text-center">Trippy includes premium themes.</p>
               </div>
               <Button
                 onClick={handleEditProfile}
@@ -191,12 +198,7 @@ const ProfileView: React.FC = () => {
         </h3>
       </div>
       
-      <TodaysPrompt 
-        prompt={promptText} 
-        takeCount={userTakes.length} 
-        loading={promptLoading}
-        selectedDate={selectedDate}
-      />
+      {/* No date-specific prompt on profile */}
 
       {/* User's Takes */}
       <div className="flex-1 min-h-0">
@@ -225,6 +227,9 @@ const ProfileView: React.FC = () => {
         profile={user}
         onUpdate={() => {}}
       />
+      {showStore && (
+        <ThemeStoreModal isOpen={showStore} onClose={() => setShowStore(false)} />
+      )}
     </div>
   );
 };

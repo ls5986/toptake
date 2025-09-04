@@ -36,8 +36,7 @@ export function usePromptForDate(date: Date) {
         .from('daily_prompts')
         .select('*')
         .eq('prompt_date', dateStr)
-        .eq('is_active', true)
-        .single();
+        .maybeSingle();
       if (!isMounted) return;
       if (error) {
         setPromptText('');

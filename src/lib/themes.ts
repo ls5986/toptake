@@ -1,7 +1,7 @@
 import { type ClassValue, clsx } from "clsx"
 import { twMerge } from "tailwind-merge"
 
-export type Theme = "dark" | "light" | "system" | "orange_glow" | "midnight" | "sunset" | "forest" | "ocean"
+export type Theme = "dark" | "light" | "system" | "orange_glow" | "midnight" | "sunset" | "forest" | "ocean" | "high_contrast"
 
 export interface ThemeConfig {
   id: Theme
@@ -18,6 +18,19 @@ export interface ThemeConfig {
 }
 
 export const themes: ThemeConfig[] = [
+  {
+    id: "system",
+    name: "System",
+    description: "Match your device appearance",
+    premium: false,
+    preview: {
+      background: "#FFFFFF",
+      primary: "#FF5E1A",
+      secondary: "#FF7C2A",
+      accent: "#FFB26B",
+      text: "#181818"
+    }
+  },
   {
     id: "light",
     name: "Light",
@@ -48,7 +61,7 @@ export const themes: ThemeConfig[] = [
     id: "orange_glow",
     name: "Orange Glow",
     description: "Vibrant orange theme with glowing effects",
-    premium: true,
+    premium: false,
     preview: {
       background: "#1A1A1A",
       primary: "#FF5E1A",
@@ -61,7 +74,7 @@ export const themes: ThemeConfig[] = [
     id: "midnight",
     name: "Midnight",
     description: "Deep blue theme for late night browsing",
-    premium: true,
+    premium: false,
     preview: {
       background: "#0A192F",
       primary: "#64FFDA",
@@ -74,7 +87,7 @@ export const themes: ThemeConfig[] = [
     id: "sunset",
     name: "Sunset",
     description: "Warm purple and orange gradient theme",
-    premium: true,
+    premium: false,
     preview: {
       background: "#2D1B69",
       primary: "#FF5E1A",
@@ -87,7 +100,7 @@ export const themes: ThemeConfig[] = [
     id: "forest",
     name: "Forest",
     description: "Calming green theme inspired by nature",
-    premium: true,
+    premium: false,
     preview: {
       background: "#1A2F1A",
       primary: "#4CAF50",
@@ -100,13 +113,26 @@ export const themes: ThemeConfig[] = [
     id: "ocean",
     name: "Ocean",
     description: "Cool blue theme inspired by the sea",
-    premium: true,
+    premium: false,
     preview: {
       background: "#1A2B3D",
       primary: "#2196F3",
       secondary: "#64B5F6",
       accent: "#90CAF9",
       text: "#E3F2FD"
+    }
+  },
+  {
+    id: "high_contrast",
+    name: "High Contrast",
+    description: "Accessible theme with strong contrast",
+    premium: false,
+    preview: {
+      background: "#000000",
+      primary: "#FFFFFF",
+      secondary: "#FFD700",
+      accent: "#FFFFFF",
+      text: "#FFFFFF"
     }
   }
 ]
@@ -139,7 +165,8 @@ export function getThemeClass(theme: Theme) {
       "theme-midnight": theme === "midnight",
       "theme-sunset": theme === "sunset",
       "theme-forest": theme === "forest",
-      "theme-ocean": theme === "ocean"
+      "theme-ocean": theme === "ocean",
+      "theme-high-contrast": theme === "high_contrast"
     }
   )
 } 
