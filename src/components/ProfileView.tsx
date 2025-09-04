@@ -375,15 +375,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                     {isFollowing ? 'Unfollow' : 'Follow'}
                   </button>
                 )}
-                <button
-                  className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
-                  onClick={async () => {
-                    if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
-                    try { await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId }).select(); } catch {}
-                  }}
-                >
-                  Block
-                </button>
+                {user?.id !== targetUserId && (
+                  <button
+                    className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
+                    onClick={async () => {
+                      if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
+                      try { await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId }).select(); } catch {}
+                    }}
+                  >
+                    Block
+                  </button>
+                )}
               </div>
 
               <div className="mt-2 flex justify-center gap-4 text-sm">
