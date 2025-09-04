@@ -264,7 +264,7 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
   const engagement = take ? Object.values(take.reactions).reduce((a, b) => a + b, 0) + comments.length : 0;
 
   return (
-    <div className="max-w-2xl mx-auto py-6 px-2">
+    <div className="w-full mx-auto py-6 px-4 sm:px-6 md:max-w-2xl lg:max-w-3xl xl:max-w-4xl">
       <Button variant="ghost" size="sm" className="mb-4 flex items-center gap-2" onClick={() => setCurrentScreen('main')}>
         <ArrowLeft className="w-4 h-4" /> Back
       </Button>
