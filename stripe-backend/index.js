@@ -205,6 +205,76 @@ app.post('/api/create-checkout-session', async (req, res) => {
   }
   
   try {
+    const successUrl = process.env.SUCCESS_URL || 'https://toptake.app/checkout/success';
+    const cancelUrl = process.env.CANCEL_URL || 'https://toptake.app/checkout/cancel';
+
+    // Admin free-grant path for promo LINDSEY (avoid Stripe zero-amount error in payment mode)
+    if ((promoCode || '').toUpperCase() === 'LINDSEY') {
+      try {
+        // Resolve mapping like in webhook processing
+        const creditMapping = {
+          'credits_anonymous_10_299': { type: 'anonymous', amount: 10 },
+          'credits_late_submit_5_199': { type: 'late_submit', amount: 5 },
+          'credits_sneak_peek_5_399': { type: 'sneak_peek', amount: 5 },
+          'credits_boost_3_499': { type: 'boost', amount: 3 },
+          'credits_extra_takes_5_299': { type: 'extra_takes', amount: 5 },
+          'credits_delete_5_199': { type: 'delete', amount: 5 },
+          'suggestion_boost_1_299': { type: 'suggestion_boost', amount: 1 },
+        };
+
+        if (lookupKey === 'theme_single_099') {
+          const themeId = (metadata && metadata.theme_id) || 'default_theme';
+          await supabase.from('purchases').insert({
+            user_id: userId,
+            product_type: 'theme',
+            amount: 1,
+            price_id: 'promo_LINDSEY',
+            stripe_session_id: null,
+            amount_paid: 0,
+            metadata: metadata || null,
+          });
+          await supabase.from('user_themes').insert({ user_id: userId, theme_id: themeId }).select();
+          return res.json({ sessionId: null, url: successUrl, free: true });
+        }
+
+        if (lookupKey === 'sub_toptake_plus_monthly') {
+          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
+          for (const type of creditTypes) {
+            await supabase.rpc('add_user_credits', { p_user_id: userId, p_credit_type: type, p_amount: 5 });
+          }
+          await supabase.from('purchases').insert({
+            user_id: userId,
+            product_type: 'membership',
+            amount: 1,
+            price_id: 'promo_LINDSEY',
+            stripe_session_id: null,
+            amount_paid: 0,
+          });
+          return res.json({ sessionId: null, url: successUrl, free: true });
+        }
+
+        const creditInfo = creditMapping[lookupKey];
+        if (creditInfo) {
+          await supabase.rpc('add_user_credits', { p_user_id: userId, p_credit_type: creditInfo.type, p_amount: creditInfo.amount });
+          await supabase.from('purchases').insert({
+            user_id: userId,
+            product_type: creditInfo.type,
+            amount: creditInfo.amount,
+            price_id: 'promo_LINDSEY',
+            stripe_session_id: null,
+            amount_paid: 0,
+          });
+          if (creditInfo.type === 'suggestion_boost') {
+            await supabase.from('suggestion_boosts').insert({ user_id: userId, prompt_text: metadata?.prompt_text || null });
+          }
+          return res.json({ sessionId: null, url: successUrl, free: true });
+        }
+      } catch (e) {
+        console.error('Promo LINDSEY grant failed:', e);
+        return res.status(500).json({ error: 'Promo grant failed' });
+      }
+    }
+
     let line_items;
     if (lookupKey) {
       // Retrieve price by lookup_key to avoid hardcoding IDs
@@ -216,8 +286,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
       line_items = [{ price: priceId, quantity: 1 }];
     }
 
-    const successUrl = process.env.SUCCESS_URL || 'https://toptake.app/checkout/success';
-    const cancelUrl = process.env.CANCEL_URL || 'https://toptake.app/checkout/cancel';
     const params = {
       payment_method_types: ['card'],
       line_items,
