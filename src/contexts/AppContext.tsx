@@ -173,7 +173,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         hasPosted: !!existingTake
       });
 
-      return !!existingTake;
+      const has = !!existingTake;
+      setHasPostedToday(has);
+      setIsAppBlocked(!has);
+      return has;
     } catch (error) {
       console.error('Error checking daily post:', error);
       return false;
@@ -472,6 +475,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       
       const hasPosted = !!(takes && takes.length > 0);
       setHasPostedToday(hasPosted);
+      setIsAppBlocked(!hasPosted);
       
       console.log('✅ Backend check result:', {
         userId: targetUserId,
@@ -596,6 +600,10 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
           });
         }
       }
+
+      // Instant UI feedback
+      setHasPostedToday(true);
+      setIsAppBlocked(false);
 
       return true;
       

@@ -24,6 +24,7 @@ import { fetchPromptForDateCached } from '@/lib/utils';
 import BillingModal from './BillingModal';
 import AccountSettingsModal from './AccountSettingsModal';
 import NotificationsScreen from './NotificationsScreen';
+import SearchScreen from './SearchScreen';
 import LateSubmitModal from './LateSubmitModal';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
@@ -36,7 +37,7 @@ const MainAppScreen: React.FC = () => {
   const { username } = useParams();
   const navigate = useNavigate();
   // Remove local duplicated takes/loading; rely on hook state
-  const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications'>('feed');
+  const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search'>('feed');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
@@ -144,6 +145,9 @@ const MainAppScreen: React.FC = () => {
       if (tab !== 'profile' && username) {
         navigate('/');
       }
+      if (tab === 'search') {
+        setCurrentScreen('friends'); // reuse FriendsScreen as "Search" for now
+      }
       setCurrentTab(tab);
     } catch (error) {
       console.error('Error changing tab:', error);
@@ -193,6 +197,10 @@ const MainAppScreen: React.FC = () => {
 
       if (currentTab === 'toptakes') {
         return <TopTakesScreen focusedTakeId={focusedTakeId} selectedDate={selectedDate} onDateChange={setSelectedDate} />;
+      }
+
+      if (currentTab === 'search') {
+        return <SearchScreen onGoToTake={handleGoToTake} />;
       }
 
       if (currentTab === 'suggestions') {
@@ -453,9 +461,9 @@ const MainAppScreen: React.FC = () => {
       
       <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
         <div className="flex-shrink-0 p-4 border-b border-brand-border">
-          <div className="max-w-2xl mx-auto flex justify-between items-center">
+          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center">
             <button
-              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none"
+              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
             >
@@ -466,7 +474,7 @@ const MainAppScreen: React.FC = () => {
         </div>
         
         <div className="flex-shrink-0">
-          <div className="max-w-2xl mx-auto">
+          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
             <MainTabs currentTab={currentTab} onTabChange={(tab)=>{
               if (tab === 'feed') {
                 navigate('/');
@@ -484,7 +492,7 @@ const MainAppScreen: React.FC = () => {
         </div>
         
         <div className="flex-1 min-h-0">
-          <div className="max-w-2xl mx-auto h-full">
+          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
             <div className="flex items-center justify-center gap-4 my-4" style={{ display: username ? 'none' : undefined }}>
               <Button variant="ghost" onClick={goToPrevDay}><ChevronLeft /></Button>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
@@ -528,13 +536,19 @@ const MainAppScreen: React.FC = () => {
       {/* Hamburger menu overlay */}
       {menuOpen && (
         <div className="fixed inset-0 z-50 bg-brand-background bg-opacity-90 flex">
-          <div className="w-64 bg-brand-surface h-full shadow-lg p-6 flex flex-col">
+          <div className="w-64 sm:w-72 bg-brand-surface h-full shadow-lg p-6 flex flex-col">
             <button
               className="self-end mb-4 text-brand-muted hover:text-brand-primary"
               onClick={() => setMenuOpen(false)}
               aria-label="Close menu"
             >
               ×
+            </button>
+            <button
+              className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+              onClick={() => { navigate('/profile'); setCurrentTab('profile'); setMenuOpen(false); }}
+            >
+              Profile
             </button>
             <button
               className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
@@ -548,6 +562,20 @@ const MainAppScreen: React.FC = () => {
             >
               Suggestions
             </button>
+            <button
+              className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+              onClick={() => { setCurrentTab('notifications'); setMenuOpen(false); }}
+            >
+              Notifications
+            </button>
+            {user?.is_admin && (
+              <button
+                className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
+                onClick={() => { setCurrentTab('admin'); setMenuOpen(false); }}
+              >
+                Admin
+              </button>
+            )}
             <button
               className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
               onClick={() => { setShowBillingModal(true); setMenuOpen(false); }}
