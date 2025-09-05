@@ -124,56 +124,64 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
-          <DialogTitle>Theme Store</DialogTitle>
-          <DialogDescription>Preview themes and apply your favorite. Premium themes require purchase.</DialogDescription>
-        </DialogHeader>
-        {/* Large example preview */}
-        <div className="rounded-lg border border-brand-border p-4 mb-4" style={{ background: preview.background, color: preview.text }}>
-          <div className="font-semibold mb-2">Example</div>
-          <div className="rounded-md p-3 mb-3" style={{ background: preview.accent, color: preview.background }}>Header</div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="rounded-md p-3 border" style={{ borderColor: preview.secondary }}>
-              <div className="text-sm mb-2">Card title</div>
-              <div className="text-xs opacity-80">Some example content...</div>
+      <DialogContent className="sm:max-w-lg p-0">
+        <div className="flex flex-col max-h-[calc(100dvh-6rem)]">
+          <div className="px-6 pt-6 overflow-y-auto">
+            <DialogHeader>
+              <DialogTitle>Theme Store</DialogTitle>
+              <DialogDescription>Preview themes and apply your favorite. Premium themes require purchase.</DialogDescription>
+            </DialogHeader>
+            {/* Large example preview */}
+            <div className="rounded-lg border border-brand-border p-4 mb-4" style={{ background: preview.background, color: preview.text }}>
+              <div className="font-semibold mb-2">Example</div>
+              <div className="rounded-md p-3 mb-3" style={{ background: preview.accent, color: preview.background }}>Header</div>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="rounded-md p-3 border" style={{ borderColor: preview.secondary }}>
+                  <div className="text-sm mb-2">Card title</div>
+                  <div className="text-xs opacity-80">Some example content...</div>
+                </div>
+                <div className="rounded-md p-3 border" style={{ borderColor: preview.secondary }}>
+                  <div className="text-sm mb-2">Another card</div>
+                  <div className="text-xs opacity-80">Try different themes to preview.</div>
+                </div>
+              </div>
+              <div className="mt-3">
+                <button className="px-3 py-2 rounded text-sm font-semibold" style={{ background: preview.primary, color: preview.background }}>Primary Button</button>
+              </div>
             </div>
-            <div className="rounded-md p-3 border" style={{ borderColor: preview.secondary }}>
-              <div className="text-sm mb-2">Another card</div>
-              <div className="text-xs opacity-80">Try different themes to preview.</div>
-            </div>
-          </div>
-          <div className="mt-3">
-            <button className="px-3 py-2 rounded text-sm font-semibold" style={{ background: preview.primary, color: preview.background }}>Primary Button</button>
-          </div>
-        </div>
 
-        {/* Small pickers */}
-        <div className="grid grid-cols-2 gap-3">
-          {themes.map(t => (
-            <ThemePreview
-              key={t.id}
-              themeId={t.id as Theme}
-              selected={selectedTheme === t.id}
-              onSelect={() => setSelectedTheme(t.id as Theme)}
-            />
-          ))}
-        </div>
-        {isPremiumTheme(selectedTheme) && (
-          <div className="text-sm text-brand-muted mt-2">
-            {ownsSelected ? 'Owned' : `Price: $${THEME_PRICE.toFixed(2)}`}
+            {/* Small pickers */}
+            <div className="grid grid-cols-2 gap-3">
+              {themes.map(t => (
+                <ThemePreview
+                  key={t.id}
+                  themeId={t.id as Theme}
+                  selected={selectedTheme === t.id}
+                  onSelect={() => setSelectedTheme(t.id as Theme)}
+                />
+              ))}
+            </div>
+            {isPremiumTheme(selectedTheme) && (
+              <div className="text-sm text-brand-muted mt-2">
+                {ownsSelected ? 'Owned' : `Price: $${THEME_PRICE.toFixed(2)}`}
+              </div>
+            )}
+            {error && <div className="text-brand-danger text-sm mt-2">{error}</div>}
+            <div className="h-5" />
           </div>
-        )}
-        {error && <div className="text-brand-danger text-sm mt-2">{error}</div>}
-        <div className="flex justify-end gap-2 mt-4">
-          <Button variant="outline" onClick={onClose} disabled={saving || purchasing}>Cancel</Button>
-          {isPremiumTheme(selectedTheme) && !ownsSelected ? (
-            <Button onClick={handlePurchase} disabled={purchasing}>
-              {purchasing ? 'Processing...' : `Purchase Theme ($${THEME_PRICE.toFixed(2)})`}
-            </Button>
-          ) : (
-            <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Apply Theme'}</Button>
-          )}
+          {/* sticky action bar */}
+          <div className="mt-2 px-6 pb-6 sticky bottom-0 bg-brand-surface border-t border-brand-border pt-4">
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={onClose} disabled={saving || purchasing}>Cancel</Button>
+              {isPremiumTheme(selectedTheme) && !ownsSelected ? (
+                <Button onClick={handlePurchase} disabled={purchasing}>
+                  {purchasing ? 'Processing...' : `Purchase Theme ($${THEME_PRICE.toFixed(2)})`}
+                </Button>
+              ) : (
+                <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Apply Theme'}</Button>
+              )}
+            </div>
+          </div>
         </div>
       </DialogContent>
     </Dialog>
