@@ -29,8 +29,12 @@ export const useLateSubmission = () => {
         })
       });
       if (!resp.ok) throw new Error('Failed to create checkout session');
-      const { url } = await resp.json();
-      window.location.href = url;
+      const body = await resp.json();
+      if (body.free) {
+        toast({ title: 'Late submit unlocked', description: 'Promo applied.' });
+        return true;
+      }
+      window.location.href = body.url;
       return true;
     } catch (err) {
       console.error('Late submission error:', err);

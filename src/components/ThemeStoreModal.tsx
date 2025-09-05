@@ -104,8 +104,15 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
     setError(null);
     try {
       const promo = isAdminTester ? 'LINDSEY' : undefined;
-      const { url } = await createThemeCheckout(user.id, selectedTheme, promo);
-      window.location.href = url;
+      const result = await createThemeCheckout(user.id, selectedTheme, promo);
+      if (result.free) {
+        // Free grant path: refresh ownership and close
+        const { data } = await supabase.from('user_themes').select('theme_id').eq('user_id', user.id);
+        setOwnedThemes((data || []).map(r => r.theme_id));
+        onClose();
+        return;
+      }
+      window.location.href = result.url;
     } catch (e: any) {
       setError(e?.message || 'Failed to purchase');
     } finally {
