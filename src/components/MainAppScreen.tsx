@@ -460,10 +460,10 @@ const MainAppScreen: React.FC = () => {
       />
       
       <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
-        <div className="flex-shrink-0 p-4 border-b border-brand-border">
-          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center">
+        <div className="flex-shrink-0 border-b border-brand-border safe-topbar">
+          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
             <button
-              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80"
+              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80 touch-target"
               onClick={() => setMenuOpen(true)}
               aria-label="Open menu"
             >
@@ -473,7 +473,7 @@ const MainAppScreen: React.FC = () => {
           </div>
         </div>
         
-        <div className="flex-shrink-0">
+        <div className="flex-shrink-0 safe-px">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
             <MainTabs currentTab={currentTab} onTabChange={(tab)=>{
               if (tab === 'feed') {
@@ -535,8 +535,8 @@ const MainAppScreen: React.FC = () => {
 
       {/* Hamburger menu overlay */}
       {menuOpen && (
-        <div className="fixed inset-0 z-50 bg-brand-background bg-opacity-90 flex">
-          <div className="w-64 sm:w-72 bg-brand-surface h-full shadow-lg p-6 flex flex-col">
+        <div className="fixed inset-0 z-50 bg-brand-background/80 backdrop-blur-sm flex" onClick={() => setMenuOpen(false)}>
+          <div className="w-64 sm:w-72 bg-brand-surface h-full shadow-lg p-6 flex flex-col safe-panel-padding" onClick={(e)=>e.stopPropagation()}>
             <button
               className="self-end mb-4 text-brand-muted hover:text-brand-primary"
               onClick={() => setMenuOpen(false)}
