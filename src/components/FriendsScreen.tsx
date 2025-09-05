@@ -90,8 +90,8 @@ const FriendsScreen: React.FC = () => {
   };
 
   return (
-    <div className="bg-brand-gradient min-h-screen">
-      <div className="max-w-2xl mx-auto p-6">
+    <div className="bg-brand-gradient min-h-screen safe-pt">
+      <div className="max-w-2xl mx-auto p-6 safe-px">
         <div className="flex items-center mb-6">
           <Button
             onClick={() => setCurrentScreen('main')}

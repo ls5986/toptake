@@ -60,6 +60,7 @@ export function ThemeSelector() {
               variant="outline"
               className={cn("h-auto p-0 overflow-hidden relative group border-brand-border hover:border-brand-accent",
                 theme === themeConfig.id && "ring-2 ring-brand-primary")}
+              type="button"
               onClick={() => handleThemeSelect(themeConfig.id, themeConfig.premium)}
             >
               <div
@@ -68,11 +69,11 @@ export function ThemeSelector() {
                   background: `linear-gradient(135deg, ${themeConfig.preview.background} 0%, ${themeConfig.preview.accent} 100%)`
                 }}
               >
-                <div className="absolute inset-0 flex items-center justify-center">
+                <div className="absolute inset-0 flex items-center justify-center pointer-events-none" aria-hidden>
                   <div className="w-8 h-8 rounded-full" style={{ background: themeConfig.preview.primary }} />
                 </div>
                 {themeConfig.premium && !user?.isPremium && (
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 pointer-events-none" aria-hidden>
                     <Lock className="w-4 h-4 text-brand-danger" />
                   </div>
                 )}
