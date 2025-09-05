@@ -311,17 +311,22 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   };
 
   // ✅ ADD: Simple, reliable auth initialization
-  const initializeAuth = async () => {
+  // Cold start initializes full state; warm resume keeps UI responsive
+  const initializeAuth = async (opts?: { coldStart?: boolean }) => {
     try {
       // Gate to avoid duplicate inits from mount + INITIAL_SESSION
       const now = Date.now();
-      if (initInProgressRef.current || now - lastInitAtRef.current < 800) {
+      const minIntervalMs = 4000; // reduce thrash when app resumes multiple times quickly
+      if (initInProgressRef.current || now - lastInitAtRef.current < minIntervalMs) {
         return;
       }
       initInProgressRef.current = true;
       lastInitAtRef.current = now;
 
-      setIsLoading(true);
+      // Only show global spinner when we truly have no state (cold start)
+      if (opts?.coldStart || !user) {
+        setIsLoading(true);
+      }
       const debug = (() => { try { return new URLSearchParams(window.location.search).get('debug') === '1'; } catch { return false; } })();
       if (debug) console.log('[INIT] starting initializeAuth');
 
@@ -350,7 +355,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         if (debug) console.log('[INIT] No valid session from getSession – waiting for auth events');
         setUser(null);
         setHasPostedToday(false);
-        setIsLoading(false);
+        if (opts?.coldStart || !user) setIsLoading(false);
         return;
       }
 
@@ -424,7 +429,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       if (debug) console.log('[INIT] hasPostedToday updated');
       setError(null);
       
-      setIsLoading(false);
+      if (opts?.coldStart || !user) setIsLoading(false);
       
     } catch (error) {
       console.error('Auth failed:', error);
@@ -435,7 +440,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setError(`Auth failed: ${(error as any)?.message || 'Unknown error'}`);
       setUser(null);
       setHasPostedToday(false);
-      setIsLoading(false);
+      if (opts?.coldStart || !user) setIsLoading(false);
     } finally {
       initInProgressRef.current = false;
     }
@@ -505,10 +510,18 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             setHasPostedToday(false);
             break;
           case 'SIGNED_IN':
-          case 'TOKEN_REFRESHED':
           case 'INITIAL_SESSION':
             if (session) {
               await initializeAuth();
+            }
+            break;
+          case 'TOKEN_REFRESHED':
+            // Avoid full re-init on background token refresh; do a lightweight check if needed
+            if (user) {
+              const minutesSinceInit = (Date.now() - lastInitAtRef.current) / 60000;
+              if (minutesSinceInit > 15) {
+                checkHasPostedTodayFromBackend(user.id);
+              }
             }
             break;
           default:
@@ -522,8 +535,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
   // Initialize auth on mount
   useEffect(() => {
-    initializeAuth();
+    initializeAuth({ coldStart: true });
   }, []);
+
+  // Warm resume: when app returns to foreground, avoid heavy init and spinner
+  useEffect(() => {
+    const onVisibility = () => {
+      if (document.visibilityState === 'visible') {
+        initializeAuth({ coldStart: false });
+      }
+    };
+    const onFocus = () => initializeAuth({ coldStart: false });
+    window.addEventListener('visibilitychange', onVisibility);
+    window.addEventListener('focus', onFocus);
+    return () => {
+      window.removeEventListener('visibilitychange', onVisibility);
+      window.removeEventListener('focus', onFocus);
+    };
+  }, [user]);
 
   // ✅ ADD: Proper dependencies
   // useEffect(() => {
