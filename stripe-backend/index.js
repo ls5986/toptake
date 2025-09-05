@@ -232,6 +232,8 @@ app.post('/api/create-checkout-session', async (req, res) => {
     if ((promoCode || '').toUpperCase() === 'LINDSEY') {
       const promotion_code = await getOrCreateLindseyPromo((mode || 'payment') === 'subscription');
       params.discounts = [{ promotion_code }];
+      // Stripe forbids specifying both allow_promotion_codes and discounts
+      delete params.allow_promotion_codes;
     }
 
     const session = await stripe.checkout.sessions.create(params);
