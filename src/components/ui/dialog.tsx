@@ -36,12 +36,14 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // Centered dialog with safe-area padding so it never hugs the bottom
-        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-lg translate-x-[-50%] translate-y-[-50%] gap-4 border border-brand-border bg-brand-surface p-6 shadow-lg duration-200 sm:rounded-lg",
+        // Centered dialog with safe-area padding so it never hugs the edges
+        "fixed left-[50%] top-[50%] z-50 grid w-[calc(100%-2rem)] max-w-3xl translate-x-[-50%] translate-y-[-50%] gap-4 border border-brand-border bg-brand-surface p-6 shadow-lg duration-200 sm:rounded-lg",
         // animations
         "data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95 data-[state=closed]:slide-out-to-left-1/2 data-[state=closed]:slide-out-to-top-[48%] data-[state=open]:slide-in-from-left-1/2 data-[state=open]:slide-in-from-top-[48%]",
-        // safe-area + buffer
+        // safe-area + buffer + internal scroll to keep bottom gap visible
         "pb-[max(1rem,env(safe-area-inset-bottom))] pt-[max(1rem,env(safe-area-inset-top))] px-[max(1rem,env(safe-area-inset-left))] pr-[max(1rem,env(safe-area-inset-right))]",
+        // cap height so the modal never touches the bottom; use dynamic viewport to handle mobile browser UI
+        "max-h-[calc(100dvh-4rem)] overflow-y-auto",
         className
       )}
       aria-describedby="dialog-description"
