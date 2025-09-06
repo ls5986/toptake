@@ -50,7 +50,7 @@ export function useTakesForDate(date: Date) {
             }
           }
         } catch {}
-        const args: any = { p_date: dateStr };
+        const args: any = { p_user_id: null, p_date: dateStr };
         if (before) args.p_before_created_at = before;
         console.log('[useTakesForDate] fetch', { dateStr, before })
         const { data, error } = await supabase

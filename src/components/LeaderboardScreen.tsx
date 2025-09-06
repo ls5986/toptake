@@ -128,18 +128,9 @@ const LeaderboardScreen: React.FC = () => {
   return (
     <div className="flex-1 flex flex-col h-full bg-brand-background">
       <div className="sticky top-0 bg-brand-background z-10 p-4 border-b border-brand-border">
-        <div className="flex justify-between items-center">
-          <div>
-            <h1 className="text-2xl font-bold text-brand-text flex items-center gap-2"><Flame className="w-6 h-6 text-brand-primary" />Streak Leaderboard</h1>
-            <p className="text-brand-muted text-sm mt-1">{leaderboard.length} active users</p>
-          </div>
-          <Button 
-            onClick={() => setCurrentScreen('feed')}
-            size="sm"
-            className="btn-secondary"
-          >
-            Back
-          </Button>
+        <div className="flex items-center">
+          <h1 className="text-2xl font-bold text-brand-text flex items-center gap-2"><Flame className="w-6 h-6 text-brand-primary" />Streak Leaderboard</h1>
+          <p className="text-brand-muted text-sm ml-3">{leaderboard.length} active users</p>
         </div>
       </div>
       
