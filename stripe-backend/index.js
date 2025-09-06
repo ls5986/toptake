@@ -286,6 +286,13 @@ app.post('/api/create-checkout-session', async (req, res) => {
       line_items = [{ price: priceId, quantity: 1 }];
     }
 
+    // Always ensure the LINDSEY promo exists so the user can type it at checkout
+    try {
+      await getOrCreateLindseyPromo((mode || 'payment') === 'subscription');
+    } catch (e) {
+      console.warn('ensure LINDSEY promo failed (non-fatal):', e?.message);
+    }
+
     const params = {
       payment_method_types: ['card'],
       line_items,
