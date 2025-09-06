@@ -493,7 +493,8 @@ const MainAppScreen: React.FC = () => {
         
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
-            <div className="flex items-center justify-center gap-4 my-4" style={{ display: username ? 'none' : undefined }}>
+            {/* Show date picker only for Feed and Top Takes */}
+            <div className="flex items-center justify-center gap-4 my-4" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
               <Button variant="ghost" onClick={goToPrevDay}><ChevronLeft /></Button>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
