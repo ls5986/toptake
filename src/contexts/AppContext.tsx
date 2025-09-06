@@ -457,12 +457,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const { data, error } = await supabase.rpc('has_posted_today', { p_user_id: targetUserId });
-      if (error) {
-        console.error('❌ Error checking daily post:', error);
-        setHasPostedToday(false);
+      if (!error) {
+        const hasPosted = !!data;
+        setHasPostedToday(hasPosted);
+        setIsAppBlocked(!hasPosted);
         return;
       }
-      const hasPosted = !!data;
+      // Fallback for environments where the new RPC isn't deployed yet
+      console.warn('[fallback] has_posted_today RPC unavailable, falling back to direct query');
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      const { data: takes, error: qErr } = await supabase
+        .from('takes')
+        .select('id')
+        .eq('user_id', targetUserId)
+        .eq('prompt_date', todayStr)
+        .limit(1);
+      if (qErr) throw qErr;
+      const hasPosted = !!(takes && takes.length > 0);
       setHasPostedToday(hasPosted);
       setIsAppBlocked(!hasPosted);
     } catch (error) {

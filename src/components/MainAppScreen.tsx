@@ -145,9 +145,7 @@ const MainAppScreen: React.FC = () => {
       if (tab !== 'profile' && username) {
         navigate('/');
       }
-      if (tab === 'search') {
-        setCurrentScreen('friends'); // reuse FriendsScreen as "Search" for now
-      }
+      // search opens inline SearchScreen tab
       setCurrentTab(tab);
     } catch (error) {
       console.error('Error changing tab:', error);
@@ -447,9 +445,7 @@ const MainAppScreen: React.FC = () => {
     }
   };
 
-  if (currentScreen === 'friends') {
-    return <FriendsScreen />;
-  }
+  // Friends overlay removed; search is now a dedicated tab
 
   return (
     <div className="bg-brand-background min-h-screen flex flex-col">
@@ -553,9 +549,9 @@ const MainAppScreen: React.FC = () => {
             </button>
             <button
               className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
-              onClick={() => { setCurrentScreen('friends'); setMenuOpen(false); }}
+              onClick={() => { setCurrentTab('search'); setMenuOpen(false); }}
             >
-              Friends
+              Search
             </button>
             <button
               className="mb-4 w-full text-left text-brand-text py-2 px-3 rounded hover:bg-brand-background"
