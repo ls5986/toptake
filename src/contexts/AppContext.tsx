@@ -583,6 +583,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       let rpcError: any = null;
 
       if (dateOverride) {
+        // Prefer RPC for server-enforced one-per-day and correct prompt linkage
         const rpc = await supabase.rpc('submit_take_for_date', {
           p_user_id: user.id,
           p_content: content.trim(),
@@ -592,6 +593,49 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         });
         newId = rpc.data;
         rpcError = rpc.error;
+
+        // Fallback if RPC not deployed: resolve prompt and insert directly (unique constraint still enforced)
+        if (rpcError || !newId) {
+          console.warn('[fallback] submit_take_for_date RPC unavailable, inserting directly into takes');
+          // Fetch prompt id for the target date
+          const { data: promptRow, error: promptErr } = await supabase
+            .from('daily_prompts')
+            .select('id')
+            .eq('prompt_date', dateOverride)
+            .eq('is_active', true)
+            .maybeSingle();
+          if (promptErr || !promptRow?.id) {
+            console.error('No prompt found for date', dateOverride, promptErr);
+            return false;
+          }
+          const insertPayload: any = {
+            user_id: user.id,
+            content: content.trim(),
+            is_anonymous: isAnonymous,
+            prompt_id: promptRow.id,
+            prompt_date: dateOverride,
+            is_late_submit: dateOverride !== todayStr
+          };
+          const { data: inserted, error: insertErr } = await supabase
+            .from('takes')
+            .insert(insertPayload)
+            .select('id')
+            .maybeSingle();
+          if (insertErr) {
+            // If duplicate (unique constraint), treat as success
+            console.warn('Insert error (possible duplicate):', insertErr?.message);
+            const { data: existing } = await supabase
+              .from('takes')
+              .select('id')
+              .eq('user_id', user.id)
+              .eq('prompt_date', dateOverride)
+              .maybeSingle();
+            if (!existing?.id) return false;
+            newId = existing.id;
+          } else {
+            newId = inserted?.id;
+          }
+        }
       } else {
         const rpc = await supabase.rpc('submit_take', {
           p_user_id: user.id,
