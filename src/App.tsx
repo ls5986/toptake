@@ -77,7 +77,7 @@ function App() {
 
   return (
     <ErrorBoundary>
-      <div className="app-container">
+      <div className="app-container safe-pt safe-pb safe-px">
         <AppProvider>
           <ThemeProvider>
             <Routes>

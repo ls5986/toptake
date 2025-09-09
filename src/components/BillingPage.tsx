@@ -6,7 +6,6 @@ import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
 import { FeaturePack } from '@/types';
 
-const { userCredits } = useAppContext();
 
 const packages = [
   { name: 'Anonymous Credits', description: 'Post anonymously with credits', price: '$2.99 for 10', id: 'anonymous' },

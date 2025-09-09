@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
 import { Users, LogOut, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -55,7 +55,11 @@ const MainAppScreen: React.FC = () => {
   });
   const [showLateSubmit, setShowLateSubmit] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
-  const today = new Date();
+  const today = useMemo(() => {
+    const d = new Date();
+    d.setHours(0,0,0,0);
+    return d;
+  }, []);
   const [hasPostedForSelectedDate, setHasPostedForSelectedDate] = useState(false);
   const { prompt, loading: promptLoading, error } = useTodayPrompt();
   const { takes: sharedTakes, loading: sharedLoading } = useTakesForDate(selectedDate);

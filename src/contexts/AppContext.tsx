@@ -553,6 +553,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       contentLength: content?.length, 
       isAnonymous, 
       promptId,
+      dateOverride,
       isAlreadySubmitting: isSubmittingTake 
     });
     
@@ -573,14 +574,33 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     }
 
     setIsSubmittingTake(true);
-    
+
     try {
-      const { data: newId, error: rpcError } = await supabase
-        .rpc('submit_take', {
+      const todayStr = new Date().toISOString().slice(0, 10);
+      const isForToday = !dateOverride || dateOverride === todayStr;
+
+      let newId: any = null;
+      let rpcError: any = null;
+
+      if (dateOverride) {
+        const rpc = await supabase.rpc('submit_take_for_date', {
+          p_user_id: user.id,
+          p_content: content.trim(),
+          p_is_anonymous: isAnonymous,
+          p_date: dateOverride,
+          p_is_late: dateOverride !== todayStr
+        });
+        newId = rpc.data;
+        rpcError = rpc.error;
+      } else {
+        const rpc = await supabase.rpc('submit_take', {
           p_user_id: user.id,
           p_content: content.trim(),
           p_is_anonymous: isAnonymous
         });
+        newId = rpc.data;
+        rpcError = rpc.error;
+      }
 
       if (rpcError) {
         console.error('❌ submit_take RPC failed:', rpcError);
@@ -589,18 +609,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
       console.log('✅ Take submitted successfully:', newId);
 
-      // CRITICAL: Re-check backend state immediately
-      await checkHasPostedTodayFromBackend(user.id);
+      // Re-check backend state immediately if we posted for today
+      if (isForToday) {
+        await checkHasPostedTodayFromBackend(user.id);
+      }
       
-      // Update user streak if needed
-      if (user) {
+      // Update streak only when posting for today from this client
+      if (isForToday && user) {
         const newStreak = (user.current_streak || 0) + 1;
         const { error: profileError } = await supabase
           .from('profiles')
           .update({
             current_streak: newStreak,
             longest_streak: Math.max(newStreak, user.longest_streak || 0),
-            last_post_date: new Date().toISOString().slice(0,10)
+            last_post_date: todayStr
           })
           .eq('id', user.id);
           
@@ -609,14 +631,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             ...user,
             current_streak: newStreak,
             longest_streak: Math.max(newStreak, user.longest_streak || 0),
-            last_post_date: targetDate
+            last_post_date: todayStr
           });
         }
       }
 
-      // Instant UI feedback
-      setHasPostedToday(true);
-      setIsAppBlocked(false);
+      // Instant UI feedback for today
+      if (isForToday) {
+        setHasPostedToday(true);
+        setIsAppBlocked(false);
+      }
 
       return true;
       

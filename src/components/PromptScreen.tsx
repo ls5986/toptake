@@ -111,35 +111,23 @@ const PromptScreen: React.FC = () => {
       return;
     }
     setUserCredits({ ...userCredits, late_submit: userCredits.late_submit - 1 });
-    // Insert take with is_late_submit = true and backdate created_at
-    const today = new Date().toISOString().split('T')[0];
-    const { data: prompt } = await supabase
-      .from('daily_prompts')
-      .select('id, created_at')
-      .eq('prompt_date', today)
-      .eq('is_active', true)
-      .maybeSingle();
-    
-    const takeData = {
-      content: takeContent,
-      is_anonymous: isAnonymous,
-      is_late_submit: true,
-      created_at: prompt?.created_at, // backdate
-      prompt_id: prompt?.id,
-      user_id: user.id,
-    };
-    const { error } = await supabase.from('takes').insert([takeData]);
-    if (!error) {
-      toast({ title: 'Late Take Submitted', description: 'Your take was submitted and backdated to the prompt date.' });
-      setCurrentScreen('main');
-    } else {
-      toast({ 
-        title: 'Submission Failed', 
-        description: 'Failed to submit late take. Please try again.', 
-        variant: 'destructive' 
-      });
+
+    try {
+      const dateStr = new Date().toISOString().split('T')[0];
+      const ok = await submitTake(takeContent, isAnonymous, undefined, dateStr);
+      if (ok) {
+        toast({ title: 'Late Take Submitted', description: 'Your take was submitted and backdated to the prompt date.' });
+        setCurrentScreen('main');
+      } else {
+        toast({ 
+          title: 'Submission Failed', 
+          description: 'Failed to submit late take. Please try again.', 
+          variant: 'destructive' 
+        });
+      }
+    } finally {
+      setIsSubmitting(false);
     }
-    setIsSubmitting(false);
   };
 
   if (loading) return <div>Loading prompt...</div>;
@@ -165,7 +153,7 @@ const PromptScreen: React.FC = () => {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col">
+    <div className="min-h-[100dvh] bg-gradient-to-br from-purple-900 via-blue-900 to-indigo-900 flex flex-col">
       <div className="flex items-center justify-between p-4 border-b border-white/10">
         <Button
           variant="ghost"
@@ -176,14 +164,14 @@ const PromptScreen: React.FC = () => {
           <ArrowLeft className="h-4 w-4 mr-2" />
           Back
         </Button>
-        <h1 className="text-white font-semibold">Today's Prompt</h1>
+        <h1 className="text-white font-semibold text-[clamp(18px,4vw,22px)]">Today's Prompt</h1>
         <div className="w-16" />
       </div>
 
       <div className="flex-1 p-4 space-y-6">
         <Card className="bg-white/10 backdrop-blur-sm border-white/20">
           <CardHeader>
-            <CardTitle className="text-white text-center text-lg">
+            <CardTitle className="text-white text-center text-[clamp(16px,3.6vw,20px)]">
               {prompt.prompt_text || 'Loading prompt...'}
             </CardTitle>
           </CardHeader>
@@ -223,7 +211,7 @@ const PromptScreen: React.FC = () => {
             <Button
               onClick={handleSubmit}
               disabled={!takeContent.trim() || isSubmitting}
-              className="w-full btn-primary"
+              className="w-full btn-primary h-11 text-[clamp(14px,3.4vw,16px)]"
             >
               {isSubmitting ? (
                 'Submitting...'
@@ -239,14 +227,14 @@ const PromptScreen: React.FC = () => {
               canLateSubmit ? (
                 <Button
                   onClick={() => setShowLateSubmitModal(true)}
-                  className="w-full bg-yellow-400 text-yellow-900 hover:bg-yellow-500 mt-4"
+                  className="w-full bg-yellow-400 text-yellow-900 hover:bg-yellow-500 mt-4 h-11 text-[clamp(14px,3.4vw,16px)]"
                 >
                   ⏰ Late Submit (use credit)
                 </Button>
               ) : (
                 <Button
                   onClick={() => setShowPurchaseModal(true)}
-                  className="w-full bg-yellow-200 text-yellow-900 hover:bg-yellow-300 mt-4"
+                  className="w-full bg-yellow-200 text-yellow-900 hover:bg-yellow-300 mt-4 h-11 text-[clamp(14px,3.4vw,16px)]"
                 >
                   Buy Late Submit Credit
                 </Button>
@@ -261,14 +249,16 @@ const PromptScreen: React.FC = () => {
       {/* Confirm Late Submit Modal */}
       {showLateSubmitModal && (
         <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50 z-50">
-          <div className="bg-white rounded-lg p-6 max-w-sm w-full">
-            <h2 className="text-lg font-bold mb-2">Confirm Late Submit</h2>
-            <p className="mb-4">This will use 1 Late Submit credit and backdate your take to the prompt date.</p>
-            <div className="flex space-x-2">
-              <Button onClick={() => setShowLateSubmitModal(false)} variant="outline">Cancel</Button>
-              <Button onClick={handleLateSubmit} className="bg-yellow-400 text-yellow-900 hover:bg-yellow-500">
-                Confirm & Submit
-              </Button>
+          <div className="bg-white rounded-xl p-0 w-[calc(100vw-2rem)] max-w-md sm:max-w-lg md:max-w-xl max-h-[85dvh] overflow-y-auto">
+            <div className="p-6">
+              <h2 className="text-lg font-bold mb-2">Confirm Late Submit</h2>
+              <p className="mb-4">This will use 1 Late Submit credit and backdate your take to the prompt date.</p>
+              <div className="flex space-x-2 sticky bottom-0 pt-3 mt-4 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70">
+                <Button onClick={() => setShowLateSubmitModal(false)} variant="outline" className="flex-1 h-11">Cancel</Button>
+                <Button onClick={handleLateSubmit} className="flex-1 h-11 bg-yellow-400 text-yellow-900 hover:bg-yellow-500">
+                  Confirm & Submit
+                </Button>
+              </div>
             </div>
           </div>
         </div>

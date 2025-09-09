@@ -386,7 +386,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                         await (navigator as any).share({ title: 'TopTake', text: 'Check out this profile', url });
                       } else {
                         await navigator.clipboard.writeText(url);
-                        (useToast() as any).toast?.({ title: 'Link copied' });
+                        toast({ title: 'Link copied' });
                       }
                     } catch {}
                   }}

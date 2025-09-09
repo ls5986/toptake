@@ -1,0 +1,225 @@
+USER STORIES AND ACCEPTANCE CRITERIA — TOPTAKE
+
+Scope and personas
+- User (authenticated): Sees today’s prompt, submits exactly one take per local day, can submit a late take with credits or purchase, can submit prompt suggestions, and can view credits/billing.
+- Admin: Reviews/moderates suggestions, approves/schedules prompts, generates prompts (AI), manages prompt calendar, performs bulk suggestion/prompt operations, views analytics, manages basic user info.
+
+Global rules and non-functional requirements
+- One take per local day (server-enforced):
+  - Database unique constraint on (user_id, prompt_date) ensures one-per-day.
+  - Atomic RPC submit_take determines local date server-side, attaches that date’s active prompt, and inserts or returns existing take id.
+- Date-resolved data:
+  - Always resolve prompts/takes by the user’s local date computed on the server. Avoid client date overrides.
+  - Standards on date pages: use usePromptForDate(selectedDate) and useTakesForDate(selectedDate). Keep AppBlocker “today-only.” For single-date prompt queries, use .maybeSingle() with eq('prompt_date', dateStr).
+- Progress and feedback:
+  - Console log major steps and provide a persistent progress side pane/drawer after submissions and purchases to show step-by-step status.
+- Accessibility:
+  - Keyboard operable, visible focus states, adequate contrast, clear aria-labels.
+- Responsiveness:
+  - Mobile-first layouts; modals become full-screen sheets on mobile. Use a 12-column grid on desktop with consistent spacing.
+- Error handling and resiliency:
+  - Clear toasts for failures, disable primary actions while in-flight, idempotent operations where possible; safe to retry.
+
+USER STORIES
+
+1) View today’s prompt
+- Story: As a user, I see today’s prompt based on my local date.
+- Acceptance:
+  - Prompt text is visible with category and optional source attribution.
+  - Today’s local date is shown.
+  - If no prompt exists for today, show a friendly empty state with a retry button.
+  - If I already posted today, a “You posted today” card is shown and the compose area is blocked.
+- Layout:
+  - Mobile: Title/date, prompt text, helper text, compose field, actions.
+  - Desktop: Left 8 columns – prompt/compose; right 4 columns – progress/credits side pane.
+
+2) Submit today’s take (exactly one per day)
+- Story: As a user, I can submit exactly one take per local day.
+- Flow:
+  - Type content, toggle “Post anonymously” if desired, press Submit.
+  - Call submit_take RPC, which:
+    - Computes user local date on the server.
+    - Finds active daily_prompt for that date.
+    - Inserts take with conflict on (user_id, prompt_date). If conflict, returns existing id.
+  - Immediately re-check has_posted_today on the backend and block UI for the day.
+- Acceptance:
+  - Submit button disabled until content is non-empty; remains disabled during request.
+  - On success: toast “Your take has been posted,” editor clears, UI blocks further posts for today, streaks update.
+  - On duplicate/conflict: show “You already posted today,” block UI.
+  - Prevent double-submit via in-flight state; multiple clicks return existing id and are treated as success.
+  - Side pane logs: “Submitting…”, “Saved”, “State refreshed”, “UI blocked for today.”
+- Note (bug guardrail): Ensure the UI calls the submit_take RPC (not direct inserts), disables the submit button while in-flight, and re-checks backend has_posted_today immediately after success to fully enforce one-per-day at the UX layer in addition to the DB constraint.
+
+3) Post anonymously
+- Story: As a user, I can mark my take as anonymous.
+- Acceptance:
+  - Clear toggle with explanation: content is public, identity hidden.
+  - If anonymous requires credits in the future, pre-submit credit check; otherwise free toggle.
+  - Feed shows “Anonymous” for author; engagement is allowed.
+
+4) Late submission: unlock and purchase flow
+- Story: As a user, if I missed a day, I can unlock the ability to submit a late take for that specific date using a credit or a purchase.
+- Flows:
+  - With existing “late_submit” credit: consume 1 credit, unlock compose for that date.
+  - Without credit: prompt to purchase; create checkout session; after webhook confirmation, credit is granted; unlock compose.
+- Acceptance:
+  - “Submit late” CTA appears on a past date where I have no take.
+  - Using a credit records a history entry and decrements balance.
+  - Purchasing credits triggers Stripe checkout; webhook confirms and grants late_submit credit and records history. The app refreshes credits.
+  - Side pane logs: “Checking credits…”, “Starting checkout…”, “Webhook confirmed”, “Credit granted”, “Compose enabled.”
+
+5) Compose and submit a late take (after unlock)
+- Story: As a user, once late submission is unlocked for a past date, I can compose and submit the late take.
+- Acceptance:
+  - Editor is enabled for the chosen past date only.
+  - The take is marked is_late_submit = true; it’s associated with that date’s prompt.
+  - One-per-date still enforced; cannot late-submit if a take already exists on that date.
+  - On success: toast, navigate to that date’s feed; side pane logs include success steps.
+
+6) View feed and takes by date
+- Story: As a user, I can view my takes and community takes for a date.
+- Acceptance:
+  - Date navigation respects user local dates and uses the date-bound hooks.
+  - Anonymous takes hide identity; reactions/comments behave as designed.
+  - Stable sort order; infinite scroll or “Load more.”
+  - If I posted today, AppBlocker blocks composing but feed is viewable.
+
+7) Credits and billing
+- Story: As a user, I can see balances, purchase credits, and view usage history.
+- Acceptance:
+  - Balances by credit_type (e.g., late_submit, anonymous, boost, extra_takes, delete).
+  - Purchase flow: select pack → checkout → return → balances refreshed.
+  - Webhook records purchases, updates user_credits, inserts credit_history.
+  - Billing UI shows balances and recent history with type, amount, action, timestamp, and receipt links if available.
+
+8) Submit a prompt suggestion (with optional AI fix)
+- Story: As a user, I can submit a prompt suggestion and optionally have AI refine it before submission.
+- Flow:
+  - Enter suggestion → optionally “Fix with AI” → duplicate check → submit.
+- Acceptance:
+  - Duplicate check via server RPC before insert; blocks near-duplicate spam and shows helpful message.
+  - On submission: row in prompt_suggestions with status pending; versioning captures chosen text (original or AI-fixed) with metadata.
+  - Notification added: “Your suggestion was submitted.”
+  - UI provides word-count guidance and safe-content hints; preview for AI-fixed vs original prior to submission.
+  - Side pane logs: “Checking duplicates…”, “Suggestion saved…”, include the assigned id.
+
+ADMIN STORIES
+
+9) Admin suggestion inbox and moderation
+- Story: As an admin, I can triage, moderate, and track prompt suggestions.
+- Acceptance:
+  - Filters: all, pending, approved, rejected, used; sort by created_at and other signals.
+  - Batch select and actions: approve, reject, mark used.
+  - Detail drawer shows original text, AI-fixed, version history, safety/duplication signals.
+  - Approve with edits: optional admin edits and AI notes; optionally award credits with reasons.
+  - Reject with optional feedback; status updates; optional user notification.
+  - Mark used/scheduled transitions status; can set scheduled_date.
+
+10) Admin approve and schedule a suggestion as daily prompt
+- Story: As an admin, I can convert a suggestion to a scheduled daily_prompt on a future date, ensuring no conflicts.
+- Acceptance:
+  - Choose schedule date; conflicts shown if a prompt already exists for that date.
+  - Save creates daily_prompts row and updates suggestion status and scheduling fields.
+  - If credit is awarded to the user, a notification is created.
+
+11) Admin prompt calendar
+- Story: As an admin, I can see a calendar of scheduled prompts and manage them.
+- Acceptance:
+  - Monthly grid shows scheduled/empty dates; clicking a date opens details.
+  - Quick actions: reschedule, deactivate, edit text.
+  - Empty dates visually distinct to guide scheduling.
+
+12) Admin prompt generator and AI assistance
+- Story: As an admin, I can generate candidate prompts leveraging AI and recent performance to avoid repetition and improve engagement.
+- Acceptance:
+  - Generator suggests categories/themes/rationale based on recent analytics.
+  - Generate N suggestions, dedupe, batch review, approve/schedule selected.
+  - Side pane logs inputs, generation duration, and selected items.
+
+13) Admin bulk suggestion add and bulk scheduling
+- Story: As an admin, I can bulk add suggestions and schedule prompts in bulk.
+- Bulk add UI:
+  - Paste multi-line text or upload CSV; one suggestion per line.
+  - Server-side dedupe flags duplicates inline.
+  - Batch actions: approve all, reject all pending, schedule sequentially from next empty date.
+- Bulk scheduling:
+  - Select a batch → auto-assign dates (skipping conflicts); manual overrides allowed.
+  - Validate against daily_prompts; present a conflict list to resolve.
+  - Progress indicators; resumable operations; partial failures reported per row with reasons.
+
+14) Admin analytics and dashboards
+- Story: As an admin, I can view KPIs and trends for prompts and engagement.
+- Acceptance:
+  - KPIs: active users today, takes today, avg engagement, top category, pending suggestions, next empty date.
+  - Time range selector (7/30/90 days), trendlines, top categories.
+  - Export CSV for suggestions and prompts.
+
+15) Admin basic user management
+- Story: As an admin, I can view basic user profiles and adjust select attributes for support.
+- Acceptance:
+  - List of profiles with username, email, streaks, created_at.
+  - Detail view with recent activity.
+  - Edit streak or grant credits (where permitted); changes audit-logged.
+
+UI/UX SPECS PER KEY SCREEN
+
+Daily Prompt / Compose
+- Header: app title and today’s local date.
+- Prompt card: prompt text, category badge, source attribution if present.
+- Compose: multi-line editor with character counter; anonymous toggle; Submit button.
+- If already posted: show “You posted today” card with a link to the feed; compose disabled.
+- Right side pane (desktop) / slide-up drawer (mobile): submission progress, credits summary, recent notifications.
+- States: Idle, Editing, Submitting (spinner on button), Success (toast + blocker), Error (toast).
+- Validation: non-empty content under max length; lock UI while in-flight; post-submit refetch of has_posted_today.
+
+Late Submit Modal
+- Steps: Initial (explain credit/cost) → Processing (checkout or credit use) → Compose (for the past date) → Done (toast; navigate to date’s feed).
+- Errors: Insufficient credits (prompt purchase); purchase failed (clear restart path).
+
+Suggestions (User)
+- Input with helper text/examples; “Fix with AI” previews a refined version side-by-side; select which to submit.
+- Duplicate check before insert; if duplicate, show existing one and when it was submitted; suggest adding “+1” instead.
+- Confirmation: toast “Submitted” and show “Under review” badge.
+
+Admin Suggestion Inbox
+- Filters/sorts, batch select, actions (approve, reject, used).
+- Detail drawer with full context; Approve & Schedule form with date picker and conflict warnings.
+- Toasters on actions; inline badges update without full refresh.
+
+Admin Calendar
+- Monthly grid, badges for scheduled prompts, empty-day indicators. Click opens details; reschedule/deactivate/edit.
+
+Admin Generator
+- Controls: target date range, preferred category, number of candidates.
+- Results list with rationale; selection for bulk scheduling.
+
+Billing
+- Balances per credit type, purchase grid with prices/terms, checkout CTA, post-return balance refresh, recent credit history.
+
+TECHNICAL AND DATA INTEGRITY NOTES
+- Server enforcement:
+  - One-take-per-date guaranteed by DB unique constraint and enforced via submit_take RPC (server local-date resolution, prompt lookup, on-conflict insert returning existing).
+  - Late submission purchases: Stripe webhook upserts user_late_submissions, records credit_history, and upserts user_credits; app refreshes balances.
+- Hooks and queries:
+  - For date-bound pages, use usePromptForDate(selectedDate) and useTakesForDate(selectedDate). Avoid useTodayPrompt except on strictly today-only screens.
+- AppBlocker:
+  - Only blocks on “today” after a successful take; not used for past dates.
+- Credits data model:
+  - user_credits keyed by (user_id, credit_type, balance). Always record purchase/use in credit_history; reflect in UI.
+- Logging and side pane:
+  - Log major steps (submit start → RPC ok → state refresh → UI block). Provide a persistent side pane/drawer summarizing steps and outcomes.
+
+EDGE CASES
+- Timezone boundary while composing: If local day flips at midnight, server decides date at submit; show a guard notice if the computed date changed.
+- Network retries: Idempotent submit via RPC; repeated clicks return existing take and are treated as success.
+- No prompt for a date: For today, block submission and show “No prompt found today.” For late dates, show a helpful message and suggest contacting support if needed.
+- Stripe return without webhook yet: Show “Syncing purchase, this may take a moment…” with retry; poll or allow manual refresh.
+- Duplicate suggestions: If detected mid-flow, present link to the earlier suggestion and suggest adding a “+1.”
+
+SUCCESS METRICS
+- <1% duplicate-take attempts per DAU (conflicts) after UI in-flight locking.
+- >95% late submission purchases auto-unlock within 30 seconds of return.
+- <2% duplicate suggestions post dedupe check.
+- AA+ accessibility on key flows (compose, late submit, billing, admin inbox).
+
+END OF DOCUMENT

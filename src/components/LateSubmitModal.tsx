@@ -131,7 +131,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
 
   return (
     <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:max-w-lg md:max-w-xl max-h-[85dvh] overflow-y-auto rounded-xl">
         <DialogHeader>
           <DialogTitle>Missed Prompt?</DialogTitle>
           <DialogDescription>
@@ -142,7 +142,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-4">
+        <div className="space-y-4 modal-scroll">
           {step === 'initial' && (
             <>
               <p className="text-sm text-brand-muted">
@@ -152,7 +152,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               </p>
               <Button 
                 onClick={handleLateSubmit}
-                className="w-full btn-primary"
+                className="w-full btn-primary h-11 text-[clamp(14px,3.4vw,16px)]"
               >
                 {userCredits.late_submit > 0 ? 'Use Credit' : 'Purchase Credit ($1.99)'}
               </Button>
@@ -192,9 +192,11 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               {composeError && (
                 <div className="text-brand-danger text-sm">{composeError}</div>
               )}
-              <Button onClick={handleComposeSubmit} disabled={composeLoading || !composeContent.trim()} className="w-full">
-                {composeLoading ? 'Submitting...' : 'Submit Take for This Date'}
-              </Button>
+              <div className="sticky bottom-0 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 py-3">
+                <Button onClick={handleComposeSubmit} disabled={composeLoading || !composeContent.trim()} className="w-full h-11">
+                  {composeLoading ? 'Submitting...' : 'Submit Take for This Date'}
+                </Button>
+              </div>
             </div>
           )}
 
@@ -205,7 +207,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               </p>
               <Button 
                 onClick={handleClose}
-                className="mt-4 w-full"
+                className="mt-4 w-full h-11"
               >
                 Close
               </Button>
@@ -219,7 +221,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               </p>
               <Button 
                 onClick={() => setStep('initial')}
-                className="mt-4 w-full"
+                className="mt-4 w-full h-11"
               >
                 Try Again
               </Button>
