@@ -308,8 +308,13 @@ const MainAppScreen: React.FC = () => {
     return d;
   });
 
-  // Helper to format date as yyyy-MM-dd
-  const formatDate = (date: Date) => date.toISOString().split('T')[0];
+  // Helper to format date as yyyy-MM-dd (LOCAL timezone)
+  const formatDate = (date: Date) => {
+    const y = date.getFullYear();
+    const m = String(date.getMonth() + 1).padStart(2, '0');
+    const d = String(date.getDate()).padStart(2, '0');
+    return `${y}-${m}-${d}`;
+  };
 
   // Fetch prompt and takes for selectedDate
   const fetchPromptAndTakesForDate = async (date: Date) => {
@@ -324,18 +329,10 @@ const MainAppScreen: React.FC = () => {
     }
   };
 
-  // Watch selectedDate and currentTab, fetch for date if feed or toptakes
-  useEffect(() => {
-    if (currentTab === 'feed' || currentTab === 'toptakes') {
-      fetchPromptAndTakesForDate(selectedDate);
-    }
-    // eslint-disable-next-line
-  }, [selectedDate, currentTab]);
-
   // Belt-and-suspenders: on first mount, trigger a fetch for feed if promptText is empty
   useEffect(() => {
     if (currentTab === 'feed' && !promptText) {
-      console.log('[mount] prompt empty, fetching for date', { date: selectedDate.toISOString().split('T')[0] });
+      console.log('[mount] prompt empty, fetching for date', { date: formatDate(selectedDate) });
       fetchPromptAndTakesForDate(selectedDate);
     }
     // eslint-disable-next-line
@@ -353,8 +350,7 @@ const MainAppScreen: React.FC = () => {
     }
   }, [prompt, currentTab, promptText]);
 
-  // Removed forced-date alignment to always start at today on refresh
-
+  // Check posted for selected date using LOCAL date
   const checkHasPostedForDate = async (date: Date) => {
     if (!user) return;
     const { data, error } = await supabase
@@ -372,16 +368,22 @@ const MainAppScreen: React.FC = () => {
     // eslint-disable-next-line
   }, [selectedDate, user]);
 
-  // Show late submit modal if not posted, not today, and not already forcing blocker
+  // Show late submit modal only if not posted, not today, and eligible
   useEffect(() => {
-    const isToday = formatDate(selectedDate) === formatDate(today);
-    const forced = (() => { try { return localStorage.getItem('forceBlockerDate'); } catch { return null; } })();
-    const isForcedForThisDate = forced && forced === formatDate(selectedDate);
-    if (!hasPostedForSelectedDate && !isToday && !isForcedForThisDate && !isAppBlocked) {
-      setShowLateSubmit(true);
-    } else {
-      setShowLateSubmit(false);
-    }
+    const run = async () => {
+      const isToday = formatDate(selectedDate) === formatDate(today);
+      const forced = (() => { try { return localStorage.getItem('forceBlockerDate'); } catch { return null; } })();
+      const isForcedForThisDate = forced && forced === formatDate(selectedDate);
+      if (!isToday && !isForcedForThisDate && !isAppBlocked) {
+        // Double-check with eligibility (handles prompt existence and prior payment)
+        const eligible = await checkLateSubmissionEligibility(selectedDate);
+        setShowLateSubmit(!hasPostedForSelectedDate && eligible);
+      } else {
+        setShowLateSubmit(false);
+      }
+    };
+    run();
+    // eslint-disable-next-line
   }, [hasPostedForSelectedDate, selectedDate, today, isAppBlocked]);
 
   const checkLateSubmissionEligibility = async (date: Date) => {

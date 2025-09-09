@@ -7,7 +7,7 @@ export const useLateSubmission = () => {
   const [error, setError] = useState<string | null>(null);
   const { toast } = useToast();
 
-  const processLateSubmission = async (promptDate: string, amount: number) => {
+  const processLateSubmission = async (promptDate: string, amount: number, promoCode?: string) => {
     try {
       setLoading(true);
       setError(null);
@@ -21,27 +21,27 @@ export const useLateSubmission = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          lookupKey: 'credits_late_submit_5_199', // or create a single-use lookup for late submit
+          lookupKey: 'credits_late_submit_5_199',
           userId: user.id,
           mode: 'payment',
-          promoCode: undefined,
+          promoCode: promoCode,
           metadata: { late_submit_for: promptDate }
         })
       });
       if (!resp.ok) throw new Error('Failed to create checkout session');
       const body = await resp.json();
       if (body.free) {
-        toast({ title: 'Late submit unlocked', description: 'Promo applied.' });
+        toast({ title: 'Late submit unlocked', description: promoCode ? `Promo ${promoCode} applied.` : 'Promo applied.' });
         return true;
       }
       window.location.href = body.url;
       return true;
     } catch (err) {
       console.error('Late submission error:', err);
-      setError(err.message);
+      setError((err as any)?.message);
       toast({ 
         title: "Payment failed", 
-        description: err.message,
+        description: (err as any)?.message,
         variant: "destructive" 
       });
       return false;
@@ -65,7 +65,7 @@ export const useLateSubmission = () => {
       return data;
     } catch (err) {
       console.error('Error checking late submission status:', err);
-      setError(err.message);
+      setError((err as any)?.message);
       return false;
     }
   };

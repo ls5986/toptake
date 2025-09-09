@@ -24,6 +24,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
   const [composeLoading, setComposeLoading] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const [datePrompt, setDatePrompt] = useState<string>('');
+  const [promoCode, setPromoCode] = useState<string>('');
 
   const handleLateSubmit = async () => {
     if (userCredits.late_submit > 0) {
@@ -69,7 +70,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
     } else {
       // Process payment
       setStep('processing');
-      const success = await processLateSubmission(date.toISOString().split('T')[0], 1.99);
+      const success = await processLateSubmission(date.toISOString().split('T')[0], 1.99, promoCode?.trim().toUpperCase());
       if (success) {
         await loadPromptForDate();
         setStep('compose');
@@ -150,9 +151,15 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
                   ? 'Use a late submit credit to post your take and keep your streak.'
                   : 'Purchase a late submit credit to post your take and keep your streak.'}
               </p>
+              {userCredits.late_submit <= 0 && (
+                <div className="mt-3">
+                  <label className="text-xs text-brand-muted block mb-1">Promo code (optional)</label>
+                  <input value={promoCode} onChange={(e)=>setPromoCode(e.target.value)} placeholder="Enter promo (e.g., LINDSEY)" className="w-full p-2 rounded border-brand-border bg-brand-surface" />
+                </div>
+              )}
               <Button 
                 onClick={handleLateSubmit}
-                className="w-full btn-primary h-11 text-[clamp(14px,3.4vw,16px)]"
+                className="w-full btn-primary h-11 text-[clamp(14px,3.4vw,16px)] mt-3"
               >
                 {userCredits.late_submit > 0 ? 'Use Credit' : 'Purchase Credit ($1.99)'}
               </Button>
