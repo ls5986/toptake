@@ -105,16 +105,15 @@ const AppLayout: React.FC = () => {
     );
   }
 
-  // ✅ CRITICAL: Show blocker if user hasn't posted today
-  if (!hasPostedToday) {
+  // ✅ CRITICAL: Show blocker only if app is blocked and user hasn't posted today
+  if (isLoading === false && isBlocked && !hasPostedToday) {
     console.log('🚫 Showing blocker - user has not posted today');
     return (
       <DailyPromptBlocker 
         isBlocked={true}
         onSubmit={() => {
           console.log('✅ Take submitted from blocker');
-          // hasPostedToday will be updated by submitTake
-          // App will automatically re-render with main content
+          // submitTake updates hasPostedToday; App will re-render
         }}
       />
     );

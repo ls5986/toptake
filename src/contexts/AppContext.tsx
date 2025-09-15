@@ -150,35 +150,16 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return false;
 
     try {
-      // Use simple local date - no timezone math
-      const today = new Date().toISOString().split('T')[0];
-      
-      console.log('checkDailyPost:', {
-        userId: user.id,
-        today,
-        lastPostDate: user.last_post_date
-      });
-
-      // Check if user has posted today
-      const { data: existingTake, error } = await supabase
-        .from('takes')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('prompt_date', today)
-        .maybeSingle();
-
-      console.log('checkDailyPost result:', {
-        existingTake,
-        error,
-        hasPosted: !!existingTake
-      });
-
-      const has = !!existingTake;
+      // Use backend RPC that respects the user’s local date
+      const { data, error } = await supabase.rpc('has_posted_today', { p_user_id: user.id });
+      if (error) throw error;
+      const has = !!data;
       setHasPostedToday(has);
       setIsAppBlocked(!has);
       return has;
     } catch (error) {
       console.error('Error checking daily post:', error);
+      // Fallback: keep current state, report false to caller
       return false;
     }
   };
