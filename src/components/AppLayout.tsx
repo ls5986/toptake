@@ -18,7 +18,8 @@ const AppLayout: React.FC = () => {
     hasPostedToday,
     isLoading,
     currentTakeId,
-    setCurrentScreen
+    setCurrentScreen,
+    isBlocked
   } = useAppContext();
 
   console.log('📱 AppLayout render:', {
