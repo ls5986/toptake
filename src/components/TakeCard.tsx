@@ -227,15 +227,22 @@ export const TakeCard: React.FC<TakeCardProps> = ({
 
   // Format the prompt date if available on the take
   const promptDateLabel = (() => {
-    const d = (take as any).prompt_date || (take as any).promptDate;
-    if (!d) return null;
-    try {
-      const date = new Date(d);
-      if (Number.isNaN(date.getTime())) return String(d);
-      return date.toLocaleDateString();
-    } catch {
-      return String(d);
+    const raw = (take as any).prompt_date || (take as any).promptDate;
+    if (!raw) return null;
+    const s = String(raw);
+    // If it's an ISO date-only string, format without constructing a Date (avoids UTC shifting)
+    const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+    if (m) {
+      const y = Number(m[1]);
+      const mo = Number(m[2]);
+      const d = Number(m[3]);
+      return `${mo}/${d}/${y}`;
     }
+    try {
+      const date = new Date(s);
+      if (!Number.isNaN(date.getTime())) return date.toLocaleDateString();
+    } catch {}
+    return s;
   })();
 
   return (
