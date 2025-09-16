@@ -41,6 +41,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
   const [promptByDate, setPromptByDate] = useState<Record<string, string>>({});
+  const [promptById, setPromptById] = useState<Record<string, string>>({});
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('light');
@@ -88,7 +89,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     try {
       const { data: takesData } = await supabase
         .from('takes')
-        .select('id, user_id, content, created_at, prompt_date, is_anonymous, profiles(username)')
+        .select('id, user_id, content, created_at, prompt_date, prompt_id, is_anonymous, profiles(username)')
         .eq('user_id', targetUserId)
         .order('created_at', { ascending: false });
       
@@ -123,15 +124,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
         // Fetch prompt text for each distinct prompt_date shown on the profile
         const dates = Array.from(new Set((takesData || []).map((t: any) => t.prompt_date).filter(Boolean)));
+        const promptIds = Array.from(new Set((takesData || []).map((t: any) => t.prompt_id).filter(Boolean)));
         if (dates.length) {
           try {
             const { data: prompts } = await supabase
               .from('daily_prompts')
               .select('prompt_date, prompt_text')
-              .in('prompt_date', dates);
+              .in('prompt_date', dates)
+              .eq('is_active', true);
             const map: Record<string, string> = {};
             (prompts || []).forEach((p: any) => { map[p.prompt_date] = p.prompt_text || ''; });
             setPromptByDate(map);
+          } catch {}
+        }
+        if (promptIds.length) {
+          try {
+            const { data: promptsById } = await supabase
+              .from('daily_prompts')
+              .select('id, prompt_text')
+              .in('id', promptIds);
+            const mapId: Record<string, string> = {};
+            (promptsById || []).forEach((p: any) => { mapId[p.id] = p.prompt_text || ''; });
+            setPromptById(mapId);
           } catch {}
         }
       }
@@ -620,7 +634,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
               <div key={take.id} className="space-y-2">
                 {take.prompt_date && (
                   <div className="text-sm text-brand-muted">
-                    <span className="font-semibold text-brand-text">Prompt:</span> {promptByDate[take.prompt_date] || '—'}
+                    <span className="font-semibold text-brand-text">Prompt:</span> {promptById[(take as any).prompt_id] || promptByDate[take.prompt_date] || '—'}
                   </div>
                 )}
                 <TakeCard 
