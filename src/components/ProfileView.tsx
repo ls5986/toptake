@@ -119,8 +119,29 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           reactionCount: reactionsMap[take.id] || 0
         }));
 
-        setUserTakes(formattedTakes);
-        setHasPostedForSelectedDate(formattedTakes.length > 0);
+        // Dedupe: keep only one take per prompt_date (prefer longer content; tie -> latest by timestamp)
+        const byDate = new Map<string, Take>();
+        for (const t of formattedTakes) {
+          const key = String(t.prompt_date || '');
+          const prev = byDate.get(key);
+          if (!prev) {
+            byDate.set(key, t);
+          } else {
+            const prevLen = (prev.content || '').length;
+            const currLen = (t.content || '').length;
+            if (currLen > prevLen) {
+              byDate.set(key, t);
+            } else if (currLen === prevLen) {
+              if (new Date(t.timestamp).getTime() > new Date(prev.timestamp).getTime()) {
+                byDate.set(key, t);
+              }
+            }
+          }
+        }
+        const deduped = Array.from(byDate.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+
+        setUserTakes(deduped);
+        setHasPostedForSelectedDate(deduped.length > 0);
 
         // Fetch prompt text for each distinct prompt_date shown on the profile
         const dates = Array.from(new Set((takesData || []).map((t: any) => t.prompt_date).filter(Boolean)));
