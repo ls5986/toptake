@@ -120,9 +120,18 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         }));
 
         // Dedupe: keep only one take per prompt_date (prefer longer content; tie -> latest by timestamp)
+        const normalizeYMD = (v: any) => {
+          try {
+            const s = String(v);
+            if (s.length >= 10) return s.slice(0, 10);
+            const d = new Date(v);
+            if (!isNaN(d.getTime())) return d.toISOString().slice(0,10);
+            return s;
+          } catch { return String(v); }
+        };
         const byDate = new Map<string, Take>();
         for (const t of formattedTakes) {
-          const key = String(t.prompt_date || '');
+          const key = normalizeYMD((t as any).prompt_date);
           const prev = byDate.get(key);
           if (!prev) {
             byDate.set(key, t);

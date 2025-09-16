@@ -419,6 +419,20 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       setUser(userObj);
       try { localStorage.setItem(`profile:${profile.id}`, JSON.stringify(profile)); } catch {}
       if (debug) console.log('[INIT] user set, checking hasPostedToday');
+
+      // Capture browser timezone and upsert if changed
+      try {
+        const tz = Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+        if (tz && tz !== (profile as any).timezone) {
+          if (debug) console.log('[INIT] updating profile timezone', { tz, prev: (profile as any).timezone });
+          await supabase
+            .from('profiles')
+            .update({ timezone: tz })
+            .eq('id', profile.id);
+        }
+      } catch (e) {
+        if (debug) console.warn('[INIT] timezone capture failed', e);
+      }
       
       // CRITICAL: Always check backend for hasPostedToday
       // This is the single source of truth
