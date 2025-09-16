@@ -25,6 +25,13 @@ interface FormattedTake {
   reactionCount?: number;
 }
 
+function formatLocalYMD(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const d = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${d}`;
+}
+
 export function useTakesForDate(date: Date) {
   const [takes, setTakes] = useState<FormattedTake[]>([]);
   const [loading, setLoading] = useState(true);
@@ -37,7 +44,7 @@ export function useTakesForDate(date: Date) {
       setLoading(true);
       setError(null);
       try {
-        const dateStr = date.toISOString().split('T')[0];
+        const dateStr = formatLocalYMD(date);
         // quick in-memory cache for takes by date (short TTL)
         const cacheKey = `takes:${dateStr}`;
         try {
@@ -50,7 +57,9 @@ export function useTakesForDate(date: Date) {
             }
           }
         } catch {}
-        const args: any = { p_user_id: null, p_date: dateStr };
+        const { data: authData } = await supabase.auth.getUser();
+        const userId = authData?.user?.id || null;
+        const args: any = { p_user_id: userId, p_date: dateStr };
         if (before) args.p_before_created_at = before;
         console.log('[useTakesForDate] fetch', { dateStr, before })
         const { data, error } = await supabase
