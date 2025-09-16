@@ -148,12 +148,21 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           }
         }
         const deduped = Array.from(byDate.values()).sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+        // Hide future-dated takes for the viewer's local day (e.g., 9/16 when today is 9/15)
+        const todayYMD = localDate(new Date());
+        const visible = deduped.filter((t:any) => {
+          const d = String((t as any).prompt_date || '').slice(0, 10);
+          if (!d) return true;
+          return d <= todayYMD; // YYYY-MM-DD strings compare lexicographically
+        });
 
-        setUserTakes(deduped);
-        setHasPostedForSelectedDate(deduped.length > 0);
+        setUserTakes(visible);
+        setHasPostedForSelectedDate(visible.length > 0);
 
         // Fetch prompt text for each distinct prompt_date shown on the profile
-        const dates = Array.from(new Set((takesData || []).map((t: any) => t.prompt_date).filter(Boolean)));
+        const dates = Array.from(new Set((takesData || [])
+          .map((t: any) => t.prompt_date)
+          .filter((d:string) => !!d && String(d).slice(0,10) <= todayYMD)));
         const promptIds = Array.from(new Set((takesData || []).map((t: any) => t.prompt_id).filter(Boolean)));
         if (dates.length) {
           try {
