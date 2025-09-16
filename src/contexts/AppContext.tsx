@@ -454,10 +454,24 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
 
     try {
       const { data, error } = await supabase.rpc('has_posted_today', { p_user_id: targetUserId });
-      if (!error) {
-        const hasPosted = !!data;
-        setHasPostedToday(hasPosted);
-        setIsAppBlocked(!hasPosted);
+      if (!error && typeof data === 'boolean') {
+        if (data) {
+          setHasPostedToday(true);
+          setIsAppBlocked(false);
+          return;
+        }
+        // RPC says false — double-check with client-local date as a safety net
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        const { data: takesRow } = await supabase
+          .from('takes')
+          .select('id')
+          .eq('user_id', targetUserId)
+          .eq('prompt_date', todayStr)
+          .maybeSingle();
+        const hasLocal = !!takesRow;
+        setHasPostedToday(hasLocal);
+        setIsAppBlocked(!hasLocal);
         return;
       }
       // Fallback for environments where the new RPC isn't deployed yet
