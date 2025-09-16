@@ -45,7 +45,6 @@ export function useTakesForDate(date: Date) {
       setError(null);
       try {
         const dateStr = formatLocalYMD(date);
-        // quick in-memory cache for takes by date (short TTL)
         const cacheKey = `takes:${dateStr}`;
         try {
           const ls = localStorage.getItem(cacheKey);
@@ -57,19 +56,54 @@ export function useTakesForDate(date: Date) {
             }
           }
         } catch {}
+
         const { data: authData } = await supabase.auth.getUser();
         const userId = authData?.user?.id || null;
+
+        // Primary: RPC (server-side local date logic and pagination)
         const args: any = { p_user_id: userId, p_date: dateStr };
         if (before) args.p_before_created_at = before;
         console.log('[useTakesForDate] fetch', { dateStr, before })
-        const { data, error } = await supabase
-          .rpc('get_takes_for_date', args);
-        if (error) {
-          console.error('[useTakesForDate] error', error);
-          throw error;
+        let data: RpcTakeRow[] | null = null;
+        try {
+          const rpc = await supabase.rpc('get_takes_for_date', args);
+          if (rpc.error) throw rpc.error;
+          data = (rpc.data as RpcTakeRow[]) || [];
+        } catch (e) {
+          console.warn('[useTakesForDate] RPC failed, will try fallback', e);
+          data = null;
         }
+
+        // Fallback: direct query if RPC empty or failed
+        if (!data || data.length === 0) {
+          try {
+            const qb = supabase
+              .from('takes')
+              .select('id, user_id, content, is_anonymous, created_at, prompt_date, profiles:user_id(username)')
+              .eq('prompt_date', dateStr)
+              .order('created_at', { ascending: false });
+            // RLS will ensure we only see public or own; to encourage seeing own, no extra filter
+            const { data: rows, error: qErr } = await qb;
+            if (qErr) throw qErr;
+            data = (rows as any[]).map((t: any) => ({
+              id: t.id,
+              user_id: t.user_id,
+              content: t.content,
+              is_anonymous: t.is_anonymous,
+              created_at: t.created_at,
+              prompt_date: t.prompt_date,
+              username: t.is_anonymous ? null : (t.profiles?.username || null),
+              comment_count: 0,
+              reaction_count: 0,
+            }));
+          } catch (fe) {
+            console.error('[useTakesForDate] fallback failed', fe);
+            data = [] as any;
+          }
+        }
+
         console.log('[useTakesForDate] received', (data as any)?.length)
-        let formatted: FormattedTake[] = (data as RpcTakeRow[] || []).map((t) => ({
+        let formatted: FormattedTake[] = (data || []).map((t) => ({
           id: t.id,
           userId: t.user_id,
           content: t.content,
@@ -81,10 +115,9 @@ export function useTakesForDate(date: Date) {
           reactionCount: t.reaction_count || 0,
         }));
 
-        // Fallback: resolve usernames for any non-anonymous items that are still Unknown
         const missingUserIds = Array.from(new Set(
-          (data as RpcTakeRow[] || [])
-            .filter(t => !t.is_anonymous && (!t.username || t.username.toLowerCase() === 'unknown'))
+          (data || [])
+            .filter(t => !t.is_anonymous && (!t.username || (t as any).username?.toLowerCase?.() === 'unknown'))
             .map(t => t.user_id)
         ));
         if (missingUserIds.length) {
@@ -103,7 +136,6 @@ export function useTakesForDate(date: Date) {
         }
         if (!cancelled) {
           if (before) {
-            // append with dedupe by id
             setTakes(prev => {
               const seen = new Set(prev.map(t => t.id));
               const appended = formatted.filter(t => !seen.has(t.id));
