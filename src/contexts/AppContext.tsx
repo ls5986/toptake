@@ -150,16 +150,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     if (!user) return false;
 
     try {
-      // Use backend RPC that respects the user’s local date
-      const { data, error } = await supabase.rpc('has_posted_today', { p_user_id: user.id });
-      if (error) throw error;
-      const has = !!data;
+      // Prefer backend RPC (uses server-side local date)
+      try {
+        const { data, error } = await supabase.rpc('has_posted_today', { p_user_id: user.id });
+        if (!error && typeof data === 'boolean') {
+          const has = !!data;
+          setHasPostedToday(has);
+          setIsAppBlocked(!has);
+          return has;
+        }
+      } catch {}
+
+      // Fallback: direct query using local date (client-side)
+      const today = new Date();
+      const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+      const { data: existingTake } = await supabase
+        .from('takes')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('prompt_date', todayStr)
+        .maybeSingle();
+      const has = !!existingTake;
       setHasPostedToday(has);
       setIsAppBlocked(!has);
       return has;
     } catch (error) {
       console.error('Error checking daily post:', error);
-      // Fallback: keep current state, report false to caller
       return false;
     }
   };
