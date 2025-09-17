@@ -260,8 +260,8 @@ export const TakeCard: React.FC<TakeCardProps> = ({
           />
         )}
         
-        <Card className="bg-brand-surface/90 border-brand-border hover:border-brand-accent transition-all duration-200 backdrop-blur-sm">
-          <CardContent className="p-3 sm:p-4">
+        <Card className="bg-brand-surface/70 border-brand-border/70 hover:border-brand-accent transition-all duration-200">
+          <CardContent className="p-3 sm:p-3.5">
             <div className="flex items-start space-x-3">
               <Avatar 
                 className={`w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 ${!take.isAnonymous ? 'cursor-pointer hover:ring-2 hover:ring-brand-accent' : ''}`}
@@ -273,7 +273,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
               </Avatar>
               
               <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between mb-2">
+                <div className="flex items-center justify-between mb-1.5">
                   <div className="flex items-center space-x-2 flex-wrap">
                     <span 
                       className={`font-medium text-brand-text text-sm sm:text-base truncate ${
@@ -301,12 +301,12 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                   <div className="flex items-center gap-2">
                     <button
                       onClick={handleShareTake}
-                      className="text-xs text-brand-muted hover:text-brand-accent underline"
+                      className="text-xs text-brand-muted hover:text-brand-accent underline-offset-2"
                       title="Share take"
                     >
                       Share
                     </button>
-                    <div className="inline-block px-2 py-1 rounded bg-brand-surface text-brand-accent text-xs font-semibold border border-brand-accent">
+                    <div className="inline-block px-1.5 py-0.5 rounded bg-brand-surface/60 text-brand-accent text-xs font-semibold border border-brand-accent/80">
                       🔥 {engagementCount}
                     </div>
                   </div>
@@ -324,16 +324,16 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                   )}
                 </div>
                 
-                <p className="text-brand-muted mb-3 leading-relaxed text-sm sm:text-base break-words">{take.content}</p>
+                <p className="text-brand-text/90 mb-2 leading-snug text-sm sm:text-[15px] break-words">{take.content}</p>
                 
-                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1 sm:gap-2 mb-3">
+                <div className="grid grid-cols-2 sm:flex sm:flex-wrap gap-1.5 sm:gap-2 mb-2">
                   {reactionTypes.map(rt => (
                     <Button
                       key={rt.name}
                       onClick={() => handleReaction(rt.name)}
                       variant={userReaction === rt.name ? "solid" : "outline"}
                       size="sm"
-                      className={`border-brand-border text-brand-text hover:border-brand-accent hover:text-brand-accent text-xs px-2 py-1 h-auto min-h-[28px] justify-start ${userReaction === rt.name ? 'bg-brand-accent text-white' : ''}`}
+                      className={`border-brand-border/70 text-brand-text hover:border-brand-accent hover:text-brand-accent text-xs px-2 py-1 h-auto min-h-[26px] justify-start ${userReaction === rt.name ? 'bg-brand-accent text-white' : ''}`}
                       disabled={!canInteract}
                     >
                       <span className="mr-1">{rt.emoji}</span>

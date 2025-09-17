@@ -256,10 +256,12 @@ const MainAppScreen: React.FC = () => {
               </div>
             ) : (
               <ScrollArea className="h-full">
-                <div className="p-4 space-y-4">
-                  <h2 className="text-xl font-semibold text-brand-text sticky top-0 bg-brand-surface py-2 z-10">
-                    💬 Today's Hot Takes ({(sharedTakes as any)?.length || 0})
-                  </h2>
+                <div className="p-3 space-y-3">
+                  <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
+                    <span className="inline-block align-middle">💬</span>
+                    <span>Today’s takes</span>
+                    <span className="text-brand-text/80 ml-1">{(sharedTakes as any)?.length || 0}</span>
+                  </div>
                   {(sharedTakes as any)?.map((take: any) => (
                     <TakeCard key={take.id} take={take} onReact={handleReaction} />
                   ))}
