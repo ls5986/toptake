@@ -37,6 +37,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [followersSample, setFollowersSample] = useState<any[]>([]);
   const [followingSample, setFollowingSample] = useState<any[]>([]);
   const [followBusy, setFollowBusy] = useState<Record<string, boolean>>({});
+  const [followActionBusy, setFollowActionBusy] = useState(false);
   const [profileUser, setProfileUser] = useState<any>(null);
   const [selectedDate] = useState(new Date());
   const [userTakes, setUserTakes] = useState<Take[]>([]);
@@ -333,10 +334,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   };
 
   const toggleFollow = async () => {
-    if (!user?.id || !targetUserId || user.id === targetUserId) return;
+    if (!user?.id || !targetUserId || user.id === targetUserId || followActionBusy) return;
+    setFollowActionBusy(true);
     try {
       if (isFollowing) {
-        if (!window.confirm('Unfollow this user?')) return;
+        if (!window.confirm('Unfollow this user?')) { setFollowActionBusy(false); return; }
         const { error } = await supabase.rpc('unfollow_user', { p_viewer: user.id, p_target: targetUserId });
         if (error) toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
         setIsFollowing(false);
@@ -347,11 +349,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
         setIsFollowing(true);
         setFollowerCount(c => c + 1);
       }
-      // Refresh counts/lists from backend for accuracy
-      await loadFollowStats();
-      if (followersOpen) await openFollowers();
-      if (followingOpen) await openFollowing();
+      // Fire-and-forget refresh to avoid UI stall
+      try { loadFollowStats(); } catch {}
+      try { if (followersOpen) openFollowers(); } catch {}
+      try { if (followingOpen) openFollowing(); } catch {}
     } catch {}
+    finally {
+      setFollowActionBusy(false);
+    }
   };
 
   const toggleFollowForId = async (otherId: string, currentlyFollowing: boolean) => {
