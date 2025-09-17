@@ -405,139 +405,89 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       {/* Profile Card */}
       <Card className="bg-card-gradient">
         <CardContent className="p-4">
-          <div className="flex items-center gap-3 sm:gap-4">
-            <Avatar className="w-14 h-14 sm:w-16 sm:h-16">
+          <div className="flex items-start gap-4">
+            <Avatar className="w-16 h-16">
               {profileUser?.avatar_url ? (
                 <AvatarImage src={profileUser.avatar_url} alt={profileUser?.username || 'User'} />
               ) : null}
-              <AvatarFallback className="bg-brand-primary text-brand-text text-xl sm:text-2xl">
+              <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
                 {(profileUser?.username || 'U')[0].toUpperCase()}
               </AvatarFallback>
             </Avatar>
             <div className="flex-1 min-w-0">
-              <CardTitle className="text-xl sm:text-2xl text-brand-text truncate">
-                {profileUser?.username || 'Unknown User'}
-              </CardTitle>
-              {isPrivateProfile && (
-                <div className="text-xs text-brand-muted mt-0.5">Private profile</div>
-              )}
-              <div className="flex flex-wrap items-center gap-2 mt-2">
-                <Badge variant="outline" className="text-brand-primary border-brand-primary flex items-center gap-1">
-                  <Flame className="w-4 h-4 text-brand-primary" />
-                  {streak || 0} day streak
-                </Badge>
-                <Badge variant="outline" className="text-brand-accent border-brand-accent flex items-center gap-1">
-                  <FileText className="w-4 h-4 text-brand-accent" />
-                  {totalTakes || 0} takes
-                </Badge>
-                <span className="flex-1" />
-                <button
-                  className="text-xs text-brand-muted hover:text-brand-accent underline"
-                  onClick={async () => {
-                    const url = `${window.location.origin}/${profileUser?.username || targetUserId}`;
-                    try { logClientEvent('share_profile', { username: profileUser?.username || null, targetUserId, url }); } catch {}
-                    try {
-                      if ((navigator as any).share) {
-                        await (navigator as any).share({ title: 'TopTake', text: 'Check out this profile', url });
-                      } else {
-                        await navigator.clipboard.writeText(url);
-                        toast({ title: 'Link copied' });
-                      }
-                    } catch {}
-                  }}
-                >
-                  Share Profile
-                </button>
-                {user?.id !== targetUserId && (
+              <div className="flex items-center justify-between gap-2">
+                <CardTitle className="text-xl sm:text-2xl text-brand-text truncate">
+                  {profileUser?.username || 'Unknown User'}
+                </CardTitle>
+                <div className="flex items-center gap-2">
                   <button
-                    className="text-xs p-1 border rounded px-2 "
-                    onClick={toggleFollow}
-                  >
-                    {isFollowing ? 'Unfollow' : 'Follow'}
-                  </button>
-                )}
-                {user?.id !== targetUserId && (
-                  <button
-                    className="text-xs text-brand-danger hover:text-brand-text p-1 border rounded px-2"
+                    className="text-xs text-brand-muted hover:text-brand-accent underline"
                     onClick={async () => {
-                      if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
+                      const url = `${window.location.origin}/${profileUser?.username || targetUserId}`;
+                      try { logClientEvent('share_profile', { username: profileUser?.username || null, targetUserId, url }); } catch {}
                       try {
-                        const { error } = await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId });
-                        if (error && String((error as any).code) === '23505') {
-                          // Already blocked
+                        if ((navigator as any).share) {
+                          await (navigator as any).share({ title: 'TopTake', text: 'Check out this profile', url });
+                        } else {
+                          await navigator.clipboard.writeText(url);
+                          toast({ title: 'Link copied' });
                         }
                       } catch {}
                     }}
                   >
-                    Block
+                    Share
                   </button>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap gap-4 text-xs sm:text-sm">
-                <button className="text-brand-muted hover:text-brand-text" onClick={openFollowers}>
-                  Followers {followerCount}
-                </button>
-                <button className="text-brand-muted hover:text-brand-text" onClick={openFollowing}>
-                  Following {followingCount}
-                </button>
+                  {user?.id !== targetUserId && (
+                    <>
+                      <button className="text-xs p-1 border rounded px-2" onClick={toggleFollow}>
+                        {isFollowing ? 'Unfollow' : 'Follow'}
+                      </button>
+                      <button
+                        className="text-xs text-brand-danger hover:text-brand-text p-1 border rounded px-2"
+                        onClick={async () => {
+                          if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
+                          try {
+                            const { error } = await supabase.from('blocks').insert({ blocker_id: user?.id, blocked_id: targetUserId });
+                            if (error && String((error as any).code) === '23505') {
+                              // Already blocked
+                            }
+                          } catch {}
+                        }}
+                      >
+                        Block
+                      </button>
+                    </>
+                  )}
+                </div>
               </div>
 
-              {/* Compact avatar rows */}
-              <div className="mt-3 grid grid-cols-2 gap-3 max-w-md">
-                <div>
-                  <div className="text-xs text-brand-muted mb-1">Followers</div>
-                  <div className="flex flex-wrap gap-2">
-                    {followersSample.map(p => (
-                      <div key={p.id} className="flex items-center gap-2 border border-brand-border rounded-full px-2 py-1">
-                        <img src={p.avatar_url || ''} alt="avatar"
-                          className="w-6 h-6 rounded-full bg-brand-muted object-cover"
-                          onError={(e:any)=>{e.currentTarget.style.display='none';}} />
-                        <span className="text-xs text-brand-text">{p.username || 'Unknown'}</span>
-                        {user?.id && user.id !== p.id && (
-                          <button
-                            className="text-[11px] border rounded px-2"
-                            disabled={!!followBusy[p.id]}
-                            onClick={async () => {
-                              // If I already follow p?
-                              const { data } = await supabase
-                                .from('follows')
-                                .select('id')
-                                .eq('follower_id', user.id)
-                                .eq('followee_id', p.id)
-                                .maybeSingle();
-                              await toggleFollowForId(p.id, !!data);
-                            }}
-                          >
-                            {followBusy[p.id] ? '...' : 'Follow'}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+              {isPrivateProfile && (
+                <div className="text-xs text-brand-muted mt-0.5">Private profile</div>
+              )}
+
+              {/* Stats Row */}
+              <div className="mt-2 flex items-center gap-6 text-sm">
+                <div className="text-center">
+                  <div className="font-semibold text-brand-text">{totalTakes || 0}</div>
+                  <div className="text-xs text-brand-muted">takes</div>
                 </div>
-                <div>
-                  <div className="text-xs text-brand-muted mb-1">Following</div>
-                  <div className="flex flex-wrap gap-2">
-                    {followingSample.map(p => (
-                      <div key={p.id} className="flex items-center gap-2 border border-brand-border rounded-full px-2 py-1">
-                        <img src={p.avatar_url || ''} alt="avatar"
-                          className="w-6 h-6 rounded-full bg-brand-muted object-cover"
-                          onError={(e:any)=>{e.currentTarget.style.display='none';}} />
-                        <span className="text-xs text-brand-text">{p.username || 'Unknown'}</span>
-                        {user?.id && user.id === targetUserId && (
-                          <button
-                            className="text-[11px] border rounded px-2"
-                            disabled={!!followBusy[p.id]}
-                            onClick={async () => {
-                              await toggleFollowForId(p.id, true);
-                            }}
-                          >
-                            {followBusy[p.id] ? '...' : 'Unfollow'}
-                          </button>
-                        )}
-                      </div>
-                    ))}
-                  </div>
+                <div className="text-center cursor-pointer" onClick={openFollowers}>
+                  <div className="font-semibold text-brand-text">{followerCount || 0}</div>
+                  <div className="text-xs text-brand-muted">followers</div>
+                </div>
+                <div className="text-center cursor-pointer" onClick={openFollowing}>
+                  <div className="font-semibold text-brand-text">{followingCount || 0}</div>
+                  <div className="text-xs text-brand-muted">following</div>
+                </div>
+                <div className="flex items-center gap-2 ml-auto">
+                  <Badge variant="outline" className="text-brand-primary border-brand-primary flex items-center gap-1">
+                    <Flame className="w-4 h-4 text-brand-primary" />
+                    {streak || 0} day streak
+                  </Badge>
+                  <Badge variant="outline" className="text-brand-accent border-brand-accent hidden sm:flex items-center gap-1">
+                    <FileText className="w-4 h-4 text-brand-accent" />
+                    {totalTakes || 0} takes
+                  </Badge>
                 </div>
               </div>
 
