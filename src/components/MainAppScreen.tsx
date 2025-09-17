@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Users, LogOut, Menu, ChevronLeft, ChevronRight, Search } from 'lucide-react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
@@ -11,7 +11,6 @@ import { useToast } from '@/hooks/use-toast';
 import { MonetizationModals } from './MonetizationModals';
 import { supabase } from '@/lib/supabase';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import MainTabs from './MainTabs';
 import BottomNav from './BottomNav';
 import LeaderboardScreen from './LeaderboardScreen';
 import ProfileView from './ProfileView';
@@ -539,45 +538,9 @@ const MainAppScreen: React.FC = () => {
       />
       
       <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
-        <div className="flex-shrink-0 border-b border-brand-border safe-topbar">
-          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
-            <button
-              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80 touch-target"
-              onClick={() => setMenuOpen(true)}
-              aria-label="Open menu"
-            >
-              <Menu className="w-6 h-6 text-brand-text" />
-            </button>
-            <h1 className="text-2xl font-bold text-brand-text">🔥 TopTake</h1>
-            <div className="flex items-center gap-2">
-              <button className="p-2 rounded hover:bg-brand-surface/80" onClick={()=>handleTabChange('search')} aria-label="Search">
-                <Search className="w-5 h-5 text-brand-text" />
-              </button>
-              <button className="p-2 rounded hover:bg-brand-surface/80 relative" onClick={()=>handleTabChange('notifications')} aria-label="Notifications">
-                <Users className="w-5 h-5 text-brand-text" />
-                {unreadNotifications>0 && <span className="absolute -top-1 -right-1 bg-brand-accent text-white rounded-full text-[10px] px-1 leading-none">{unreadNotifications>9?'9+':unreadNotifications}</span>}
-              </button>
-            </div>
-          </div>
-        </div>
+        {/* Top navigation hidden per design: bottom nav is the primary navigation on all breakpoints */}
         
-        <div className="flex-shrink-0 safe-px">
-          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto">
-            <MainTabs currentTab={currentTab} onTabChange={(tab)=>{
-              if (tab === 'feed') {
-                navigate('/');
-                setCurrentTab('feed');
-                return;
-              }
-              if (tab === 'profile') {
-                navigate('/profile');
-                setCurrentTab('profile');
-                return;
-              }
-              handleTabChange(tab);
-            }} showAdmin={showAdminTab} unreadNotifications={unreadNotifications} />
-          </div>
-        </div>
+        {/* Desktop tabs removed; navigation handled exclusively by BottomNav */}
         
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
@@ -720,8 +683,8 @@ const MainAppScreen: React.FC = () => {
         />
       )}
 
-      {/* Bottom navigation (mobile-first) */}
-      <div className="md:hidden h-14" />
+      {/* Spacer to prevent content being hidden behind the fixed BottomNav */}
+      <div className="h-14 md:h-16" />
       <BottomNav currentTab={currentTab} onTabChange={(tab)=>{
         if (tab==='feed') navigate('/');
         if (tab==='profile') navigate('/profile');
