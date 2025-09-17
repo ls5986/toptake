@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { Users, LogOut, Menu, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Users, LogOut, Menu, ChevronLeft, ChevronRight, Search } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
