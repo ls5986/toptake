@@ -134,6 +134,35 @@ export function useTakesForDate(date: Date) {
             ));
           } catch {}
         }
+
+        // Ensure the viewer's own take appears even if main query misses it (RLS, replication, or cache)
+        if (userId) {
+          try {
+            const { data: myRow } = await supabase
+              .from('takes')
+              .select('id, user_id, content, is_anonymous, created_at, prompt_date, profiles:user_id(username)')
+              .eq('user_id', userId)
+              .eq('prompt_date', dateStr)
+              .maybeSingle();
+            if (myRow) {
+              const exists = formatted.some(t => t.id === myRow.id);
+              if (!exists) {
+                const myFormatted: FormattedTake = {
+                  id: myRow.id,
+                  userId: myRow.user_id,
+                  content: myRow.content,
+                  username: myRow.is_anonymous ? 'Anonymous' : (myRow.profiles?.username || 'Unknown'),
+                  isAnonymous: myRow.is_anonymous,
+                  timestamp: myRow.created_at,
+                  prompt_date: myRow.prompt_date,
+                  commentCount: 0,
+                  reactionCount: 0,
+                };
+                formatted = [myFormatted, ...formatted];
+              }
+            }
+          } catch {}
+        }
         if (!cancelled) {
           if (before) {
             setTakes(prev => {
