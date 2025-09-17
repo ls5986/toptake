@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
@@ -404,21 +404,24 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     <div className="flex-1 flex flex-col h-full p-4 space-y-6">
       {/* Profile Card */}
       <Card className="bg-card-gradient">
-        <CardContent className="p-6">
-          <div className="flex flex-col items-center space-y-4">
-            <Avatar className="w-20 h-20">
-              <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
+        <CardContent className="p-4">
+          <div className="flex items-center gap-3 sm:gap-4">
+            <Avatar className="w-14 h-14 sm:w-16 sm:h-16">
+              {profileUser?.avatar_url ? (
+                <AvatarImage src={profileUser.avatar_url} alt={profileUser?.username || 'User'} />
+              ) : null}
+              <AvatarFallback className="bg-brand-primary text-brand-text text-xl sm:text-2xl">
                 {(profileUser?.username || 'U')[0].toUpperCase()}
               </AvatarFallback>
             </Avatar>
-            <div className="text-center">
-              <CardTitle className="text-2xl text-brand-text">
+            <div className="flex-1 min-w-0">
+              <CardTitle className="text-xl sm:text-2xl text-brand-text truncate">
                 {profileUser?.username || 'Unknown User'}
               </CardTitle>
               {isPrivateProfile && (
-                <div className="text-xs text-brand-muted mt-1">Private profile</div>
+                <div className="text-xs text-brand-muted mt-0.5">Private profile</div>
               )}
-              <div className="flex justify-center space-x-4 mt-3">
+              <div className="flex flex-wrap items-center gap-2 mt-2">
                 <Badge variant="outline" className="text-brand-primary border-brand-primary flex items-center gap-1">
                   <Flame className="w-4 h-4 text-brand-primary" />
                   {streak || 0} day streak
@@ -427,10 +430,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   <FileText className="w-4 h-4 text-brand-accent" />
                   {totalTakes || 0} takes
                 </Badge>
-              </div>
-              <div className="mt-2 flex justify-center gap-3">
+                <span className="flex-1" />
                 <button
-                  className="text-sm text-brand-muted hover:text-brand-accent underline"
+                  className="text-xs text-brand-muted hover:text-brand-accent underline"
                   onClick={async () => {
                     const url = `${window.location.origin}/${profileUser?.username || targetUserId}`;
                     try { logClientEvent('share_profile', { username: profileUser?.username || null, targetUserId, url }); } catch {}
@@ -448,7 +450,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 </button>
                 {user?.id !== targetUserId && (
                   <button
-                    className="text-sm p-1 border rounded px-2 "
+                    className="text-xs p-1 border rounded px-2 "
                     onClick={toggleFollow}
                   >
                     {isFollowing ? 'Unfollow' : 'Follow'}
@@ -456,7 +458,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 )}
                 {user?.id !== targetUserId && (
                   <button
-                    className="text-sm text-brand-danger hover:text-brand-text p-1 border rounded px-2"
+                    className="text-xs text-brand-danger hover:text-brand-text p-1 border rounded px-2"
                     onClick={async () => {
                       if (!window.confirm('Block this user? They will not be able to follow or view your profile.')) return;
                       try {
@@ -471,8 +473,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   </button>
                 )}
               </div>
-
-              <div className="mt-2 flex justify-center gap-4 text-sm">
+              <div className="mt-2 flex flex-wrap gap-4 text-xs sm:text-sm">
                 <button className="text-brand-muted hover:text-brand-text" onClick={openFollowers}>
                   Followers {followerCount}
                 </button>
@@ -482,7 +483,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
               </div>
 
               {/* Compact avatar rows */}
-              <div className="mt-3 grid grid-cols-2 gap-4 max-w-md mx-auto">
+              <div className="mt-3 grid grid-cols-2 gap-3 max-w-md">
                 <div>
                   <div className="text-xs text-brand-muted mb-1">Followers</div>
                   <div className="flex flex-wrap gap-2">
@@ -628,12 +629,12 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 </DialogContent>
               </Dialog>
               <div className="mt-4 w-full max-w-2xl mx-auto">
-                <div className="grid grid-cols-3 gap-2">
-                  <Button variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
-                  <Button variant="outline" onClick={() => { setTheme('dark' as any); setCurrentTheme('dark'); }}>Dark</Button>
-                  <Button variant="outline" onClick={() => setShowStore(true)}>Trippy</Button>
+                <div className="grid grid-cols-3 gap-2 text-xs">
+                  <Button size="sm" variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
+                  <Button size="sm" variant="outline" onClick={() => { setTheme('dark' as any); setCurrentTheme('dark'); }}>Dark</Button>
+                  <Button size="sm" variant="outline" onClick={() => setShowStore(true)}>Trippy</Button>
                 </div>
-                <p className="text-xs text-brand-muted mt-2 text-center">Trippy includes premium themes.</p>
+                <p className="text-xs text-brand-muted mt-1">Trippy includes premium themes.</p>
               </div>
               {viewingOwnProfile && (
                 <>
@@ -641,7 +642,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                     onClick={() => setShowEditProfile(true)}
                     variant="outline"
                     size="sm"
-                    className="mt-4 border-brand-border text-brand-muted hover:bg-brand-surface/80"
+                    className="mt-3 border-brand-border text-brand-muted hover:bg-brand-surface/80"
                   >
                     <Edit3 className="w-4 w-4 mr-2" />
                     Edit Profile
@@ -694,8 +695,11 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       <ProfileEditModal
         isOpen={showEditModal}
         onClose={() => setShowEditModal(false)}
-        profile={user}
-        onUpdate={() => {}}
+        profile={profileUser || (user as any)}
+        onUpdate={(updated) => {
+          // Reflect updates immediately in the header (e.g., avatar_url)
+          setProfileUser(prev => ({ ...(prev || {}), ...updated }));
+        }}
       />
       {showStore && (
         <ThemeStoreModal isOpen={showStore} onClose={() => setShowStore(false)} />
