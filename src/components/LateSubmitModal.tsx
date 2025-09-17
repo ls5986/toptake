@@ -15,7 +15,7 @@ interface LateSubmitModalProps {
 }
 
 const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPurchase, date }) => {
-  const { userCredits, setUserCredits, submitTake } = useAppContext();
+  const { userCredits, setUserCredits, submitTake, user } = useAppContext();
   const { processLateSubmission, loading, error } = useLateSubmission();
   const { toast } = useToast();
   const [step, setStep] = useState<'initial' | 'processing' | 'compose' | 'success' | 'error'>('initial');
@@ -25,6 +25,14 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
   const [composeError, setComposeError] = useState<string | null>(null);
   const [datePrompt, setDatePrompt] = useState<string>('');
   const [promoCode, setPromoCode] = useState<string>('');
+
+  // Prefetch prompt when opening or date changes
+  useEffect(() => {
+    if (isOpen) {
+      loadPromptForDate();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, date]);
 
   const handleLateSubmit = async () => {
     if (userCredits.late_submit > 0) {
@@ -83,7 +91,16 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
 
   const handleClose = () => {
     setStep('initial');
+    setComposeContent('');
+    setComposeAnon(false);
+    setComposeError(null);
     onClose();
+  };
+
+  // Respectful close guard: do not allow closing while processing
+  const handleRequestClose = () => {
+    if (step === 'processing' || composeLoading) return; // ignore close
+    handleClose();
   };
 
   const loadPromptForDate = async () => {
@@ -131,15 +148,18 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
   };
 
   return (
-    <Dialog open={isOpen} onOpenChange={handleClose}>
-      <DialogContent className="w-[calc(100vw-2rem)] max-w-md sm:max-w-lg md:max-w-xl max-h-[85dvh] overflow-y-auto rounded-xl">
+    <Dialog open={isOpen} onOpenChange={(open)=>{ if (!open) handleRequestClose(); }}>
+      <DialogContent 
+        className="w-[calc(100vw-2rem)] max-w-md sm:max-w-lg md:max-w-xl max-h-[85dvh] overflow-y-auto rounded-xl"
+        onInteractOutside={(e)=>{ if (step==='processing' || composeLoading) e.preventDefault(); }}
+        onEscapeKeyDown={(e)=>{ if (step==='processing' || composeLoading) e.preventDefault(); }}
+      >
         <DialogHeader>
-          <DialogTitle>Missed Prompt?</DialogTitle>
+          <DialogTitle>Late submit for {date.toLocaleDateString()}</DialogTitle>
           <DialogDescription>
-            You didn't submit a take for {date.toLocaleDateString()}. 
             {userCredits.late_submit > 0 
-              ? ` You have ${userCredits.late_submit} late submit credit${userCredits.late_submit > 1 ? 's' : ''} available.`
-              : ' Unlock late submit to post your take and keep your streak!'}
+              ? `You have ${userCredits.late_submit} late submit credit${userCredits.late_submit > 1 ? 's' : ''} available.`
+              : 'Unlock late submit to post your take and keep your streak.'}
           </DialogDescription>
         </DialogHeader>
 
@@ -160,8 +180,10 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               <Button 
                 onClick={handleLateSubmit}
                 className="w-full btn-primary h-11 text-[clamp(14px,3.4vw,16px)] mt-3"
+                disabled={loading}
+                aria-busy={loading}
               >
-                {userCredits.late_submit > 0 ? 'Use Credit' : 'Purchase Credit ($1.99)'}
+                {loading ? (userCredits.late_submit > 0 ? 'Processing…' : 'Starting checkout…') : (userCredits.late_submit > 0 ? 'Use Credit' : 'Purchase Credit ($1.99)')}
               </Button>
             </>
           )}
@@ -181,6 +203,10 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
                 <div className="font-semibold text-brand-text mb-1">Prompt for {date.toLocaleDateString()}</div>
                 <div>{datePrompt || 'No prompt found for that day.'}</div>
               </div>
+              <div className="flex items-center justify-between">
+                <Button variant="ghost" size="sm" onClick={()=> setStep('initial')} disabled={composeLoading}>Back</Button>
+                <span className="text-xs text-brand-muted">{composeContent.length}/2000</span>
+              </div>
               <textarea
                 className="w-full p-2 border rounded bg-brand-surface border-brand-border text-brand-text"
                 placeholder="Write your take for this day..."
@@ -194,14 +220,14 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
                   <input type="checkbox" checked={composeAnon} onChange={(e) => setComposeAnon(e.target.checked)} />
                   Post anonymously
                 </label>
-                <span className="text-xs text-brand-muted">{composeContent.length}/2000</span>
+                <div />
               </div>
               {composeError && (
                 <div className="text-brand-danger text-sm">{composeError}</div>
               )}
-              <div className="sticky bottom-0 bg-white/90 backdrop-blur supports-[backdrop-filter]:bg-white/70 py-3">
+              <div className="sticky bottom-0 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/70 py-3">
                 <Button onClick={handleComposeSubmit} disabled={composeLoading || !composeContent.trim()} className="w-full h-11">
-                  {composeLoading ? 'Submitting...' : 'Submit Take for This Date'}
+                  {composeLoading ? 'Submitting…' : 'Submit Take for This Date'}
                 </Button>
               </div>
             </div>
