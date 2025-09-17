@@ -559,13 +559,13 @@ const MainAppScreen: React.FC = () => {
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
             {/* Simple date picker with monthly status indicators */}
-            <div className="flex items-center justify-center gap-3 my-3 px-2" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
+            <div className="flex items-center justify-center gap-1.5 my-2 px-2 text-sm" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
               <Button variant="ghost" size="icon" onClick={goToPrevDay} aria-label="Previous day">
-                <ChevronLeft className="w-5 h-5" />
+                <ChevronLeft className="w-4 h-4" />
               </Button>
               <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="px-4 py-2 rounded-full text-sm font-semibold" onClick={() => setCalendarOpen(true)}>
+                  <Button variant="outline" className="px-3 py-1.5 rounded-full text-sm font-medium" onClick={() => setCalendarOpen(true)}>
                     {selectedDate.toLocaleDateString()}
                   </Button>
                 </PopoverTrigger>
@@ -591,7 +591,7 @@ const MainAppScreen: React.FC = () => {
                 </PopoverContent>
               </Popover>
               <Button variant="ghost" size="icon" onClick={goToNextDay} disabled={selectedDate.getTime() === today.getTime()} aria-label="Next day">
-                <ChevronRight className="w-5 h-5" />
+                <ChevronRight className="w-4 h-4" />
               </Button>
             </div>
             {renderContent()}
