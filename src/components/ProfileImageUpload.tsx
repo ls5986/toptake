@@ -26,6 +26,8 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
     const file = event.target.files?.[0];
     if (!file || !user) return;
 
+    console.log('[Avatar] selected', { name: file.name, size: file.size, type: file.type });
+
     if (file.size > 5 * 1024 * 1024) {
       toast({
         title: 'File too large',
@@ -50,9 +52,10 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
       const filePath = `avatars/${fileName}`;
 
+      console.log('[Avatar] uploading to storage', { path: filePath });
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file);
+        .upload(filePath, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
 
       if (uploadError) throw uploadError;
 
@@ -60,9 +63,11 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         .from('avatars')
         .getPublicUrl(filePath);
 
+      console.log('[Avatar] publicUrl', publicUrl);
+
       // Verify reachability (catches storage policy issues)
       try {
-        const head = await fetch(publicUrl, { method: 'HEAD', cache: 'no-store' });
+        const head = await fetch(publicUrl, { method: 'HEAD', cache: 'reload' });
         if (!head.ok) {
           throw new Error(`Avatar not reachable (HTTP ${head.status}). Check storage policies for bucket 'avatars'.`);
         }
@@ -70,6 +75,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         throw new Error(netErr?.message || 'Avatar not reachable after upload');
       }
 
+      console.log('[Avatar] updating profile row');
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
@@ -79,12 +85,14 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
 
       const cacheBusted = `${publicUrl}?t=${Date.now()}`;
       onImageUpdate(cacheBusted);
+      console.log('[Avatar] update complete');
       toast({ title: 'Profile picture updated successfully!' });
     } catch (error: any) {
       let description = error.message;
       if (description && description.toLowerCase().includes('bucket')) {
         description += ' (Check that the avatars storage bucket exists in Supabase)';
       }
+      console.error('[Avatar] upload error', error);
       toast({ title: 'Error uploading image', description, variant: 'destructive' });
     } finally {
       setUploading(false);
