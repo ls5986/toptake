@@ -105,6 +105,8 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
 
   const handleImageUpdate = (imageUrl: string) => {
     setFormData(prev => ({ ...prev, avatar_url: imageUrl }));
+    // Immediately reflect in parent header so avatar updates without full submit
+    try { onUpdate({ ...profile, avatar_url: imageUrl } as any); } catch {}
   };
 
   return (

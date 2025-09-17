@@ -413,7 +413,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
           <div className="flex items-start gap-4">
             <Avatar className="w-16 h-16">
               {profileUser?.avatar_url ? (
-                <AvatarImage src={`${profileUser.avatar_url}${profileUser.avatar_url.includes('?') ? '&' : '?'}v=${Date.now()}`} alt={profileUser?.username || 'User'} />
+                <AvatarImage src={profileUser.avatar_url} alt={profileUser?.username || 'User'} />
               ) : null}
               <AvatarFallback className="bg-brand-primary text-brand-text text-2xl">
                 {(profileUser?.username || 'U')[0].toUpperCase()}
