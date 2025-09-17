@@ -60,6 +60,16 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         .from('avatars')
         .getPublicUrl(filePath);
 
+      // Verify reachability (catches storage policy issues)
+      try {
+        const head = await fetch(publicUrl, { method: 'HEAD', cache: 'no-store' });
+        if (!head.ok) {
+          throw new Error(`Avatar not reachable (HTTP ${head.status}). Check storage policies for bucket 'avatars'.`);
+        }
+      } catch (netErr: any) {
+        throw new Error(netErr?.message || 'Avatar not reachable after upload');
+      }
+
       const { error: updateError } = await supabase
         .from('profiles')
         .update({ avatar_url: publicUrl })
@@ -67,18 +77,15 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
 
       if (updateError) throw updateError;
 
-      onImageUpdate(publicUrl);
+      const cacheBusted = `${publicUrl}?t=${Date.now()}`;
+      onImageUpdate(cacheBusted);
       toast({ title: 'Profile picture updated successfully!' });
     } catch (error: any) {
       let description = error.message;
       if (description && description.toLowerCase().includes('bucket')) {
         description += ' (Check that the avatars storage bucket exists in Supabase)';
       }
-      toast({
-        title: 'Error uploading image',
-        description,
-        variant: 'destructive'
-      });
+      toast({ title: 'Error uploading image', description, variant: 'destructive' });
     } finally {
       setUploading(false);
     }
