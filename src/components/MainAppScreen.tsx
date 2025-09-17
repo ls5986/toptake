@@ -12,6 +12,7 @@ import { MonetizationModals } from './MonetizationModals';
 import { supabase } from '@/lib/supabase';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import MainTabs from './MainTabs';
+import BottomNav from './BottomNav';
 import LeaderboardScreen from './LeaderboardScreen';
 import ProfileView from './ProfileView';
 import ProfileRoute from '@/pages/ProfileRoute';
@@ -416,23 +417,11 @@ const MainAppScreen: React.FC = () => {
         .select('id')
         .eq('user_id', user.id)
         .eq('prompt_date', promptDate)
-        .single();
+        .maybeSingle();
 
       if (existingTake) {
         setHasPostedForSelectedDate(true);
         return false;
-      }
-
-      // Check if user has already paid for late submission
-      const { data: hasPaid } = await supabase
-        .rpc('has_paid_late_submission', {
-          user_id: user.id,
-          prompt_date: promptDate
-        });
-
-      if (hasPaid) {
-        setHasPostedForSelectedDate(false);
-        return true;
       }
 
       // Check if prompt exists for this date
@@ -451,6 +440,7 @@ const MainAppScreen: React.FC = () => {
         return false;
       }
 
+      // Even if not pre-paid, user can open modal to use/purchase a credit
       setHasPostedForSelectedDate(false);
       return true;
     } catch (error) {
@@ -488,6 +478,15 @@ const MainAppScreen: React.FC = () => {
               <Menu className="w-6 h-6 text-brand-text" />
             </button>
             <h1 className="text-2xl font-bold text-brand-text">🔥 TopTake</h1>
+            <div className="flex items-center gap-2">
+              <button className="p-2 rounded hover:bg-brand-surface/80" onClick={()=>handleTabChange('search')} aria-label="Search">
+                <Search className="w-5 h-5 text-brand-text" />
+              </button>
+              <button className="p-2 rounded hover:bg-brand-surface/80 relative" onClick={()=>handleTabChange('notifications')} aria-label="Notifications">
+                <Users className="w-5 h-5 text-brand-text" />
+                {unreadNotifications>0 && <span className="absolute -top-1 -right-1 bg-brand-accent text-white rounded-full text-[10px] px-1 leading-none">{unreadNotifications>9?'9+':unreadNotifications}</span>}
+              </button>
+            </div>
           </div>
         </div>
         
@@ -634,6 +633,14 @@ const MainAppScreen: React.FC = () => {
           date={selectedDate}
         />
       )}
+
+      {/* Bottom navigation (mobile-first) */}
+      <div className="md:hidden h-14" />
+      <BottomNav currentTab={currentTab} onTabChange={(tab)=>{
+        if (tab==='feed') navigate('/');
+        if (tab==='profile') navigate('/profile');
+        setCurrentTab(tab);
+      }} unreadNotifications={unreadNotifications} />
     </div>
   );
 };
