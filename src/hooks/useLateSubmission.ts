@@ -34,6 +34,7 @@ export const useLateSubmission = () => {
         toast({ title: 'Late submit unlocked', description: promoCode ? `Promo ${promoCode} applied.` : 'Promo applied.' });
         return true;
       }
+      try { localStorage.setItem('pendingLateSubmitFor', promptDate); localStorage.setItem('pendingLateSubmitTS', String(Date.now())); } catch {}
       window.location.href = body.url;
       return true;
     } catch (err) {

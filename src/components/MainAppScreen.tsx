@@ -71,6 +71,22 @@ const MainAppScreen: React.FC = () => {
     const initializeScreen = async () => {
       try {
         await checkDailyPost();
+        // If returning from Stripe, resume late submit for the stored date
+        try {
+          const pending = localStorage.getItem('pendingLateSubmitFor');
+          const ts = Number(localStorage.getItem('pendingLateSubmitTS') || 0);
+          const isFresh = ts && (Date.now() - ts < 10 * 60 * 1000); // 10 min
+          if (pending && isFresh) {
+            const [y,m,d] = pending.split('-').map(n=>Number(n));
+            const resumeDate = new Date(y, (m||1)-1, d||1);
+            setSelectedDate(resumeDate);
+            const eligible = await checkLateSubmissionEligibility(resumeDate);
+            setShowLateSubmit(eligible);
+            // one-shot
+            localStorage.removeItem('pendingLateSubmitFor');
+            localStorage.removeItem('pendingLateSubmitTS');
+          }
+        } catch {}
         // Ensure prompt + takes for selectedDate are fetched immediately on app open
         if (currentTab === 'feed') {
           console.log('[init] fetching prompt/takes for date on mount', { date: selectedDate.toISOString().split('T')[0] });
