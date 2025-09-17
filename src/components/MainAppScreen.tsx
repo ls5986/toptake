@@ -333,6 +333,14 @@ const MainAppScreen: React.FC = () => {
     return `${y}-${m}-${d}`;
   };
 
+  // Quick date helpers for chip row
+  const dateNDaysAgo = (n: number) => {
+    const d = new Date(today);
+    d.setDate(d.getDate() - n);
+    return d;
+  };
+  const isSameYMD = (a: Date, b: Date) => formatDate(a) === formatDate(b);
+
   // Fetch prompt and takes for selectedDate
   const fetchPromptAndTakesForDate = async (date: Date) => {
     try {
@@ -510,26 +518,61 @@ const MainAppScreen: React.FC = () => {
         
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
-            {/* Show date picker only for Feed and Top Takes */}
-            <div className="flex items-center justify-center gap-4 my-4" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
-              <Button variant="ghost" onClick={goToPrevDay}><ChevronLeft /></Button>
-              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                <PopoverTrigger asChild>
-                  <Button variant="outline" className="font-semibold text-lg px-4" onClick={() => setCalendarOpen(true)}>
-                    {selectedDate.toLocaleDateString()}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent align="center" className="bg-brand-surface border-brand-border p-0">
-                  <Calendar
-                    mode="single"
-                    selected={selectedDate}
-                    onSelect={handleDateSelect}
-                    initialFocus
-                    toDate={today}
-                  />
-                </PopoverContent>
-              </Popover>
-              <Button variant="ghost" onClick={goToNextDay} disabled={selectedDate.getTime() === today.getTime()}><ChevronRight /></Button>
+            {/* Date chip row (Feed & TopTakes) */}
+            <div className="flex items-center justify-between my-3 px-2" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
+              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
+                {/* Today chip */}
+                <Button
+                  variant="outline"
+                  className={`${isSameYMD(selectedDate, today) ? 'bg-brand-primary text-white border-brand-primary' : ''} px-3 py-1 rounded-full text-sm`}
+                  aria-pressed={isSameYMD(selectedDate, today)}
+                  onClick={() => handleDateSelect(today)}
+                >
+                  Today
+                </Button>
+                {/* -1 chip */}
+                <Button
+                  variant="outline"
+                  className={`${isSameYMD(selectedDate, dateNDaysAgo(1)) ? 'bg-brand-primary text-white border-brand-primary' : ''} px-3 py-1 rounded-full text-sm`}
+                  aria-pressed={isSameYMD(selectedDate, dateNDaysAgo(1))}
+                  onClick={() => handleDateSelect(dateNDaysAgo(1))}
+                >
+                  -1
+                </Button>
+                {/* -2 chip */}
+                <Button
+                  variant="outline"
+                  className={`${isSameYMD(selectedDate, dateNDaysAgo(2)) ? 'bg-brand-primary text-white border-brand-primary' : ''} px-3 py-1 rounded-full text-sm`}
+                  aria-pressed={isSameYMD(selectedDate, dateNDaysAgo(2))}
+                  onClick={() => handleDateSelect(dateNDaysAgo(2))}
+                >
+                  -2
+                </Button>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="icon" onClick={goToPrevDay} aria-label="Previous day">
+                  <ChevronLeft className="w-5 h-5" />
+                </Button>
+                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="px-3 py-1 rounded-full text-sm" onClick={() => setCalendarOpen(true)}>
+                      {selectedDate.toLocaleDateString()}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="end" className="bg-brand-surface border-brand-border p-0">
+                    <Calendar
+                      mode="single"
+                      selected={selectedDate}
+                      onSelect={handleDateSelect}
+                      initialFocus
+                      toDate={today}
+                    />
+                  </PopoverContent>
+                </Popover>
+                <Button variant="ghost" size="icon" onClick={goToNextDay} disabled={selectedDate.getTime() === today.getTime()} aria-label="Next day">
+                  <ChevronRight className="w-5 h-5" />
+                </Button>
+              </div>
             </div>
             {renderContent()}
           </div>
