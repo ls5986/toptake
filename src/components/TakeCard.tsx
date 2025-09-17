@@ -210,7 +210,12 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   };
 
   // Fixed null safety for username and charAt
-  const safeUsername = take.username || take.userId || 'Anonymous';
+  const safeUsername = (() => {
+    if (take.isAnonymous) return 'Anonymous';
+    if (take.username && take.username.toLowerCase() !== 'unknown') return take.username;
+    if (user?.id && take.userId === user.id) return 'You';
+    return 'user';
+  })();
   const userInitial = take.isAnonymous 
     ? '👻' 
     : (safeUsername && typeof safeUsername === 'string' && safeUsername.length > 0

@@ -107,7 +107,9 @@ export function useTakesForDate(date: Date) {
           id: t.id,
           userId: t.user_id,
           content: t.content,
-          username: t.is_anonymous ? 'Anonymous' : (t.username || 'Unknown'),
+          username: t.is_anonymous
+            ? 'Anonymous'
+            : (t.user_id === userId ? 'You' : (t.username || '')),
           isAnonymous: t.is_anonymous,
           timestamp: t.created_at,
           prompt_date: t.prompt_date,
@@ -129,7 +131,7 @@ export function useTakesForDate(date: Date) {
             const map = new Map<string,string>((profiles||[]).map(p => [p.id, p.username]));
             formatted = formatted.map(t => (
               (!t.isAnonymous && (!t.username || t.username.toLowerCase() === 'unknown'))
-                ? { ...t, username: map.get(t.userId) || t.username }
+                ? { ...t, username: (t.userId === userId ? 'You' : (map.get(t.userId) || '')) }
                 : t
             ));
           } catch {}
@@ -151,7 +153,7 @@ export function useTakesForDate(date: Date) {
                   id: myRow.id,
                   userId: myRow.user_id,
                   content: myRow.content,
-                  username: myRow.is_anonymous ? 'Anonymous' : (myRow.profiles?.username || 'Unknown'),
+                  username: myRow.is_anonymous ? 'Anonymous' : 'You',
                   isAnonymous: myRow.is_anonymous,
                   timestamp: myRow.created_at,
                   prompt_date: myRow.prompt_date,
