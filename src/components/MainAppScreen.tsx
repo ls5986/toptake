@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
@@ -538,7 +538,21 @@ const MainAppScreen: React.FC = () => {
       />
       
       <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
-        {/* Top navigation hidden per design: bottom nav is the primary navigation on all breakpoints */}
+        {/* Minimal header with hamburger + logo (no tabs) */}
+        <div className="flex-shrink-0 border-b border-brand-border safe-topbar">
+          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
+            <button
+              className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80 touch-target"
+              onClick={() => setMenuOpen(true)}
+              aria-label="Open menu"
+            >
+              <Menu className="w-6 h-6 text-brand-text" />
+            </button>
+            <h1 className="text-xl md:text-2xl font-bold text-brand-text">🔥 TopTake</h1>
+            {/* spacer to balance layout */}
+            <div className="w-6 h-6" />
+          </div>
+        </div>
         
         {/* Desktop tabs removed; navigation handled exclusively by BottomNav */}
         
