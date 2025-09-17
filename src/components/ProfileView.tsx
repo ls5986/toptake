@@ -491,6 +491,22 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                 </div>
               </div>
 
+              {/* Bio row */}
+              {profileUser?.bio ? (
+                <p className="mt-2 text-sm text-brand-text whitespace-pre-wrap break-words max-w-2xl">
+                  {profileUser.bio}
+                </p>
+              ) : (
+                viewingOwnProfile ? (
+                  <button
+                    className="mt-2 text-xs text-brand-muted hover:text-brand-accent underline"
+                    onClick={() => setShowEditProfile(true)}
+                  >
+                    Add a bio
+                  </button>
+                ) : null
+              )}
+
               {/* Followers Modal */}
               <Dialog open={followersOpen} onOpenChange={setFollowersOpen}>
                 <DialogContent className="sm:max-w-md">
