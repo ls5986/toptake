@@ -578,14 +578,16 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                   </div>
                 </DialogContent>
               </Dialog>
-              <div className="mt-4 w-full max-w-2xl mx-auto">
-                <div className="grid grid-cols-3 gap-2 text-xs">
-                  <Button size="sm" variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
-                  <Button size="sm" variant="outline" onClick={() => { setTheme('dark' as any); setCurrentTheme('dark'); }}>Dark</Button>
-                  <Button size="sm" variant="outline" onClick={() => setShowStore(true)}>Trippy</Button>
+              {viewingOwnProfile && (
+                <div className="mt-4 w-full max-w-2xl mx-auto">
+                  <div className="grid grid-cols-3 gap-2 text-xs">
+                    <Button size="sm" variant="outline" onClick={() => { setTheme('light' as any); setCurrentTheme('light'); }}>Light</Button>
+                    <Button size="sm" variant="outline" onClick={() => { setTheme('dark' as any); setCurrentTheme('dark'); }}>Dark</Button>
+                    <Button size="sm" variant="outline" onClick={() => setShowStore(true)}>Trippy</Button>
+                  </div>
+                  <p className="text-xs text-brand-muted mt-1">Trippy includes premium themes.</p>
                 </div>
-                <p className="text-xs text-brand-muted mt-1">Trippy includes premium themes.</p>
-              </div>
+              )}
               {viewingOwnProfile && (
                 <>
                   <Button
