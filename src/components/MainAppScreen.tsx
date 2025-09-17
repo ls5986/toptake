@@ -56,6 +56,9 @@ const MainAppScreen: React.FC = () => {
   });
   const [showLateSubmit, setShowLateSubmit] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
+  const [calendarMonth, setCalendarMonth] = useState<Date>(() => new Date());
+  const [answeredDates, setAnsweredDates] = useState<Date[]>([]);
+  const [missedDates, setMissedDates] = useState<Date[]>([]);
   const today = useMemo(() => {
     const d = new Date();
     d.setHours(0,0,0,0);
@@ -354,6 +357,66 @@ const MainAppScreen: React.FC = () => {
     }
   };
 
+  // Load answered/missed markers for the visible month
+  const loadMonthStatus = async (month: Date) => {
+    if (!user) return;
+    try {
+      const start = new Date(month.getFullYear(), month.getMonth(), 1);
+      const end = new Date(month.getFullYear(), month.getMonth() + 1, 0);
+      // Do not mark future days
+      const clampedEnd = end > today ? new Date(today) : end;
+
+      const startStr = formatDate(start);
+      const endStr = formatDate(clampedEnd);
+
+      // Fetch all prompts for this month
+      const [{ data: prompts }, { data: takesData }] = await Promise.all([
+        supabase
+          .from('daily_prompts')
+          .select('prompt_date')
+          .gte('prompt_date', startStr)
+          .lte('prompt_date', endStr),
+        supabase
+          .from('takes')
+          .select('prompt_date')
+          .eq('user_id', user.id)
+          .gte('prompt_date', startStr)
+          .lte('prompt_date', endStr)
+      ]);
+
+      const promptDates = new Set<string>((prompts || []).map((p: any) => p.prompt_date));
+      const answered = new Set<string>((takesData || []).map((t: any) => t.prompt_date));
+
+      const answeredList: Date[] = [];
+      const missedList: Date[] = [];
+      // Iterate through the month days
+      for (let d = new Date(start); d <= clampedEnd; d.setDate(d.getDate() + 1)) {
+        const ymd = formatDate(d);
+        if (!promptDates.has(ymd)) continue; // skip days without a prompt
+        if (answered.has(ymd)) {
+          answeredList.push(new Date(d));
+        } else {
+          missedList.push(new Date(d));
+        }
+      }
+
+      setAnsweredDates(answeredList);
+      setMissedDates(missedList);
+    } catch (e) {
+      // Soft-fail; leave markers empty
+      setAnsweredDates([]);
+      setMissedDates([]);
+    }
+  };
+
+  useEffect(() => {
+    if (calendarOpen) {
+      setCalendarMonth(new Date(selectedDate));
+      loadMonthStatus(selectedDate);
+    }
+    // eslint-disable-next-line
+  }, [calendarOpen]);
+
   // Belt-and-suspenders: on first mount, trigger a fetch for feed if promptText is empty
   useEffect(() => {
     if (currentTab === 'feed' && !promptText) {
@@ -518,61 +581,41 @@ const MainAppScreen: React.FC = () => {
         
         <div className="flex-1 min-h-0">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
-            {/* Date chip row (Feed & TopTakes) */}
-            <div className="flex items-center justify-between my-3 px-2" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
-              <div className="flex items-center gap-2 overflow-x-auto no-scrollbar">
-                {/* Today chip */}
-                <Button
-                  variant="outline"
-                  className={`${isSameYMD(selectedDate, today) ? 'bg-brand-primary text-white border-brand-primary' : ''} px-3 py-1 rounded-full text-sm`}
-                  aria-pressed={isSameYMD(selectedDate, today)}
-                  onClick={() => handleDateSelect(today)}
-                >
-                  Today
-                </Button>
-                {/* -1 chip */}
-                <Button
-                  variant="outline"
-                  className={`${isSameYMD(selectedDate, dateNDaysAgo(1)) ? 'bg-brand-primary text-white border-brand-primary' : ''} px-3 py-1 rounded-full text-sm`}
-                  aria-pressed={isSameYMD(selectedDate, dateNDaysAgo(1))}
-                  onClick={() => handleDateSelect(dateNDaysAgo(1))}
-                >
-                  -1
-                </Button>
-                {/* -2 chip */}
-                <Button
-                  variant="outline"
-                  className={`${isSameYMD(selectedDate, dateNDaysAgo(2)) ? 'bg-brand-primary text-white border-brand-primary' : ''} px-3 py-1 rounded-full text-sm`}
-                  aria-pressed={isSameYMD(selectedDate, dateNDaysAgo(2))}
-                  onClick={() => handleDateSelect(dateNDaysAgo(2))}
-                >
-                  -2
-                </Button>
-              </div>
-              <div className="flex items-center gap-2">
-                <Button variant="ghost" size="icon" onClick={goToPrevDay} aria-label="Previous day">
-                  <ChevronLeft className="w-5 h-5" />
-                </Button>
-                <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
-                  <PopoverTrigger asChild>
-                    <Button variant="outline" className="px-3 py-1 rounded-full text-sm" onClick={() => setCalendarOpen(true)}>
-                      {selectedDate.toLocaleDateString()}
-                    </Button>
-                  </PopoverTrigger>
-                  <PopoverContent align="end" className="bg-brand-surface border-brand-border p-0">
-                    <Calendar
-                      mode="single"
-                      selected={selectedDate}
-                      onSelect={handleDateSelect}
-                      initialFocus
-                      toDate={today}
-                    />
-                  </PopoverContent>
-                </Popover>
-                <Button variant="ghost" size="icon" onClick={goToNextDay} disabled={selectedDate.getTime() === today.getTime()} aria-label="Next day">
-                  <ChevronRight className="w-5 h-5" />
-                </Button>
-              </div>
+            {/* Simple date picker with monthly status indicators */}
+            <div className="flex items-center justify-center gap-3 my-3 px-2" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
+              <Button variant="ghost" size="icon" onClick={goToPrevDay} aria-label="Previous day">
+                <ChevronLeft className="w-5 h-5" />
+              </Button>
+              <Popover open={calendarOpen} onOpenChange={setCalendarOpen}>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" className="px-4 py-2 rounded-full text-sm font-semibold" onClick={() => setCalendarOpen(true)}>
+                    {selectedDate.toLocaleDateString()}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="center" className="bg-brand-surface border-brand-border p-2">
+                  <Calendar
+                    mode="single"
+                    month={calendarMonth}
+                    onMonthChange={(m)=>{ setCalendarMonth(m); loadMonthStatus(m); }}
+                    selected={selectedDate}
+                    onSelect={handleDateSelect}
+                    initialFocus
+                    toDate={today}
+                    modifiers={{ answered: answeredDates, missed: missedDates }}
+                    modifiersClassNames={{
+                      answered: 'ring-2 ring-green-500 text-green-100',
+                      missed: 'ring-2 ring-red-500 text-red-200'
+                    }}
+                  />
+                  <div className="flex items-center justify-center gap-4 pt-2 text-xs text-brand-muted">
+                    <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full ring-2 ring-green-500"></span> Answered</div>
+                    <div className="flex items-center gap-1"><span className="inline-block w-3 h-3 rounded-full ring-2 ring-red-500"></span> Missed</div>
+                  </div>
+                </PopoverContent>
+              </Popover>
+              <Button variant="ghost" size="icon" onClick={goToNextDay} disabled={selectedDate.getTime() === today.getTime()} aria-label="Next day">
+                <ChevronRight className="w-5 h-5" />
+              </Button>
             </div>
             {renderContent()}
           </div>

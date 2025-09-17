@@ -1,5 +1,5 @@
 import React from 'react';
-import { Home, Search, Bell, Star, User, PlusCircle } from 'lucide-react';
+import { Home, Search, Bell, Star, User } from 'lucide-react';
 
 interface BottomNavProps {
   currentTab: 'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search';
@@ -21,11 +21,9 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, unreadNo
           <Search className="w-5 h-5" />
           <span>Search</span>
         </button>
-        <button className="flex items-center justify-center py-1" onClick={()=>onTabChange('feed')} aria-label="Compose">
-          <div className="px-4 py-1.5 rounded-full bg-brand-accent text-white shadow-brand-elev-2 flex items-center gap-1">
-            <PlusCircle className="w-5 h-5" />
-            <span className="text-[12px] font-semibold">Compose</span>
-          </div>
+        <button className={itemCls(currentTab==='toptakes')} onClick={()=>onTabChange('toptakes')} aria-label="Top Takes">
+          <Star className="w-5 h-5" />
+          <span>Top</span>
         </button>
         <button className={itemCls(currentTab==='notifications')} onClick={()=>onTabChange('notifications')} aria-label="Notifications">
           <div className="relative">
