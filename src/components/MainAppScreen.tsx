@@ -709,7 +709,10 @@ const MainAppScreen: React.FC = () => {
       {showLateSubmit && (
         <LateSubmitModal
           isOpen={showLateSubmit}
-          onClose={() => { setShowLateSubmit(false); setSelectedDate(today); }}
+          onClose={() => { 
+            // Stay on the selected date after submission so deep-linked profile returns here naturally
+            setShowLateSubmit(false); 
+          }}
           onPurchase={() => {/* billing/credit logic here */}}
           date={selectedDate}
         />
