@@ -42,6 +42,20 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
     email: user?.email || '',
     avatar_url: profile?.avatar_url || ''
   });
+  const initial = {
+    username: profile?.username || '',
+    full_name: profile?.full_name || '',
+    bio: profile?.bio || '',
+    email: user?.email || '',
+    avatar_url: profile?.avatar_url || ''
+  };
+  const dirty = (
+    formData.username !== initial.username ||
+    formData.full_name !== initial.full_name ||
+    formData.bio !== initial.bio ||
+    formData.email !== initial.email ||
+    formData.avatar_url !== initial.avatar_url
+  );
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -169,8 +183,8 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           </div>
 
           <div className="flex flex-col space-y-2">
-            <Button type="submit" disabled={loading} className="bg-brand-accent hover:bg-brand-primary">
-              {loading ? 'Updating...' : 'Update Profile'}
+            <Button type="submit" disabled={loading || !dirty} className="bg-brand-accent hover:bg-brand-primary">
+              {loading ? 'Updating...' : (dirty ? 'Update Profile' : 'No changes')}
             </Button>
             
             <Button 
