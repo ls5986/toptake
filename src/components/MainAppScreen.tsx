@@ -89,6 +89,22 @@ const MainAppScreen: React.FC = () => {
             localStorage.removeItem('pendingLateSubmitFor');
             localStorage.removeItem('pendingLateSubmitTS');
           }
+          // Late submit via URL param (?late=YYYY-MM-DD)
+          try {
+            const params = new URLSearchParams(window.location.search);
+            const late = params.get('late');
+            if (late) {
+              const [y,m,d] = late.split('-').map(n=>Number(n));
+              const resumeDate = new Date(y, (m||1)-1, d||1);
+              setSelectedDate(resumeDate);
+              const eligible = await checkLateSubmissionEligibility(resumeDate);
+              setShowLateSubmit(eligible);
+              // clean param
+              params.delete('late');
+              const newUrl = `${window.location.pathname}${params.toString() ? '?' + params.toString() : ''}`;
+              window.history.replaceState({}, '', newUrl);
+            }
+          } catch {}
         } catch {}
         // Ensure prompt + takes for selectedDate are fetched immediately on app open
         if (currentTab === 'feed') {

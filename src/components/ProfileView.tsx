@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Edit3, LogOut, Flame, FileText } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog';
 import { useToast } from '@/hooks/use-toast';
 import { logClientEvent, fetchFollowStatsCached } from '@/lib/utils';
@@ -50,6 +51,8 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const { setTheme, theme } = useTheme();
   const themePreview = getThemeColors(theme);
   const surfaces = deriveThemeSurfaces(themePreview);
+  const [viewerPostedDates, setViewerPostedDates] = useState<Set<string>>(new Set());
+  const navigate = useNavigate();
   const [showStore, setShowStore] = useState(false);
   const [streak, setStreak] = useState(0);
   const [totalTakes, setTotalTakes] = useState(0);
@@ -178,6 +181,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
             const map: Record<string, string> = {};
             (prompts || []).forEach((p: any) => { map[p.prompt_date] = p.prompt_text || ''; });
             setPromptByDate(map);
+          } catch {}
+        }
+        // Fetch which of these dates the viewer has posted on, to control locks
+        if (user?.id && dates.length) {
+          try {
+            const { data: vt } = await supabase
+              .from('takes')
+              .select('prompt_date')
+              .eq('user_id', user.id)
+              .in('prompt_date', dates);
+            setViewerPostedDates(new Set((vt || []).map((r:any)=> r.prompt_date)));
           } catch {}
         }
         if (promptIds.length) {
@@ -673,26 +687,25 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                     </div>
                   </div>
                 )}
-                {/* Lock/blur if viewer has not posted for this day */}
-                <div className={(!user?.hasPostedToday && String((take as any).prompt_date || '').slice(0,10) === new Date().toISOString().slice(0,10)) ? 'relative select-none' : ''}
+                {/* Lock/blur if viewer has not posted on this specific date */}
+                <div className={!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) ? 'relative select-none' : ''}
                      onClick={async ()=>{
                        try {
-                         const todayYMD = new Date(); todayYMD.setHours(0,0,0,0);
                          const key = String((take as any).prompt_date || '').slice(0,10);
-                         const nowKey = new Date().toISOString().slice(0,10);
-                         if (!user?.hasPostedToday && key === nowKey) {
-                           // Trigger late submit modal for today (blocker)
-                           alert('🔒 Post today to view takes. Go to Feed to submit.');
+                         if (!viewerPostedDates.has(key)) {
+                           // Preselect the date and open late submit modal in the main app via URL param
+                           const url = `/?late=${encodeURIComponent(key)}`;
+                           window.location.href = url;
                          }
                        } catch {}
                      }}>
-                  <div className={(!user?.hasPostedToday && String((take as any).prompt_date || '').slice(0,10) === new Date().toISOString().slice(0,10)) ? 'pointer-events-none blur-sm' : ''}>
+                  <div className={!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) ? 'pointer-events-none blur-sm' : ''}>
                     <TakeCard 
                       take={take} 
                       onReact={handleReaction}
                     />
                   </div>
-                  {(!user?.hasPostedToday && String((take as any).prompt_date || '').slice(0,10) === new Date().toISOString().slice(0,10)) && (
+                  {!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="px-3 py-1.5 rounded-full text-xs font-semibold border" style={{ background: surfaces.calloutBg, borderColor: surfaces.calloutBorder }}>🔒 Post today to unlock</div>
                     </div>
