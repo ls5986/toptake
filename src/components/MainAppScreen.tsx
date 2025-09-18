@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useMemo } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Button } from '@/components/ui/button';
-import { ChevronLeft, ChevronRight, Menu } from 'lucide-react';
+import { ChevronLeft, ChevronRight, Menu, MessageSquareText } from 'lucide-react';
 import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
@@ -37,7 +37,7 @@ const MainAppScreen: React.FC = () => {
   const { username } = useParams();
   const navigate = useNavigate();
   // Remove local duplicated takes/loading; rely on hook state
-  const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search'>('feed');
+  const [currentTab, setCurrentTab] = useState<'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search' | 'messages'>('feed');
   const [showPremiumModal, setShowPremiumModal] = useState(false);
   const [showAnonymousModal, setShowAnonymousModal] = useState(false);
   const { toast } = useToast();
@@ -250,6 +250,16 @@ const MainAppScreen: React.FC = () => {
 
       if (currentTab === 'notifications') {
         return <NotificationsScreen />;
+      }
+
+      if (currentTab === 'messages') {
+        const MessagesInbox = require('./MessagesInbox').default;
+        const ChatThread = require('./ChatThread').default;
+        const chatId = focusedTakeId;
+        if (chatId) {
+          return <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} />
+        }
+        return <MessagesInbox onOpenThread={(id: string)=> setFocusedTakeId(id)} />
       }
 
       return (
@@ -567,8 +577,9 @@ const MainAppScreen: React.FC = () => {
               <Menu className="w-6 h-6 text-brand-text" />
             </button>
             <h1 className="text-xl md:text-2xl font-bold text-brand-text">🔥 TopTake</h1>
-            {/* spacer to balance layout */}
-            <div className="w-6 h-6" />
+            <button className="p-2 rounded hover:bg-brand-surface/80" aria-label="Messages" onClick={()=> setCurrentTab('messages')}>
+              <MessageSquareText className="w-5 h-5 text-brand-text" />
+            </button>
           </div>
         </div>
         
