@@ -67,6 +67,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
           cacheControl: '3600'
         });
       if (uploadError) {
+        console.error('[Avatar] upload error raw', uploadError);
         const msg = uploadError?.message || String(uploadError);
         // Surface common issues clearly
         if (/payload too large|413/i.test(msg)) {
@@ -97,6 +98,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         .update({ avatar_url: publicUrl })
         .eq('id', user.id);
       if (updateError) {
+        console.error('[Avatar] profile update error raw', updateError);
         throw new Error(`Saved to storage but failed to update profile: ${updateError.message}`);
       }
 
@@ -111,7 +113,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
           .eq('id', user.id)
           .maybeSingle();
         console.log('[Avatar] verify avatar_url', verify?.avatar_url);
-      } catch {}
+      } catch (verifyErr) { console.warn('[Avatar] verify readback failed', verifyErr); }
 
       toast({ title: 'Profile picture updated successfully!' });
     } catch (error: any) {

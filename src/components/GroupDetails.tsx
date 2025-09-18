@@ -127,17 +127,48 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
   };
 
   const uploadCsv = async () => {
-    const rows = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
-    for (const line of rows) {
-      await supabase.rpc('add_group_prompt', { p_thread: threadId, p_prompt: line });
+    const lines = csvText.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+    if (!lines.length) { setError('No prompts found.'); return; }
+    try {
+      // Prefer batched direct insert for reliability
+      const payload = lines.map(text => ({ thread_id: threadId, prompt_text: text }));
+      const { data, error } = await supabase
+        .from('group_prompts')
+        .insert(payload)
+        .select('id');
+      if (error) {
+        // Fallback: try line-by-line and collect errors
+        console.warn('[GroupDetails] batch insert failed, falling back', error);
+        let saved = 0; let firstErr: any = null;
+        for (const text of lines) {
+          const { error: lineErr } = await supabase
+            .from('group_prompts')
+            .insert({ thread_id: threadId, prompt_text: text });
+          if (lineErr) { firstErr = firstErr || lineErr; }
+          else saved += 1;
+        }
+        if (saved === 0) {
+          setError(`Failed to save prompts: ${firstErr?.message || 'unknown error'}`);
+        } else {
+          setInviteMsg(`Saved ${saved}/${lines.length} prompts. ${firstErr ? 'Some failed.' : ''}`);
+        }
+      } else {
+        setInviteMsg(`Saved ${lines.length} prompts`);
+      }
+    } catch (e:any) {
+      console.error('[GroupDetails] CSV upload error', e);
+      setError(e?.message || 'Failed to save prompts');
+    } finally {
+      setCsvText('');
+      try {
+        const { data: pr } = await supabase
+          .from('group_prompts')
+          .select('id,prompt_text,prompt_date,created_at')
+          .eq('thread_id', threadId)
+          .order('created_at', { ascending: false });
+        setPrompts((pr as any) || []);
+      } catch {}
     }
-    setCsvText('');
-    const { data: pr } = await supabase
-      .from('group_prompts')
-      .select('id,prompt_text,prompt_date,created_at')
-      .eq('thread_id', threadId)
-      .order('created_at', { ascending: false });
-    setPrompts((pr as any) || []);
   };
 
   const generateAI = async () => {
