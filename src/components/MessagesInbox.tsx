@@ -88,9 +88,9 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
         const { data: pub } = await supabase
           .from('chat_threads')
           .select('id, is_group, name, privacy, frequency, created_at')
-          .eq('privacy', 'public')
-          .not('id', 'in', `(${ids.map((x:string)=>`"${x}"`).join(',') || '""'})`);
-        if (!cancelled) setDiscover((pub as any) || []);
+          .eq('privacy', 'public');
+        const pubList = ((pub as any) || []).filter((t:any)=> !ids.includes(t.id));
+        if (!cancelled) setDiscover(pubList);
       } finally {
         if (!cancelled) setLoading(false);
       }
