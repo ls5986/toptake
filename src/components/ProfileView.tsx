@@ -646,8 +646,28 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
             {userTakes.map((take) => (
               <div key={take.id} className="space-y-2">
                 {take.prompt_date && (
-                  <div className="text-xs text-brand-muted">
-                    <span className="text-brand-text/80">Prompt:</span> {promptById[(take as any).prompt_id] || promptByDate[take.prompt_date] || '—'}
+                  <div className="rounded-lg border border-brand-border/70 bg-brand-surface/60 p-2">
+                    <div className="flex items-start gap-2">
+                      <FileText className="w-4 h-4 mt-0.5 text-brand-accent" />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-brand-text/90 text-sm leading-snug">
+                          {promptById[(take as any).prompt_id] || promptByDate[take.prompt_date] || '—'}
+                        </div>
+                        <div className="mt-0.5 text-[11px] text-brand-muted">
+                          {(() => {
+                            try {
+                              const s = String(take.prompt_date || '').slice(0, 10);
+                              const m = s.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+                              if (m) {
+                                const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+                                return `For ${format(d, 'MMM d, yyyy')}`;
+                              }
+                              return '';
+                            } catch { return ''; }
+                          })()}
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )}
                 <TakeCard 
