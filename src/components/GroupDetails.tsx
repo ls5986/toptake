@@ -16,7 +16,10 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
   const [pendingInvites, setPendingInvites] = useState<string[]>([]);
-  const [invites, setInvites] = useState<Array<{ id:string; username:string }>>([]);
+  // Invites where current user is the invitee
+  const [receivedInvites, setReceivedInvites] = useState<Array<{ id:string; username:string }>>([]);
+  // Invites the moderator sent (pending)
+  const [sentInvites, setSentInvites] = useState<Array<{ id:string; username:string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csvText, setCsvText] = useState('');
@@ -57,14 +60,25 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
         if (!cancelled) setPrompts((pr as any) || []);
       } catch {}
 
-      // load pending invites for the current user and thread (if they are invitee)
+      // load invites (received by me)
       try {
         const { data: inv } = await supabase
           .from('group_invites')
           .select('id, invited_user_id, profiles:invited_user_id(username)')
           .eq('thread_id', threadId)
+          .eq('invited_user_id', user?.id || '00000000-0000-0000-0000-000000000000')
           .eq('status', 'pending');
-        setInvites(((inv as any) || []).map((r:any)=>({ id: r.id, username: r.profiles?.username || 'user' })));
+        setReceivedInvites(((inv as any) || []).map((r:any)=>({ id: r.id, username: r.profiles?.username || 'user' })));
+      } catch {}
+      // load invites I sent (moderator view)
+      try {
+        const { data: sent } = await supabase
+          .from('group_invites')
+          .select('id, invited_by, invited_user_id, profiles:invited_user_id(username)')
+          .eq('thread_id', threadId)
+          .eq('invited_by', user?.id || '00000000-0000-0000-0000-000000000000')
+          .eq('status', 'pending');
+        setSentInvites(((sent as any) || []).map((r:any)=>({ id: r.id, username: r.profiles?.username || 'user' })));
       } catch {}
     }
     load();
@@ -259,20 +273,39 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
               ))}
               {members.length === 0 && <div className="text-brand-muted text-sm">No members yet.</div>}
             </div>
-            {invites.length > 0 && (
-              <div className="mt-3">
-                <div className="text-xs text-brand-muted mb-1">Pending invites</div>
-                <div className="space-y-1">
-                  {invites.map(inv => (
-                    <div key={inv.id} className="flex items-center justify-between text-sm py-1">
-                      <span>@{inv.username}</span>
-                      <div className="flex gap-2">
-                        <Button size="sm" variant="outline" onClick={async()=>{ await supabase.rpc('accept_group_invite', { p_invite: inv.id }); setInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Accept</Button>
-                        <Button size="sm" variant="ghost" onClick={async()=>{ await supabase.rpc('decline_group_invite', { p_invite: inv.id }); setInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Decline</Button>
-                      </div>
+            {(receivedInvites.length > 0 || sentInvites.length > 0) && (
+              <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                {receivedInvites.length > 0 && (
+                  <div>
+                    <div className="text-xs text-brand-muted mb-1">Invites for you</div>
+                    <div className="space-y-1">
+                      {receivedInvites.map(inv => (
+                        <div key={inv.id} className="flex items-center justify-between text-sm py-1">
+                          <span>@{inv.username}</span>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="outline" onClick={async()=>{ await supabase.rpc('accept_group_invite', { p_invite: inv.id }); setReceivedInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Accept</Button>
+                            <Button size="sm" variant="ghost" onClick={async()=>{ await supabase.rpc('decline_group_invite', { p_invite: inv.id }); setReceivedInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Decline</Button>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
+                  </div>
+                )}
+                {sentInvites.length > 0 && (
+                  <div>
+                    <div className="text-xs text-brand-muted mb-1">Invites you sent</div>
+                    <div className="space-y-1">
+                      {sentInvites.map(inv => (
+                        <div key={inv.id} className="flex items-center justify-between text-sm py-1">
+                          <span>@{inv.username}</span>
+                          <div className="flex gap-2">
+                            <Button size="sm" variant="ghost" onClick={async()=>{ await supabase.rpc('cancel_group_invite', { p_invite: inv.id }); setSentInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Cancel</Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
             <div className="mt-3">

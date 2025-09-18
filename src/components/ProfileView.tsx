@@ -707,10 +707,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                         <div className="text-brand-text/90 font-medium">Paid skip</div>
                         <div className="text-brand-muted text-xs">No post for this day</div>
                       </div>
-                    ) : take.isAnonymous ? (
+                    ) : (take.isAnonymous && !viewingOwnProfile) ? (
                       <div className="rounded border p-3 text-sm" style={{ background: surfaces.surface, borderColor: surfaces.border }}>
                         <div className="text-brand-text/90 font-medium">Anonymous take</div>
-                        <div className="text-brand-muted text-xs">Hidden on profile</div>
+                        <div className="text-brand-muted text-xs">Hidden by author</div>
                       </div>
                     ) : (
                       <TakeCard 
