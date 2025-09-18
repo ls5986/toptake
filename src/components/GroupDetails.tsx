@@ -11,6 +11,9 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
   const { user } = useAppContext();
   const [members, setMembers] = useState<{ id: string; username: string }[]>([]);
   const [username, setUsername] = useState('');
+  const [searchResults, setSearchResults] = useState<{ id:string; username:string }[]>([]);
+  const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
+  const [inviteMsg, setInviteMsg] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csvText, setCsvText] = useState('');
@@ -45,14 +48,29 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
 
   const invite = async () => {
     if (!username.trim()) return;
-    setError(null);
+    setError(null); setInviteMsg(null);
     try {
-      const { error } = await supabase.rpc('add_group_member', { p_thread: threadId, p_username: username.trim() });
+      // Prefer result selected from search
+      const selected = searchResults.find(r => r.username.toLowerCase() === username.trim().toLowerCase());
+      const targetUsername = selected?.username || username.trim();
+      setInvitingUserId(selected?.id || null);
+      const { error } = await supabase.rpc('add_group_member', { p_thread: threadId, p_username: targetUsername });
       if (error) throw error;
-      const { data: p } = await supabase.from('profiles').select('id,username').ilike('username', username.trim()).limit(1).maybeSingle();
-      if (p) setMembers(prev => [...prev, { id: p.id, username: p.username || username.trim() }]);
+      if (selected) {
+        const exists = members.some(m => m.id === selected.id);
+        if (!exists) setMembers(prev => [...prev, { id: selected.id, username: selected.username }]);
+      } else {
+        const { data: p } = await supabase.from('profiles').select('id,username').ilike('username', targetUsername).limit(1).maybeSingle();
+        if (p) {
+          const exists = members.some(m => m.id === p.id);
+          if (!exists) setMembers(prev => [...prev, { id: p.id, username: p.username || targetUsername }]);
+        }
+      }
+      setInviteMsg(`Invited @${targetUsername}`);
       setUsername('');
+      setSearchResults([]);
     } catch (e:any) { setError(e?.message || 'Failed to invite'); }
+    finally { setInvitingUserId(null); }
   };
 
   const remove = async (id: string) => {
@@ -142,11 +160,39 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
               ))}
               {members.length === 0 && <div className="text-brand-muted text-sm">No members yet.</div>}
             </div>
-            <div className="flex gap-2 mt-3">
-              <input className="flex-1 p-2 rounded bg-brand-background border border-brand-border" placeholder="Invite by username" value={username} onChange={e=>setUsername(e.target.value)} />
-              <Button onClick={invite}>Invite</Button>
+            <div className="mt-3">
+              <input
+                className="w-full p-2 rounded bg-brand-background border border-brand-border"
+                placeholder="Search or type @username"
+                value={username}
+                onChange={async (e)=>{
+                  const q = e.target.value; setUsername(q); setInviteMsg(null);
+                  if (q.trim().length < 2) { setSearchResults([]); return; }
+                  try {
+                    const { data } = await supabase
+                      .from('profiles')
+                      .select('id,username')
+                      .ilike('username', `%${q.trim()}%`)
+                      .limit(5);
+                    setSearchResults((data as any) || []);
+                  } catch { setSearchResults([]); }
+                }}
+              />
+              {searchResults.length > 0 && (
+                <div className="mt-1 border border-brand-border rounded bg-brand-surface">
+                  {searchResults.map(r => (
+                    <button key={r.id} className="w-full text-left px-2 py-1 hover:bg-brand-background" onClick={()=>{ setUsername(r.username); setSearchResults([]); }}>
+                      @{r.username}
+                    </button>
+                  ))}
+                </div>
+              )}
+              <div className="flex justify-end mt-2">
+                <Button onClick={invite} disabled={!username.trim() || !!invitingUserId}>{invitingUserId ? 'Inviting…' : 'Invite'}</Button>
+              </div>
+              {inviteMsg && <div className="text-brand-success text-sm mt-1">{inviteMsg}</div>}
+              {error && <div className="text-brand-danger text-sm mt-1">{error}</div>}
             </div>
-            {error && <div className="text-brand-danger text-sm mt-2">{error}</div>}
           </CardContent>
         </Card>
 
