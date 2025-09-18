@@ -38,7 +38,7 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
         // Thread meta
         const { data: t } = await supabase
           .from('chat_threads')
-          .select('name, privacy, frequency, timezone, use_round_robin')
+          .select('id, name, privacy, frequency')
           .eq('id', threadId)
           .maybeSingle();
         setThreadMeta((t as any) || {});
@@ -60,30 +60,47 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
         if (!cancelled) setPrompts((pr as any) || []);
       } catch {}
 
-      // load invites (received by me)
-      try {
-        const { data: inv } = await supabase
-          .from('group_invites')
-          .select('id, invited_user_id, profiles:invited_user_id(username)')
-          .eq('thread_id', threadId)
-          .eq('invited_user_id', user?.id || '00000000-0000-0000-0000-000000000000')
-          .eq('status', 'pending');
-        setReceivedInvites(((inv as any) || []).map((r:any)=>({ id: r.id, username: r.profiles?.username || 'user' })));
-      } catch {}
-      // load invites I sent (moderator view)
-      try {
-        const { data: sent } = await supabase
-          .from('group_invites')
-          .select('id, invited_by, invited_user_id, profiles:invited_user_id(username)')
-          .eq('thread_id', threadId)
-          .eq('invited_by', user?.id || '00000000-0000-0000-0000-000000000000')
-          .eq('status', 'pending');
-        setSentInvites(((sent as any) || []).map((r:any)=>({ id: r.id, username: r.profiles?.username || 'user' })));
-      } catch {}
+      await reloadInvites();
     }
     load();
     return () => { cancelled = true; };
   }, [threadId]);
+
+  const reloadInvites = async () => {
+    try {
+      // received by me
+      const { data: inv } = await supabase
+        .from('group_invites')
+        .select('id, invited_user_id')
+        .eq('thread_id', threadId)
+        .eq('invited_user_id', user?.id || '')
+        .eq('status', 'pending');
+      const rec = (inv as any) || [];
+      const recIds = rec.map((r:any)=> r.invited_user_id);
+      let recProfiles: any[] = [];
+      if (recIds.length) {
+        const { data: profs } = await supabase.from('profiles').select('id, username').in('id', recIds);
+        recProfiles = (profs as any) || [];
+      }
+      setReceivedInvites(rec.map((r:any)=> ({ id: r.id, username: (recProfiles.find(p=>p.id===r.invited_user_id)?.username) || 'user' })));
+
+      // sent by me
+      const { data: sent } = await supabase
+        .from('group_invites')
+        .select('id, invited_user_id')
+        .eq('thread_id', threadId)
+        .eq('invited_by', user?.id || '')
+        .eq('status', 'pending');
+      const sentArr = (sent as any) || [];
+      const sentIds = sentArr.map((r:any)=> r.invited_user_id);
+      let sentProfiles: any[] = [];
+      if (sentIds.length) {
+        const { data: profs2 } = await supabase.from('profiles').select('id, username').in('id', sentIds);
+        sentProfiles = (profs2 as any) || [];
+      }
+      setSentInvites(sentArr.map((r:any)=> ({ id: r.id, username: (sentProfiles.find(p=>p.id===r.invited_user_id)?.username) || 'user' })));
+    } catch {}
+  };
 
   const invite = async () => {
     if (!username.trim()) return;
@@ -93,20 +110,11 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
       const selected = searchResults.find(r => r.username.toLowerCase() === username.trim().toLowerCase());
       const targetUsername = selected?.username || username.trim();
       setInvitingUserId(selected?.id || null);
-      const { error } = await supabase.rpc('add_group_member', { p_thread: threadId, p_username: targetUsername });
+      // Create a PENDING INVITE (do not add as member yet)
+      const { error } = await supabase.rpc('invite_user_to_group', { p_thread: threadId, p_username: targetUsername });
       if (error) throw error;
-      if (selected) {
-        const exists = members.some(m => m.id === selected.id);
-        if (!exists) setMembers(prev => [...prev, { id: selected.id, username: selected.username }]);
-      } else {
-        const { data: p } = await supabase.from('profiles').select('id,username').ilike('username', targetUsername).limit(1).maybeSingle();
-        if (p) {
-          const exists = members.some(m => m.id === p.id);
-          if (!exists) setMembers(prev => [...prev, { id: p.id, username: p.username || targetUsername }]);
-        }
-      }
       setInviteMsg(`Invited @${targetUsername}`);
-      setPendingInvites(prev => [...prev, targetUsername]);
+      await reloadInvites();
       setUsername('');
       setSearchResults([]);
     } catch (e:any) { setError(e?.message || 'Failed to invite'); }

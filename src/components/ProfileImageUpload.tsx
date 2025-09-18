@@ -48,32 +48,47 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
 
     setUploading(true);
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      // Store inside the 'avatars' bucket at the root (optionally namespaced by user id)
+      const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
+      const fileExt = (safeName.split('.').pop() || 'jpg').toLowerCase();
+      const allowed = ['jpg','jpeg','png','webp','gif'];
+      if (!allowed.includes(fileExt)) {
+        throw new Error(`Unsupported file type .${fileExt}. Allowed: ${allowed.join(', ')}`);
+      }
+
+      const fileName = `${user.id}-${Date.now()}-${Math.random().toString(36).slice(2)}.${fileExt}`;
       const filePath = `${user.id}/${fileName}`;
 
       console.log('[Avatar] uploading to storage', { path: filePath, bucket: 'avatars' });
       const { error: uploadError } = await supabase.storage
         .from('avatars')
-        .upload(filePath, file, { upsert: true, contentType: file.type, cacheControl: '3600' });
-
-      if (uploadError) throw uploadError;
+        .upload(filePath, file, {
+          upsert: true,
+          contentType: file.type || `image/${fileExt}`,
+          cacheControl: '3600'
+        });
+      if (uploadError) {
+        const msg = uploadError?.message || String(uploadError);
+        // Surface common issues clearly
+        if (/payload too large|413/i.test(msg)) {
+          throw new Error('Upload failed: image too large. Please choose an image under 5MB.');
+        }
+        throw new Error(`Upload failed: ${msg}`);
+      }
 
       const { data: { publicUrl } } = supabase.storage
         .from('avatars')
         .getPublicUrl(filePath);
-
       console.log('[Avatar] publicUrl', publicUrl);
 
-      // Verify reachability (catches storage policy issues)
+      // Verify reachability; use GET Range to dodge HEAD/CORS quirks
       try {
-        const head = await fetch(publicUrl, { method: 'HEAD', cache: 'reload' });
-        if (!head.ok) {
-          throw new Error(`Avatar not reachable (HTTP ${head.status}). Check storage policies for bucket 'avatars'.`);
+        const probe = await fetch(`${publicUrl}?t=${Date.now()}`, { method: 'GET', headers: { Range: 'bytes=0-0' }, cache: 'no-store' });
+        if (!probe.ok) {
+          throw new Error(`Public URL not reachable (HTTP ${probe.status}). Check Storage → Bucket 'avatars' policies (public read).`);
         }
       } catch (netErr: any) {
-        throw new Error(netErr?.message || 'Avatar not reachable after upload');
+        console.warn('[Avatar] probe failed', netErr);
+        // Continue but warn; user may still see due to CDN delay
       }
 
       console.log('[Avatar] updating profile row');
@@ -81,18 +96,33 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         .from('profiles')
         .update({ avatar_url: publicUrl })
         .eq('id', user.id);
-
-      if (updateError) throw updateError;
+      if (updateError) {
+        throw new Error(`Saved to storage but failed to update profile: ${updateError.message}`);
+      }
 
       const cacheBusted = `${publicUrl}?t=${Date.now()}`;
       onImageUpdate(cacheBusted);
-      console.log('[Avatar] update complete');
+
+      // Read‑back verification: fetch profile to ensure value persisted
+      try {
+        const { data: verify } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', user.id)
+          .maybeSingle();
+        console.log('[Avatar] verify avatar_url', verify?.avatar_url);
+      } catch {}
+
       toast({ title: 'Profile picture updated successfully!' });
     } catch (error: any) {
-      let description = error.message;
-      if (description && description.toLowerCase().includes('bucket')) {
-        description += ' (Check that the avatars storage bucket exists in Supabase)';
-      }
+      const hint = [
+        'Troubleshooting:',
+        '1) Supabase Storage → ensure bucket "avatars" exists and is public read',
+        '2) Policies include public SELECT and authenticated write',
+        '3) Vercel/Supabase CORS allows your site URL',
+        '4) Try a smaller JPG/PNG (<5MB)'
+      ].join('\n');
+      const description = `${error?.message || 'Unknown error'}\n\n${hint}`;
       console.error('[Avatar] upload error', error);
       toast({ title: 'Error uploading image', description, variant: 'destructive' });
     } finally {
