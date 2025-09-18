@@ -28,6 +28,7 @@ import SearchScreen from './SearchScreen';
 import LateSubmitModal from './LateSubmitModal';
 import MessagesInbox from './MessagesInbox';
 import ChatThread from './ChatThread';
+import GroupDetails from './GroupDetails';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
@@ -257,7 +258,10 @@ const MainAppScreen: React.FC = () => {
 
       if (currentTab === 'messages') {
         const chatId = focusedTakeId;
-        if (chatId) return <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} />;
+        // Simple details toggle via URL hash
+        const showDetails = (()=>{ try { return window.location.hash === '#details'; } catch { return false; } })();
+        if (chatId && showDetails) return <GroupDetails threadId={chatId} onBack={()=>{ window.location.hash=''; }} />;
+        if (chatId) return <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} onOpenDetails={()=>{ window.location.hash = '#details'; }} />;
         return <MessagesInbox onOpenThread={(id: string)=> setFocusedTakeId(id)} />;
       }
 

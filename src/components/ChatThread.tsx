@@ -14,9 +14,10 @@ interface Message {
 interface Props {
   threadId: string;
   onBack: () => void;
+  onOpenDetails?: () => void;
 }
 
-const ChatThread: React.FC<Props> = ({ threadId, onBack }) => {
+const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
   const { user } = useAppContext();
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -59,9 +60,14 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack }) => {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex items-center gap-2 px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
-        <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
-        <div className="text-[11px] uppercase tracking-wide text-brand-muted">Chat</div>
+      <div className="flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
+        <div className="flex items-center gap-2">
+          <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
+          <div className="text-[11px] uppercase tracking-wide text-brand-muted">Chat</div>
+        </div>
+        {onOpenDetails && (
+          <Button variant="outline" size="sm" onClick={onOpenDetails}>Details</Button>
+        )}
       </div>
       <div className="flex-1 min-h-0">
         {loading ? (
