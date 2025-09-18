@@ -16,6 +16,7 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
   const [csvText, setCsvText] = useState('');
   const [context, setContext] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
+  const [prompts, setPrompts] = useState<{ id:string; prompt_text:string; prompt_date:string|null; created_at:string }[]>([]);
 
   useEffect(() => {
     let cancelled = false;
@@ -28,6 +29,15 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
         const rows = (data || []).map((r:any)=> ({ id: r.user_id, username: r.profiles?.username || 'user' }));
         if (!cancelled) setMembers(rows);
       } finally { if (!cancelled) setLoading(false); }
+      // load prompts for this thread
+      try {
+        const { data: pr } = await supabase
+          .from('group_prompts')
+          .select('id,prompt_text,prompt_date,created_at')
+          .eq('thread_id', threadId)
+          .order('created_at', { ascending: false });
+        if (!cancelled) setPrompts((pr as any) || []);
+      } catch {}
     }
     load();
     return () => { cancelled = true; };
@@ -56,16 +66,51 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
       await supabase.rpc('add_group_prompt', { p_thread: threadId, p_prompt: line });
     }
     setCsvText('');
+    const { data: pr } = await supabase
+      .from('group_prompts')
+      .select('id,prompt_text,prompt_date,created_at')
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: false });
+    setPrompts((pr as any) || []);
   };
 
   const generateAI = async () => {
     setAiBusy(true); setError(null);
     try {
       const improved = await fixPromptWithAI(context || 'Write one engaging, friendly prompt about staying in touch with friends.');
-      await supabase.from('group_prompts').insert({ thread_id: threadId, prompt_text: improved, source: 'ai' });
+      // if no prompt for today, set this as today's prompt_date
+      const today = new Date(); today.setHours(0,0,0,0);
+      const todayStr = today.toISOString().slice(0,10);
+      const { data: existing } = await supabase
+        .from('group_prompts')
+        .select('id')
+        .eq('thread_id', threadId)
+        .eq('prompt_date', todayStr)
+        .limit(1);
+      const payload: any = { thread_id: threadId, prompt_text: improved, source: 'ai' };
+      if (!existing || (existing as any).length === 0) payload.prompt_date = todayStr;
+      await supabase.from('group_prompts').insert(payload);
       setContext('');
+      const { data: pr } = await supabase
+        .from('group_prompts')
+        .select('id,prompt_text,prompt_date,created_at')
+        .eq('thread_id', threadId)
+        .order('created_at', { ascending: false });
+      setPrompts((pr as any) || []);
     } catch (e:any) { setError(e?.message || 'AI failed'); }
     finally { setAiBusy(false); }
+  };
+
+  const setToday = async (id: string) => {
+    const today = new Date(); today.setHours(0,0,0,0);
+    const todayStr = today.toISOString().slice(0,10);
+    await supabase.from('group_prompts').update({ prompt_date: todayStr }).eq('id', id);
+    const { data: pr } = await supabase
+      .from('group_prompts')
+      .select('id,prompt_text,prompt_date,created_at')
+      .eq('thread_id', threadId)
+      .order('created_at', { ascending: false });
+    setPrompts((pr as any) || []);
   };
 
   const leave = async () => {
@@ -118,6 +163,26 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
             <div className="text-sm font-medium">AI Prompt (single)</div>
             <textarea className="w-full p-2 rounded bg-brand-background border border-brand-border" rows={3} placeholder="Describe your group context (book, vibe, tone)…" value={context} onChange={e=>setContext(e.target.value)} />
             <Button onClick={generateAI} disabled={aiBusy}>{aiBusy ? 'Generating…' : 'Generate & save'}</Button>
+          </CardContent>
+        </Card>
+
+        <Card className="bg-brand-surface/70 border-brand-border/70">
+          <CardContent className="p-3">
+            <div className="text-sm font-medium mb-2">Saved Prompts</div>
+            <div className="space-y-2">
+              {prompts.map(p => (
+                <div key={p.id} className="border border-brand-border/70 rounded p-2">
+                  <div className="text-sm text-brand-text">{p.prompt_text}</div>
+                  <div className="text-[11px] text-brand-muted mt-1">{p.prompt_date ? `For ${p.prompt_date}` : 'No date set'}</div>
+                  {!p.prompt_date && (
+                    <div className="mt-1">
+                      <Button size="sm" variant="outline" onClick={()=>setToday(p.id)}>Use for today</Button>
+                    </div>
+                  )}
+                </div>
+              ))}
+              {prompts.length === 0 && <div className="text-brand-muted text-sm">No prompts yet.</div>}
+            </div>
           </CardContent>
         </Card>
       </div>
