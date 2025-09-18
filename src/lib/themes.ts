@@ -184,3 +184,56 @@ export function getThemeClass(theme: Theme) {
     }
   )
 } 
+
+// ---------- Contrast helpers used across components (mirrors Theme Store preview logic) ----------
+export function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '')
+  const v = h.length === 3 ? h.split('').map(c => c + c).join('') : h
+  const int = parseInt(v, 16)
+  return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 }
+}
+
+export function luminance(hex: string): number {
+  try {
+    const { r, g, b } = hexToRgb(hex)
+    const a = [r, g, b].map(v => {
+      const s = v / 255
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4)
+    })
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2]
+  } catch {
+    return 0.5
+  }
+}
+
+export function isDark(hex: string) { return luminance(hex) < 0.5 }
+
+export function surfaceOver(background: string, strength = 0.08) {
+  const dark = isDark(background)
+  const alpha = strength
+  return dark ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`
+}
+
+export function borderOver(background: string, strength = 0.2) {
+  const dark = isDark(background)
+  const alpha = strength
+  return dark ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`
+}
+
+export function textOn(hexColor: string) { return isDark(hexColor) ? '#FFFFFF' : '#000000' }
+
+export function rgba(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex)
+  return `rgba(${r},${g},${b},${alpha})`
+}
+
+export function deriveThemeSurfaces(preview: { background: string, primary: string, secondary: string, accent: string, text: string }) {
+  const surface = surfaceOver(preview.background, 0.08)
+  const surfaceAlt = surfaceOver(preview.background, 0.12)
+  const border = borderOver(preview.background, 0.2)
+  const calloutBg = rgba(preview.primary, 0.15)
+  const calloutBorder = rgba(preview.primary, 0.35)
+  const chipBg = rgba(preview.accent, 0.18)
+  const chipText = textOn(preview.accent)
+  return { surface, surfaceAlt, border, calloutBg, calloutBorder, chipBg, chipText }
+}

@@ -13,6 +13,7 @@ import ProfileEditModal from './ProfileEditModal';
 import { TakeCard } from './TakeCard';
 import { ThemeSelector } from './ThemeSelector';
 import { useTheme } from '@/components/theme-provider';
+import { getThemeColors, deriveThemeSurfaces } from '@/lib/themes';
 import { MonetizationModals } from './MonetizationModals';
 import ThemeStoreModal from './ThemeStoreModal';
 import { TodaysPrompt } from './TodaysPrompt';
@@ -46,7 +47,9 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   const [loading, setLoading] = useState(true);
   const [showEditModal, setShowEditModal] = useState(false);
   const [currentTheme, setCurrentTheme] = useState('light');
-  const { setTheme } = useTheme();
+  const { setTheme, theme } = useTheme();
+  const themePreview = getThemeColors(theme);
+  const surfaces = deriveThemeSurfaces(themePreview);
   const [showStore, setShowStore] = useState(false);
   const [streak, setStreak] = useState(0);
   const [totalTakes, setTotalTakes] = useState(0);
@@ -646,7 +649,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
             {userTakes.map((take) => (
               <div key={take.id} className="space-y-2">
                 {take.prompt_date && (
-                  <div className="rounded-lg border border-brand-border/70 bg-brand-surface/60 p-2">
+                  <div className="rounded-lg p-2" style={{ background: surfaces.calloutBg, border: `1px solid ${surfaces.calloutBorder}` }}>
                     <div className="flex items-start gap-2">
                       <FileText className="w-4 h-4 mt-0.5 text-brand-accent" />
                       <div className="flex-1 min-w-0">

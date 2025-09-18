@@ -16,6 +16,8 @@ import ProfileView from './ProfileView';
 import { supabase, addNotification } from '@/lib/supabase';
 import { ReactionType } from '@/lib/reactions';
 import { logClientEvent } from '@/lib/utils';
+import { getThemeColors, deriveThemeSurfaces } from '@/lib/themes';
+import { useTheme } from '@/components/theme-provider';
 
 interface TakeCardProps {
   take: Take;
@@ -49,6 +51,10 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const { toast } = useToast();
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [reactionTypes, setReactionTypes] = useState<{ name: string; emoji: string }[]>([]);
+  const { theme } = useTheme();
+  const surfaces = (() => {
+    try { return deriveThemeSurfaces(getThemeColors(theme)); } catch { return null as any; }
+  })();
 
   const canInteract = hasPostedToday || user?.hasPostedToday;
 
@@ -260,7 +266,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
           />
         )}
         
-        <Card className="bg-brand-surface/70 border-brand-border/70 hover:border-brand-accent transition-all duration-200">
+        <Card className="transition-all duration-200" style={{ background: surfaces?.surface || undefined, borderColor: surfaces?.border || undefined, borderWidth: 1 }}>
           <CardContent className="p-3 sm:p-3.5">
             <div className="flex items-start space-x-3">
               <Avatar 
