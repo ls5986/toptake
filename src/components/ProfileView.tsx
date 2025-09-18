@@ -566,7 +566,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                                 await toggleFollowForId(p.id, !!data);
                               }}
                             >
-                              Follow/Unfollow
+                              View Profile
                             </button>
                           )}
                         </div>
@@ -603,11 +603,13 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                             <button
                               className="text-xs border rounded px-2 py-1"
                               onClick={async () => {
-                                // current user already follows p (since list is following); toggle will unfollow
-                                await toggleFollowForId(p.id, true);
+                                // Navigate to their profile
+                                const { data } = await supabase.from('profiles').select('username').eq('id', p.id).maybeSingle();
+                                const uname = data?.username || '';
+                                if (uname) window.location.href = '/' + encodeURIComponent(uname);
                               }}
                             >
-                              Unfollow
+                              View Profile
                             </button>
                           )}
                         </div>

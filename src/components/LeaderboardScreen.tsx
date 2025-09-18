@@ -6,6 +6,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { useAppContext } from '@/contexts/AppContext';
 import { supabase } from '@/lib/supabase';
 import { Flame, User } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 
 interface LeaderboardUser {
   id: string;
@@ -18,6 +19,7 @@ const LeaderboardScreen: React.FC = () => {
   const { setCurrentScreen, setSelectedProfile } = useAppContext();
   const [leaderboard, setLeaderboard] = useState<LeaderboardUser[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     fetchLeaderboard();
@@ -103,6 +105,11 @@ const LeaderboardScreen: React.FC = () => {
   };
 
   const handleUserClick = (user: LeaderboardUser) => {
+    // Prefer route-based navigation to specific username when available
+    if (user.username) {
+      navigate('/' + encodeURIComponent(user.username));
+      return;
+    }
     setSelectedProfile(user.id);
     setCurrentScreen('profile');
   };

@@ -6,11 +6,13 @@ import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { MessageSquare, ThumbsUp } from 'lucide-react';
 import { fetchNotifications, markRead, markAllRead, subscribeNotifications, type AppNotification } from '@/lib/notifications';
+import { useNavigate } from 'react-router-dom';
 
 export const NotificationsScreen: React.FC = () => {
   const { user, setCurrentScreen, setCurrentTakeId } = useAppContext();
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [loading, setLoading] = useState(true);
+  const navigate = useNavigate();
 
   useEffect(() => {
     if (!user) return;
@@ -49,6 +51,10 @@ export const NotificationsScreen: React.FC = () => {
 
   const handleClick = (notification: AppNotification) => {
     handleMarkAsRead(notification.id);
+    if (notification.username) {
+      navigate('/' + encodeURIComponent(notification.username));
+      return;
+    }
     if (notification.takeid) {
       setCurrentTakeId(notification.takeid);
       setCurrentScreen('take');
