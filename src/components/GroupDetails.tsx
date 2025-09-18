@@ -1,35 +1,50 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import { supabase } from '@/lib/supabase';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/AppContext';
 import { fixPromptWithAI } from '@/lib/openai';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 
 interface Props { threadId: string; onBack: () => void; }
 
 const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
   const { user } = useAppContext();
-  const [members, setMembers] = useState<{ id: string; username: string }[]>([]);
+  const [members, setMembers] = useState<{ id: string; username: string; avatar_url?: string; role?: string }[]>([]);
   const [username, setUsername] = useState('');
   const [searchResults, setSearchResults] = useState<{ id:string; username:string }[]>([]);
   const [invitingUserId, setInvitingUserId] = useState<string | null>(null);
   const [inviteMsg, setInviteMsg] = useState<string | null>(null);
+  const [pendingInvites, setPendingInvites] = useState<string[]>([]);
+  const [invites, setInvites] = useState<Array<{ id:string; username:string }>>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [csvText, setCsvText] = useState('');
   const [context, setContext] = useState('');
   const [aiBusy, setAiBusy] = useState(false);
   const [prompts, setPrompts] = useState<{ id:string; prompt_text:string; prompt_date:string|null; created_at:string }[]>([]);
+  const [threadMeta, setThreadMeta] = useState<{ name?: string|null; privacy?: string; frequency?: string|null; timezone?: string|null; use_round_robin?: boolean }|null>(null);
+  const [savingMeta, setSavingMeta] = useState(false);
+  const todayStr = useMemo(()=>{ const d=new Date(); d.setHours(0,0,0,0); return d.toISOString().slice(0,10); }, []);
+  const upcoming = useMemo(()=> (prompts||[]).find(p=>p.prompt_date === todayStr) || null, [prompts, todayStr]);
 
   useEffect(() => {
     let cancelled = false;
     async function load() {
       try {
+        // Thread meta
+        const { data: t } = await supabase
+          .from('chat_threads')
+          .select('name, privacy, frequency, timezone, use_round_robin')
+          .eq('id', threadId)
+          .maybeSingle();
+        setThreadMeta((t as any) || {});
+        
         const { data } = await supabase
           .from('chat_participants')
-          .select('user_id, profiles:user_id(username)')
+          .select('user_id, role, profiles:user_id(username,avatar_url)')
           .eq('thread_id', threadId);
-        const rows = (data || []).map((r:any)=> ({ id: r.user_id, username: r.profiles?.username || 'user' }));
+        const rows = (data || []).map((r:any)=> ({ id: r.user_id, username: r.profiles?.username || 'user', avatar_url: r.profiles?.avatar_url || '', role: r.role || undefined }));
         if (!cancelled) setMembers(rows);
       } finally { if (!cancelled) setLoading(false); }
       // load prompts for this thread
@@ -40,6 +55,16 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
           .eq('thread_id', threadId)
           .order('created_at', { ascending: false });
         if (!cancelled) setPrompts((pr as any) || []);
+      } catch {}
+
+      // load pending invites for the current user and thread (if they are invitee)
+      try {
+        const { data: inv } = await supabase
+          .from('group_invites')
+          .select('id, invited_user_id, profiles:invited_user_id(username)')
+          .eq('thread_id', threadId)
+          .eq('status', 'pending');
+        setInvites(((inv as any) || []).map((r:any)=>({ id: r.id, username: r.profiles?.username || 'user' })));
       } catch {}
     }
     load();
@@ -67,6 +92,7 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
         }
       }
       setInviteMsg(`Invited @${targetUsername}`);
+      setPendingInvites(prev => [...prev, targetUsername]);
       setUsername('');
       setSearchResults([]);
     } catch (e:any) { setError(e?.message || 'Failed to invite'); }
@@ -131,6 +157,25 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
     setPrompts((pr as any) || []);
   };
 
+  const saveSchedule = async () => {
+    if (!threadMeta) return;
+    try {
+      setSavingMeta(true);
+      await supabase
+        .from('chat_threads')
+        .update({
+          frequency: threadMeta.frequency || null,
+          timezone: threadMeta.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || null,
+          use_round_robin: !!threadMeta.use_round_robin,
+        })
+        .eq('id', threadId);
+    } catch (e:any) {
+      setError(e?.message || 'Failed to save');
+    } finally {
+      setSavingMeta(false);
+    }
+  };
+
   const leave = async () => {
     try {
       await supabase.rpc('leave_group', { p_thread: threadId });
@@ -142,24 +187,94 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
     <div className="flex-1 flex flex-col h-full">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
         <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
-        <div className="text-[11px] uppercase tracking-wide text-brand-muted">Group Details</div>
+        <div className="text-[11px] uppercase tracking-wide text-brand-muted">Group details</div>
         <div className="ml-auto">
           <Button size="sm" variant="outline" onClick={leave}>Leave group</Button>
         </div>
       </div>
-      <div className="p-3 space-y-3">
+      <div className="p-3 space-y-3 max-w-3xl">
+        {/* Schedule & Settings */}
+        <Card className="bg-brand-surface/70 border-brand-border/70">
+          <CardContent className="p-3 space-y-2">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-medium">Schedule</div>
+              {upcoming && (
+                <div className="text-[11px] px-2 py-1 rounded-full border border-brand-border/70 text-brand-muted truncate max-w-[60%]" title={upcoming.prompt_text}>
+                  Today: {upcoming.prompt_text}
+                </div>
+              )}
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+              <div>
+                <label className="block text-xs text-brand-muted mb-1">Frequency</label>
+                <select
+                  className="w-full p-2 rounded bg-brand-background border border-brand-border"
+                  value={threadMeta?.frequency || ''}
+                  onChange={(e)=> setThreadMeta(prev => ({ ...(prev||{}), frequency: e.target.value || null }))}
+                >
+                  <option value="">Not set</option>
+                  <option value="daily">Daily</option>
+                  <option value="weekly">Weekly</option>
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-brand-muted mb-1">Timezone</label>
+                <input
+                  className="w-full p-2 rounded bg-brand-background border border-brand-border"
+                  value={threadMeta?.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone || ''}
+                  onChange={(e)=> setThreadMeta(prev => ({ ...(prev||{}), timezone: e.target.value }))}
+                  placeholder="America/Los_Angeles"
+                />
+              </div>
+              <div className="flex items-end">
+                <label className="text-sm text-brand-text flex items-center gap-2">
+                  <input type="checkbox" checked={!!threadMeta?.use_round_robin} onChange={(e)=> setThreadMeta(prev => ({ ...(prev||{}), use_round_robin: e.target.checked }))} />
+                  Use round‑robin prompts
+                </label>
+              </div>
+            </div>
+            <div className="flex justify-end">
+              <Button size="sm" onClick={saveSchedule} disabled={savingMeta}>{savingMeta ? 'Saving…' : 'Save settings'}</Button>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Members */}
         <Card className="bg-brand-surface/70 border-brand-border/70">
           <CardContent className="p-3">
             <div className="text-sm font-medium mb-2">Members</div>
             <div className="space-y-1">
               {members.map(m => (
-                <div key={m.id} className="flex items-center justify-between text-sm">
-                  <span>@{m.username}</span>
+                <div key={m.id} className="flex items-center justify-between text-sm py-1.5">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Avatar className="h-6 w-6">
+                      <AvatarImage src={m.avatar_url || ''} alt={m.username} />
+                      <AvatarFallback className="text-[10px] bg-brand-accent/20">{m.username?.slice(0,2).toUpperCase()}</AvatarFallback>
+                    </Avatar>
+                    <span className="truncate">@{m.username}</span>
+                    {m.role && <span className="text-[10px] px-1.5 py-0.5 rounded-full border border-brand-border/70 text-brand-muted">{m.role}</span>}
+                  </div>
                   <Button size="sm" variant="ghost" onClick={()=>remove(m.id)}>Remove</Button>
                 </div>
               ))}
               {members.length === 0 && <div className="text-brand-muted text-sm">No members yet.</div>}
             </div>
+            {invites.length > 0 && (
+              <div className="mt-3">
+                <div className="text-xs text-brand-muted mb-1">Pending invites</div>
+                <div className="space-y-1">
+                  {invites.map(inv => (
+                    <div key={inv.id} className="flex items-center justify-between text-sm py-1">
+                      <span>@{inv.username}</span>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={async()=>{ await supabase.rpc('accept_group_invite', { p_invite: inv.id }); setInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Accept</Button>
+                        <Button size="sm" variant="ghost" onClick={async()=>{ await supabase.rpc('decline_group_invite', { p_invite: inv.id }); setInvites(prev=>prev.filter(i=>i.id!==inv.id)); }}>Decline</Button>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div className="mt-3">
               <input
                 className="w-full p-2 rounded bg-brand-background border border-brand-border"
@@ -191,6 +306,9 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
                 <Button onClick={invite} disabled={!username.trim() || !!invitingUserId}>{invitingUserId ? 'Inviting…' : 'Invite'}</Button>
               </div>
               {inviteMsg && <div className="text-brand-success text-sm mt-1">{inviteMsg}</div>}
+              {pendingInvites.length > 0 && (
+                <div className="mt-2 text-xs text-brand-muted">Pending: {pendingInvites.map(u=>`@${u}`).join(', ')}</div>
+              )}
               {error && <div className="text-brand-danger text-sm mt-1">{error}</div>}
             </div>
           </CardContent>
@@ -198,7 +316,8 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
 
         <Card className="bg-brand-surface/70 border-brand-border/70">
           <CardContent className="p-3 space-y-2">
-            <div className="text-sm font-medium">Upload CSV Prompts</div>
+            <div className="text-sm font-medium">Bulk add prompts</div>
+            <div className="text-xs text-brand-muted">Paste or upload one prompt per line. Great for seeding the queue.</div>
             <textarea className="w-full p-2 rounded bg-brand-background border border-brand-border" rows={4} placeholder="One prompt per line" value={csvText} onChange={e=>setCsvText(e.target.value)} />
             <Button onClick={uploadCsv} disabled={!csvText.trim()}>Save prompts</Button>
           </CardContent>
@@ -206,15 +325,16 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
 
         <Card className="bg-brand-surface/70 border-brand-border/70">
           <CardContent className="p-3 space-y-2">
-            <div className="text-sm font-medium">AI Prompt (single)</div>
-            <textarea className="w-full p-2 rounded bg-brand-background border border-brand-border" rows={3} placeholder="Describe your group context (book, vibe, tone)…" value={context} onChange={e=>setContext(e.target.value)} />
+            <div className="text-sm font-medium">Quick generate (AI)</div>
+            <div className="text-xs text-brand-muted">Describe your group and tone; AI will propose one prompt and save it. If today’s prompt is empty, it will be set automatically.</div>
+            <textarea className="w-full p-2 rounded bg-brand-background border border-brand-border" rows={3} placeholder="e.g., We’re a long-distance friend group who want light, funny check-ins" value={context} onChange={e=>setContext(e.target.value)} />
             <Button onClick={generateAI} disabled={aiBusy}>{aiBusy ? 'Generating…' : 'Generate & save'}</Button>
           </CardContent>
         </Card>
 
         <Card className="bg-brand-surface/70 border-brand-border/70">
           <CardContent className="p-3">
-            <div className="text-sm font-medium mb-2">Saved Prompts</div>
+            <div className="text-sm font-medium mb-2">Saved prompts</div>
             <div className="space-y-2">
               {prompts.map(p => (
                 <div key={p.id} className="border border-brand-border/70 rounded p-2">

@@ -38,91 +38,43 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
       setLoading(true);
       try {
         if (!user?.id) { setThreads([]); return; }
-        const { data, error } = await supabase
-          .from('chat_threads')
-          .select('id, is_group, name, privacy, frequency, created_at')
-          .in('id', supabase
-            .from('chat_participants') as any);
-        // Some environments don't support nested in(); fallback to manual join via RPC-like approach
-      } catch {}
-      try {
-        // Fallback simple join: fetch participant thread_ids then fetch threads
-        const { data: parts } = await supabase
-          .from('chat_participants')
-          .select('thread_id')
-          .eq('user_id', user!.id);
-        const ids = (parts || []).map((p: any) => p.thread_id);
-        if (!ids.length) { if (!cancelled) setThreads([]); return; }
-        const { data: th } = await supabase
-          .from('chat_threads')
-          .select('id, is_group, name, privacy, frequency, created_at')
-          .in('id', ids)
-          .order('created_at', { ascending: false });
-        let list: ThreadRow[] = (th as any) || [];
-        // augment with participants, last message + unread count (excluding own messages)
-        for (const t of list) {
-          // participants
-          const { data: partUsers } = await supabase
-            .from('chat_participants')
-            .select('user_id')
-            .eq('thread_id', t.id);
-          const pids = (partUsers || []).map((p: any) => p.user_id);
-          if (pids.length) {
-            const { data: profs } = await supabase
-              .from('profiles')
-              .select('id, username, avatar_url')
-              .in('id', pids);
-            t.participants = (profs as any) || [];
-          } else {
-            t.participants = [];
-          }
+        // Efficient inbox via RPC
+        const { data: th, error: rpcErr } = await supabase.rpc('list_threads_for_user', { p_user: user.id });
+        if (rpcErr) throw rpcErr;
+        let list: ThreadRow[] = ((th as any) || []).map((t:any)=>({
+          id: t.id,
+          is_group: t.is_group,
+          name: t.name,
+          privacy: t.privacy,
+          frequency: t.frequency,
+          created_at: t.created_at,
+          lastSnippet: t.last_snippet,
+          unread: t.unread
+        }));
 
-          // last message with sender
-          const { data: last } = await supabase
-            .from('chat_messages')
-            .select('content, created_at, sender_id')
-            .eq('thread_id', t.id)
-            .order('created_at', { ascending: false })
-            .limit(1);
-          t.lastSnippet = last?.[0]?.content || '';
-          const lastSenderId = last?.[0]?.sender_id as string | undefined;
-          if (lastSenderId) {
-            const sender = (t.participants || []).find(p => p.id === lastSenderId);
-            if (sender) t.lastSenderUsername = sender.username;
-            else {
-              const { data: s } = await supabase.from('profiles').select('username').eq('id', lastSenderId).maybeSingle();
-              t.lastSenderUsername = (s as any)?.username || undefined;
-            }
-          }
-
-          // unread excluding own messages
-          const { data: part } = await supabase
+        // Fetch participants for avatars/usernames
+        const ids = list.map(t=>t.id);
+        if (ids.length) {
+          const { data: partsAll } = await supabase
             .from('chat_participants')
-            .select('last_read_at')
-            .eq('thread_id', t.id)
-            .eq('user_id', user!.id)
-            .maybeSingle();
-          let unread = 0;
-          if (part) {
-            const { count } = await supabase
-              .from('chat_messages')
-              .select('id', { count: 'exact', head: true })
-              .eq('thread_id', t.id)
-              .gt('created_at', (part as any).last_read_at || '1970-01-01')
-              .neq('sender_id', user!.id);
-            unread = (count as number) || 0;
-          }
-          t.unread = unread;
+            .select('thread_id, user_id, profiles:user_id(id,username,avatar_url)')
+            .in('thread_id', ids);
+          const map: Record<string, Array<{ id:string; username:string; avatar_url?:string }>> = {};
+          (partsAll || []).forEach((r:any) => {
+            const arr = map[r.thread_id] || (map[r.thread_id] = []);
+            if (r.profiles) arr.push({ id: r.profiles.id, username: r.profiles.username, avatar_url: r.profiles.avatar_url });
+          });
+          list.forEach(t => { t.participants = map[t.id] || []; });
         }
+
         if (!cancelled) setThreads(list);
 
-        // discover public groups not joined
+        // discover public groups (always show; mark joined via Open button)
         const { data: pub } = await supabase
           .from('chat_threads')
           .select('id, is_group, name, privacy, frequency, created_at')
           .eq('privacy', 'public');
-        const pubList = ((pub as any) || []);
-        if (!cancelled) setDiscover(pubList);
+        if (!cancelled) setDiscover(((pub as any) || []));
       } finally {
         if (!cancelled) setLoading(false);
       }
