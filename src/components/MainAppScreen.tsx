@@ -589,7 +589,7 @@ const MainAppScreen: React.FC = () => {
   // Friends overlay removed; search is now a dedicated tab
 
   return (
-    <div className="bg-brand-background min-h-screen flex flex-col">
+    <div className="bg-brand-background min-h-screen flex flex-col pb-16 md:pb-20" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
       <AppBlocker 
         isBlocked={isAppBlocked} 
         onSubmit={handleUnlock}
@@ -763,8 +763,8 @@ const MainAppScreen: React.FC = () => {
         />
       )}
 
-      {/* Spacer to prevent content being hidden behind the fixed BottomNav */}
-      <div className="h-14 md:h-16" />
+      {/* Spacer retained for legacy pages; combined with container padding ensures nothing is hidden */}
+      <div className="h-14 md:h-16 pointer-events-none" />
       <BottomNav currentTab={currentTab} onTabChange={(tab)=>{
         if (tab==='feed') navigate('/');
         if (tab==='profile') navigate('/profile');
