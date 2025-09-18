@@ -68,11 +68,21 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
     finally { setAiBusy(false); }
   };
 
+  const leave = async () => {
+    try {
+      await supabase.rpc('leave_group', { p_thread: threadId });
+      onBack();
+    } catch (e:any) { setError(e?.message || 'Failed to leave'); }
+  };
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex items-center gap-2 px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
         <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
         <div className="text-[11px] uppercase tracking-wide text-brand-muted">Group Details</div>
+        <div className="ml-auto">
+          <Button size="sm" variant="outline" onClick={leave}>Leave group</Button>
+        </div>
       </div>
       <div className="p-3 space-y-3">
         <Card className="bg-brand-surface/70 border-brand-border/70">
