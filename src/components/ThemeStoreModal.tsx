@@ -12,19 +12,66 @@ interface ThemeStoreModalProps {
 
 const THEME_PRICE = 2.99;
 
+// Utilities for contrast-aware previews
+function hexToRgb(hex: string): { r: number; g: number; b: number } {
+  const h = hex.replace('#', '');
+  const v = h.length === 3
+    ? h.split('').map((c) => c + c).join('')
+    : h;
+  const int = parseInt(v, 16);
+  return { r: (int >> 16) & 255, g: (int >> 8) & 255, b: int & 255 };
+}
+
+function luminance(hex: string): number {
+  try {
+    const { r, g, b } = hexToRgb(hex);
+    const a = [r, g, b].map((v) => {
+      const s = v / 255;
+      return s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4);
+    });
+    return 0.2126 * a[0] + 0.7152 * a[1] + 0.0722 * a[2];
+  } catch {
+    return 0.5;
+  }
+}
+
+function isDark(hex: string) {
+  return luminance(hex) < 0.5;
+}
+
+function surfaceOver(background: string, strength = 0.06) {
+  const dark = isDark(background);
+  const alpha = strength;
+  return dark ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`;
+}
+
+function borderOver(background: string, strength = 0.25) {
+  const dark = isDark(background);
+  const alpha = strength;
+  return dark ? `rgba(255,255,255,${alpha})` : `rgba(0,0,0,${alpha})`;
+}
+
+function textOn(hexColor: string) {
+  return isDark(hexColor) ? '#FFFFFF' : '#000000';
+}
+
 const ThemePreview: React.FC<{ themeId: Theme, selected: boolean, onSelect: () => void }> = ({ themeId, selected, onSelect }) => {
   const c = getThemeColors(themeId);
+  const bg = c.background;
+  const surface = surfaceOver(bg, 0.08);
+  const border = borderOver(bg, 0.18);
   return (
     <button
       onClick={onSelect}
       className={`rounded-lg border p-3 text-left transition ${selected ? 'border-brand-accent' : 'border-brand-border'} w-full`}
-      style={{ background: c.background }}
+      style={{ background: bg }}
     >
       <div className="text-sm font-semibold" style={{ color: c.text }}>{themeId}</div>
-      <div className="flex gap-2 mt-2">
+      <div className="flex gap-2 mt-2 items-center">
         <span className="w-5 h-5 rounded" style={{ background: c.primary }} />
         <span className="w-5 h-5 rounded" style={{ background: c.secondary }} />
         <span className="w-5 h-5 rounded" style={{ background: c.accent }} />
+        <span className="ml-auto px-2 py-0.5 rounded text-[10px]" style={{ background: surface, border: `1px solid ${border}`, color: c.text }}>surface</span>
       </div>
     </button>
   );
@@ -55,7 +102,7 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
   const [purchasing, setPurchasing] = useState(false);
   const [ownedThemes, setOwnedThemes] = useState<string[]>([]);
 
-  const isAdminTester = (user?.email || '').toLowerCase() === 'lindsey@letsclink.com';
+  const isAdminTester = String((user as any)?.email || '').toLowerCase() === 'lindsey@letsclink.com';
 
   useEffect(() => {
     (async () => {
@@ -71,6 +118,9 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
   }, [user?.id, isOpen]);
 
   const preview = useMemo(() => getThemeColors(selectedTheme), [selectedTheme]);
+  const surface = useMemo(() => surfaceOver(preview.background, 0.08), [preview.background]);
+  const surfaceAlt = useMemo(() => surfaceOver(preview.background, 0.12), [preview.background]);
+  const border = useMemo(() => borderOver(preview.background, 0.2), [preview.background]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -131,22 +181,25 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
               <DialogTitle>Theme Store</DialogTitle>
               <DialogDescription>Preview themes and apply your favorite. Premium themes require purchase.</DialogDescription>
             </DialogHeader>
-            {/* Large example preview */}
-            <div className="rounded-lg border border-brand-border p-4 mb-4" style={{ background: preview.background, color: preview.text }}>
-              <div className="font-semibold mb-2">Example</div>
-              <div className="rounded-md p-3 mb-3" style={{ background: preview.accent, color: preview.background }}>Header</div>
+            {/* Large example preview with real contrast and dimension */}
+            <div className="rounded-lg border p-4 mb-4" style={{ background: preview.background, color: preview.text, borderColor: border }}>
+              <div className="text-xs uppercase tracking-wide opacity-80 mb-2">Example</div>
+              {/* Header bar */}
+              <div className="rounded-md p-3 mb-3 shadow-sm" style={{ background: preview.primary, color: textOn(preview.primary) }}>Header</div>
+              {/* Cards */}
               <div className="grid grid-cols-2 gap-3">
-                <div className="rounded-md p-3 border" style={{ borderColor: preview.secondary }}>
-                  <div className="text-sm mb-2">Card title</div>
-                  <div className="text-xs opacity-80">Some example content...</div>
+                <div className="rounded-md p-3 border" style={{ background: surface, borderColor: border }}>
+                  <div className="text-sm mb-1" style={{ color: preview.text }}>Card title</div>
+                  <div className="text-xs" style={{ color: isDark(preview.background) ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)' }}>Some example content...</div>
                 </div>
-                <div className="rounded-md p-3 border" style={{ borderColor: preview.secondary }}>
-                  <div className="text-sm mb-2">Another card</div>
-                  <div className="text-xs opacity-80">Try different themes to preview.</div>
+                <div className="rounded-md p-3 border" style={{ background: surfaceAlt, borderColor: border }}>
+                  <div className="text-sm mb-1" style={{ color: preview.text }}>Another card</div>
+                  <div className="text-xs" style={{ color: isDark(preview.background) ? 'rgba(255,255,255,0.7)' : 'rgba(0,0,0,0.65)' }}>Try different themes to preview.</div>
                 </div>
               </div>
-              <div className="mt-3">
-                <button className="px-3 py-2 rounded text-sm font-semibold" style={{ background: preview.primary, color: preview.background }}>Primary Button</button>
+              <div className="mt-3 flex items-center gap-2">
+                <button className="px-3 py-2 rounded text-sm font-semibold border shadow-sm" style={{ background: preview.primary, color: textOn(preview.primary), borderColor: borderOver(preview.primary, 0.3) }}>Primary Button</button>
+                <button className="px-3 py-2 rounded text-sm font-medium border" style={{ background: surface, color: preview.text, borderColor: border }}>Secondary</button>
               </div>
             </div>
 
