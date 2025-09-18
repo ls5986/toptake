@@ -58,6 +58,19 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
     }
   };
 
+  // mark read when opening
+  useEffect(() => {
+    (async ()=>{
+      try {
+        await supabase
+          .from('chat_participants')
+          .update({ last_read_at: new Date().toISOString() })
+          .eq('thread_id', threadId)
+          .eq('user_id', user!.id);
+      } catch {}
+    })();
+  }, [threadId, user?.id]);
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
