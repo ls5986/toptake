@@ -47,6 +47,7 @@ const MainAppScreen: React.FC = () => {
   const [showBillingModal, setShowBillingModal] = useState(false);
   const [showAccountSettingsModal, setShowAccountSettingsModal] = useState(false);
   const [unreadNotifications, setUnreadNotifications] = useState(0);
+  const [unreadMessages, setUnreadMessages] = useState(0);
   const [focusedTakeId, setFocusedTakeId] = useState<string | null>(null);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
@@ -330,8 +331,35 @@ const MainAppScreen: React.FC = () => {
       setUnreadNotifications(prev => prev + 1);
     });
 
+    // naive unread message count: messages newer than last_read_at
+    const pollUnread = async () => {
+      try {
+        const { data: parts } = await supabase
+          .from('chat_participants')
+          .select('thread_id,last_read_at')
+          .eq('user_id', user.id);
+        const ids = (parts || []).map((p:any)=> p.thread_id);
+        if (!ids.length) { setUnreadMessages(0); return; }
+        // count messages newer than last_read per thread
+        let total = 0;
+        for (const p of (parts || []) as any[]) {
+          const { data: msgs } = await supabase
+            .from('chat_messages')
+            .select('id, created_at')
+            .eq('thread_id', p.thread_id)
+            .gt('created_at', p.last_read_at || '1970-01-01')
+            .limit(1);
+          if ((msgs || []).length) total += 1; // indicator per-thread
+        }
+        setUnreadMessages(total);
+      } catch {}
+    };
+    pollUnread();
+    const interval = setInterval(pollUnread, 7000);
+
     return () => {
       if (unsubscribe) unsubscribe();
+      clearInterval(interval);
     };
   }, [user?.id]);
 
@@ -577,8 +605,11 @@ const MainAppScreen: React.FC = () => {
               <Menu className="w-6 h-6 text-brand-text" />
             </button>
             <h1 className="text-xl md:text-2xl font-bold text-brand-text">🔥 TopTake</h1>
-            <button className="p-2 rounded hover:bg-brand-surface/80" aria-label="Messages" onClick={()=> setCurrentTab('messages')}>
+            <button className="p-2 rounded hover:bg-brand-surface/80 relative" aria-label="Messages" onClick={()=> setCurrentTab('messages')}>
               <MessageSquareText className="w-5 h-5 text-brand-text" />
+              {unreadMessages > 0 && (
+                <span className="absolute -top-1 -right-1 bg-brand-accent text-white rounded-full text-[10px] px-1 leading-none">{unreadMessages > 9 ? '9+' : unreadMessages}</span>
+              )}
             </button>
           </div>
         </div>

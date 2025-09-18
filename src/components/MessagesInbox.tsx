@@ -60,6 +60,28 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
     return () => { cancelled = true; };
   }, [user?.id]);
 
+  // Live updates via polling for simplicity (RLS prevents channels without Edge functions)
+  useEffect(() => {
+    if (!user?.id) return;
+    const t = setInterval(async () => {
+      try {
+        const { data: parts } = await supabase
+          .from('chat_participants')
+          .select('thread_id')
+          .eq('user_id', user!.id);
+        const ids = (parts || []).map((p: any) => p.thread_id);
+        if (!ids.length) return;
+        const { data: th } = await supabase
+          .from('chat_threads')
+          .select('id, is_group, name, privacy, frequency, created_at')
+          .in('id', ids)
+          .order('created_at', { ascending: false });
+        setThreads((th as any) || []);
+      } catch {}
+    }, 5000);
+    return () => clearInterval(t);
+  }, [user?.id]);
+
   return (
     <div className="flex-1 flex flex-col h-full">
       <div className="flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
