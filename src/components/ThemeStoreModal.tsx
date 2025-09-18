@@ -55,6 +55,11 @@ function textOn(hexColor: string) {
   return isDark(hexColor) ? '#FFFFFF' : '#000000';
 }
 
+function rgba(hex: string, alpha: number) {
+  const { r, g, b } = hexToRgb(hex);
+  return `rgba(${r},${g},${b},${alpha})`;
+}
+
 const ThemePreview: React.FC<{ themeId: Theme, selected: boolean, onSelect: () => void }> = ({ themeId, selected, onSelect }) => {
   const c = getThemeColors(themeId);
   const bg = c.background;
@@ -121,6 +126,10 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
   const surface = useMemo(() => surfaceOver(preview.background, 0.08), [preview.background]);
   const surfaceAlt = useMemo(() => surfaceOver(preview.background, 0.12), [preview.background]);
   const border = useMemo(() => borderOver(preview.background, 0.2), [preview.background]);
+  const calloutBg = useMemo(() => rgba(preview.primary, 0.15), [preview.primary]);
+  const calloutBorder = useMemo(() => rgba(preview.primary, 0.35), [preview.primary]);
+  const chipBg = useMemo(() => rgba(preview.accent, 0.18), [preview.accent]);
+  const chipText = useMemo(() => textOn(preview.accent), [preview.accent]);
 
   const handleSave = async () => {
     if (!user) return;
@@ -186,6 +195,12 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
               <div className="text-xs uppercase tracking-wide opacity-80 mb-2">Example</div>
               {/* Header bar */}
               <div className="rounded-md p-3 mb-3 shadow-sm" style={{ background: preview.primary, color: textOn(preview.primary) }}>Header</div>
+              {/* Light tinted callout for extra contrast */}
+              <div className="rounded-md p-3 mb-3 border" style={{ background: calloutBg, borderColor: calloutBorder }}>
+                <div className="text-xs font-medium mb-0.5" style={{ color: preview.text }}>Callout</div>
+                <div className="text-xs" style={{ color: isDark(preview.background) ? 'rgba(255,255,255,0.75)' : 'rgba(0,0,0,0.7)' }}>Light-tinted panel to separate content and add depth.</div>
+              </div>
+
               {/* Cards */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="rounded-md p-3 border" style={{ background: surface, borderColor: border }}>
@@ -200,6 +215,7 @@ const ThemeStoreModal: React.FC<ThemeStoreModalProps> = ({ isOpen, onClose }) =>
               <div className="mt-3 flex items-center gap-2">
                 <button className="px-3 py-2 rounded text-sm font-semibold border shadow-sm" style={{ background: preview.primary, color: textOn(preview.primary), borderColor: borderOver(preview.primary, 0.3) }}>Primary Button</button>
                 <button className="px-3 py-2 rounded text-sm font-medium border" style={{ background: surface, color: preview.text, borderColor: border }}>Secondary</button>
+                <span className="px-2 py-0.5 rounded-full text-[10px] border" style={{ background: chipBg, color: chipText, borderColor: calloutBorder }}>Tag</span>
               </div>
             </div>
 
