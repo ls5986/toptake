@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Badge } from '@/components/ui/badge';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { MessageCircle, Heart, ThumbsUp, ThumbsDown, Trash2 } from 'lucide-react';
 import { Take } from '@/types';
 import { CommentSection } from './CommentSection';
@@ -55,6 +55,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const surfaces = (() => {
     try { return deriveThemeSurfaces(getThemeColors(theme)); } catch { return null as any; }
   })();
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
 
   const canInteract = hasPostedToday || user?.hasPostedToday;
 
@@ -72,6 +73,21 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     };
     fetchReactionTypes();
   }, []);
+
+  // Fetch avatar if not anonymous
+  useEffect(() => {
+    (async () => {
+      try {
+        if (!take?.userId || take.isAnonymous) { setAvatarUrl(null); return; }
+        const { data } = await supabase
+          .from('profiles')
+          .select('avatar_url')
+          .eq('id', take.userId)
+          .maybeSingle();
+        setAvatarUrl((data as any)?.avatar_url || null);
+      } catch {}
+    })();
+  }, [take?.userId, take?.isAnonymous]);
 
   useEffect(() => {
     // Fetch reactions for this take
@@ -285,9 +301,13 @@ export const TakeCard: React.FC<TakeCardProps> = ({
                 className={`w-8 h-8 sm:w-10 sm:h-10 flex-shrink-0 ${!take.isAnonymous ? 'cursor-pointer hover:ring-2 hover:ring-brand-accent' : ''}`}
                 onClick={handleProfileClick}
               >
-                <AvatarFallback className="bg-brand-accent text-brand-text text-sm">
-                  {userInitial}
-                </AvatarFallback>
+                {!take.isAnonymous && avatarUrl ? (
+                  <AvatarImage src={avatarUrl} alt={safeUsername} />
+                ) : (
+                  <AvatarFallback className="bg-brand-accent text-brand-text text-sm">
+                    {userInitial}
+                  </AvatarFallback>
+                )}
               </Avatar>
               
               <div className="flex-1 min-w-0">
