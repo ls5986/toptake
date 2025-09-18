@@ -21,6 +21,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
   const [step, setStep] = useState<'initial' | 'processing' | 'compose' | 'success' | 'error'>('initial');
   const [composeContent, setComposeContent] = useState('');
   const [composeAnon, setComposeAnon] = useState(false);
+  const [hideFromProfile, setHideFromProfile] = useState(false);
   const [composeLoading, setComposeLoading] = useState(false);
   const [composeError, setComposeError] = useState<string | null>(null);
   const [datePrompt, setDatePrompt] = useState<string>('');
@@ -133,7 +134,9 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
         return;
       }
       const dateStr = date.toISOString().split('T')[0];
-      const ok = await submitTake(trimmed, composeAnon, undefined, dateStr);
+      const HIDE_MARKER = '[[HIDE_PROFILE]] ';
+      const contentFinal = (hideFromProfile ? (HIDE_MARKER + trimmed) : trimmed);
+      const ok = await submitTake(contentFinal, composeAnon, undefined, dateStr);
       if (!ok) {
         setComposeError('Failed to submit take.');
         setComposeLoading(false);
@@ -142,6 +145,25 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
       setStep('success');
     } catch (e: any) {
       setComposeError(e?.message || 'Failed to submit take');
+    } finally {
+      setComposeLoading(false);
+    }
+  };
+
+  const handlePaidSkip = async () => {
+    try {
+      setComposeLoading(true);
+      const dateStr = date.toISOString().split('T')[0];
+      const SKIP_MARKER = '[[PAID_SKIP]]';
+      const ok = await submitTake(SKIP_MARKER, true, undefined, dateStr);
+      if (!ok) {
+        setComposeError('Failed to mark skip.');
+        setComposeLoading(false);
+        return;
+      }
+      setStep('success');
+    } catch (e: any) {
+      setComposeError(e?.message || 'Failed to mark skip');
     } finally {
       setComposeLoading(false);
     }
@@ -220,14 +242,20 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
                   <input type="checkbox" checked={composeAnon} onChange={(e) => setComposeAnon(e.target.checked)} />
                   Post anonymously
                 </label>
-                <div />
+                <label className="text-sm text-brand-muted flex items-center gap-2">
+                  <input type="checkbox" checked={hideFromProfile} onChange={(e) => setHideFromProfile(e.target.checked)} />
+                  Hide from profile
+                </label>
               </div>
               {composeError && (
                 <div className="text-brand-danger text-sm">{composeError}</div>
               )}
-              <div className="sticky bottom-0 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/70 py-3">
+              <div className="sticky bottom-0 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/70 py-3 space-y-2">
                 <Button onClick={handleComposeSubmit} disabled={composeLoading || !composeContent.trim()} className="w-full h-11">
                   {composeLoading ? 'Submitting…' : 'Submit Take for This Date'}
+                </Button>
+                <Button onClick={handlePaidSkip} disabled={composeLoading} variant="outline" className="w-full h-10">
+                  Mark as Paid Skip (no post)
                 </Button>
               </div>
             </div>
