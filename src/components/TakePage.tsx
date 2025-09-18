@@ -5,6 +5,8 @@ import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Textarea } from '@/components/ui/textarea';
 import { ArrowLeft, MessageCircle, ThumbsUp, ThumbsDown } from 'lucide-react';
+import { useTheme } from '@/components/theme-provider';
+import { getThemeColors, deriveThemeSurfaces, textOn } from '@/lib/themes';
 import clsx from 'clsx';
 
 interface TakePageProps {
@@ -49,6 +51,9 @@ interface RawComment {
 
 const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
   const { setCurrentScreen } = useAppContext();
+  const { theme } = useTheme();
+  const preview = getThemeColors(theme);
+  const surfaces = deriveThemeSurfaces(preview);
   const [take, setTake] = useState<Take | null>(null);
   const [prompt, setPrompt] = useState<string>('');
   const [comments, setComments] = useState<Comment[]>([]);
@@ -269,14 +274,14 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
         <ArrowLeft className="w-4 h-4" /> Back
       </Button>
       {prompt && (
-        <Card className="mb-4 bg-brand-accent border-brand-border">
+        <Card className="mb-4" style={{ background: surfaces.calloutBg, borderColor: surfaces.calloutBorder, borderWidth: 1 }}>
           <CardContent className="p-4">
-            <div className="text-brand-text text-lg font-semibold">{prompt}</div>
+            <div className="text-lg font-semibold" style={{ color: preview.text }}>"{prompt}"</div>
           </CardContent>
         </Card>
       )}
       {take && (
-        <Card className="mb-6 bg-brand-surface border-brand-border">
+        <Card className="mb-6" style={{ background: surfaces.surface, borderColor: surfaces.border, borderWidth: 1 }}>
           <CardContent className="p-4">
             <div className="flex items-center gap-2 mb-2">
               <button className="text-sm font-medium text-brand-text underline-offset-2 hover:underline" onClick={() => setCurrentScreen('profile')}>

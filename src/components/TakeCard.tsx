@@ -164,12 +164,24 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     const date = (take as any).prompt_date || new Date(take.timestamp).toISOString().slice(0,10);
     const username = take.username || 'user';
     const url = `${window.location.origin}/${username}/${date}/${take.id}`;
+    // Compose share text with prompt snippet when available
+    let promptSnippet = '';
+    try {
+      const { data: p } = await supabase
+        .from('daily_prompts')
+        .select('prompt_text')
+        .eq('prompt_date', String((take as any).prompt_date || '').slice(0,10))
+        .maybeSingle();
+      if (p?.prompt_text) {
+        promptSnippet = `\nPrompt: ${p.prompt_text}`;
+      }
+    } catch {}
     try { logClientEvent('share_take', { takeId: take.id, username, date, url }); } catch {}
     try {
       if ((navigator as any).share) {
-        await (navigator as any).share({ title: 'TopTake', text: 'Check out this take', url });
+        await (navigator as any).share({ title: 'TopTake', text: `"${take.content}"${promptSnippet}`, url });
       } else {
-        await navigator.clipboard.writeText(url);
+        await navigator.clipboard.writeText(`"${take.content}"${promptSnippet}\n${url}`);
         toast({ title: 'Link copied', description: 'Share it anywhere!' });
       }
     } catch {}

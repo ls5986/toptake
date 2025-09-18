@@ -673,10 +673,31 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                     </div>
                   </div>
                 )}
-                <TakeCard 
-                  take={take} 
-                  onReact={handleReaction}
-                />
+                {/* Lock/blur if viewer has not posted for this day */}
+                <div className={(!user?.hasPostedToday && String((take as any).prompt_date || '').slice(0,10) === new Date().toISOString().slice(0,10)) ? 'relative select-none' : ''}
+                     onClick={async ()=>{
+                       try {
+                         const todayYMD = new Date(); todayYMD.setHours(0,0,0,0);
+                         const key = String((take as any).prompt_date || '').slice(0,10);
+                         const nowKey = new Date().toISOString().slice(0,10);
+                         if (!user?.hasPostedToday && key === nowKey) {
+                           // Trigger late submit modal for today (blocker)
+                           alert('🔒 Post today to view takes. Go to Feed to submit.');
+                         }
+                       } catch {}
+                     }}>
+                  <div className={(!user?.hasPostedToday && String((take as any).prompt_date || '').slice(0,10) === new Date().toISOString().slice(0,10)) ? 'pointer-events-none blur-sm' : ''}>
+                    <TakeCard 
+                      take={take} 
+                      onReact={handleReaction}
+                    />
+                  </div>
+                  {(!user?.hasPostedToday && String((take as any).prompt_date || '').slice(0,10) === new Date().toISOString().slice(0,10)) && (
+                    <div className="absolute inset-0 flex items-center justify-center">
+                      <div className="px-3 py-1.5 rounded-full text-xs font-semibold border" style={{ background: surfaces.calloutBg, borderColor: surfaces.calloutBorder }}>🔒 Post today to unlock</div>
+                    </div>
+                  )}
+                </div>
               </div>
             ))}
           </div>
