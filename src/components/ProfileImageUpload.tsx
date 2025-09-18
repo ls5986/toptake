@@ -21,6 +21,8 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
   const { toast } = useToast();
   const [uploading, setUploading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
@@ -46,6 +48,19 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       return;
     }
 
+    // Stage for confirmation
+    try {
+      try { if (previewUrl) { URL.revokeObjectURL(previewUrl); } } catch {}
+      const localUrl = URL.createObjectURL(file);
+      setPendingFile(file);
+      setPreviewUrl(localUrl);
+      // Do not upload yet; wait for confirm
+    } catch (e) {
+      console.error('[Avatar] failed to stage preview', e);
+    }
+  };
+
+  const doUpload = async (file: File) => {
     setUploading(true);
     try {
       const safeName = file.name.replace(/[^A-Za-z0-9._-]/g, '_');
@@ -129,6 +144,9 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       toast({ title: 'Error uploading image', description, variant: 'destructive' });
     } finally {
       setUploading(false);
+      setPendingFile(null);
+      try { if (previewUrl) URL.revokeObjectURL(previewUrl); } catch {}
+      setPreviewUrl(null);
     }
   };
 
@@ -136,7 +154,9 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
     <div className="flex flex-col items-center space-y-4">
       <div className="relative">
         <Avatar className="w-24 h-24">
-          {currentImageUrl ? (
+          {previewUrl ? (
+            <AvatarImage src={previewUrl} alt={username} />
+          ) : currentImageUrl ? (
             <AvatarImage src={currentImageUrl} alt={username} />
           ) : (
             <AvatarFallback className="bg-brand-accent text-brand-text text-2xl">
@@ -158,16 +178,35 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         </Button>
       </div>
       
-      <Button
-        variant="outline"
-        size="sm"
-        onClick={() => { console.log('[Avatar] change photo clicked'); fileInputRef.current?.click(); }}
-        disabled={uploading}
-        className="border-brand-accent text-brand-accent hover:bg-brand-surface"
-      >
-        <Upload className="w-4 h-4 mr-2" />
-        {uploading ? 'Uploading...' : 'Change Photo'}
-      </Button>
+      {!pendingFile ? (
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => { console.log('[Avatar] change photo clicked'); fileInputRef.current?.click(); }}
+          disabled={uploading}
+          className="border-brand-accent text-brand-accent hover:bg-brand-surface"
+        >
+          <Upload className="w-4 h-4 mr-2" />
+          {uploading ? 'Uploading...' : 'Change Photo'}
+        </Button>
+      ) : (
+        <div className="flex gap-2">
+          <Button
+            onClick={() => { if (pendingFile) doUpload(pendingFile); }}
+            disabled={uploading}
+            className="bg-brand-accent hover:bg-brand-primary"
+          >
+            {uploading ? 'Uploading...' : 'Confirm'}
+          </Button>
+          <Button
+            variant="outline"
+            onClick={() => { try { if (previewUrl) URL.revokeObjectURL(previewUrl); } catch {}; setPendingFile(null); setPreviewUrl(null); }}
+            disabled={uploading}
+          >
+            Cancel
+          </Button>
+        </div>
+      )}
 
       <input
         ref={fileInputRef}
