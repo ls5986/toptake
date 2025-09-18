@@ -702,10 +702,17 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                        } catch {}
                      }}>
                   <div className={!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) ? 'pointer-events-none blur-sm' : ''}>
-                    <TakeCard 
-                      take={take} 
-                      onReact={handleReaction}
-                    />
+                    {take.isAnonymous ? (
+                      <div className="rounded border p-3 text-sm" style={{ background: surfaces.surface, borderColor: surfaces.border }}>
+                        <div className="text-brand-text/90 font-medium">Anonymous take</div>
+                        <div className="text-brand-muted text-xs">Hidden on profile</div>
+                      </div>
+                    ) : (
+                      <TakeCard 
+                        take={take} 
+                        onReact={handleReaction}
+                      />
+                    )}
                   </div>
                   {!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) && (
                     <div className="absolute inset-0 flex items-center justify-center">
