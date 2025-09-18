@@ -222,6 +222,23 @@ export function borderOver(background: string, strength = 0.2) {
 
 export function textOn(hexColor: string) { return isDark(hexColor) ? '#FFFFFF' : '#000000' }
 
+// WCAG contrast helpers
+export function contrastRatio(fg: string, bg: string) {
+  const L1 = luminance(fg) + 0.05
+  const L2 = luminance(bg) + 0.05
+  return L1 > L2 ? (L1 / L2) : (L2 / L1)
+}
+
+// Ensure at least AA contrast; if not, pick black/white which satisfies 7+:1 on most accent hues
+export function ensureReadableTextColor(bgHex: string, preferred?: string) {
+  const target = preferred || textOn(bgHex)
+  const ratio = contrastRatio(target, bgHex)
+  if (ratio >= 4.5) return target
+  // try white then black
+  const white = '#FFFFFF'; const black = '#000000'
+  return contrastRatio(white, bgHex) >= 4.5 ? white : black
+}
+
 export function rgba(hex: string, alpha: number) {
   const { r, g, b } = hexToRgb(hex)
   return `rgba(${r},${g},${b},${alpha})`
@@ -234,6 +251,6 @@ export function deriveThemeSurfaces(preview: { background: string, primary: stri
   const calloutBg = rgba(preview.primary, 0.15)
   const calloutBorder = rgba(preview.primary, 0.35)
   const chipBg = rgba(preview.accent, 0.18)
-  const chipText = textOn(preview.accent)
+  const chipText = ensureReadableTextColor(preview.accent)
   return { surface, surfaceAlt, border, calloutBg, calloutBorder, chipBg, chipText }
 }

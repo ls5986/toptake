@@ -147,7 +147,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         <Button
           size="sm"
           className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-brand-accent hover:bg-brand-primary"
-          onClick={() => fileInputRef.current?.click()}
+          onClick={() => { console.log('[Avatar] camera button clicked'); fileInputRef.current?.click(); }}
           disabled={uploading}
         >
           {uploading ? (
@@ -161,7 +161,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       <Button
         variant="outline"
         size="sm"
-        onClick={() => fileInputRef.current?.click()}
+        onClick={() => { console.log('[Avatar] change photo clicked'); fileInputRef.current?.click(); }}
         disabled={uploading}
         className="border-brand-accent text-brand-accent hover:bg-brand-surface"
       >
