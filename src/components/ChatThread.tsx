@@ -62,7 +62,27 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
           .select('id, sender_id, content, created_at')
           .eq('thread_id', threadId)
           .order('created_at', { ascending: true });
-        if (!cancelled) setMessages((data as any) || []);
+        const rows = (data as any) || [];
+        if (!cancelled) setMessages(rows);
+
+        // Ensure we have usernames/avatars for ALL senders (covers cases where participants fetch is stale)
+        try {
+          const haveIds = new Set<string>((participants || []).map(p => p.id));
+          const senderIds = Array.from(new Set(rows.map((m: any) => m.sender_id))).filter((id: string)=> !!id);
+          const missing = senderIds.filter(id => !haveIds.has(id));
+          if (missing.length) {
+            const { data: profs } = await supabase
+              .from('profiles')
+              .select('id, username, avatar_url')
+              .in('id', missing);
+            const extra = ((profs as any) || []).map((p:any)=> ({ id: p.id, username: p.username, avatar_url: p.avatar_url }));
+            setParticipants(prev => {
+              const map = new Map<string, any>();
+              [...(prev||[]), ...extra].forEach(p => map.set(p.id, p));
+              return Array.from(map.values());
+            });
+          }
+        } catch {}
 
         // Load today's prompt for group threads
         try {
