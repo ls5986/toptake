@@ -406,10 +406,10 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full p-4 space-y-6">
+    <div className="flex-1 flex flex-col h-full p-3 space-y-5">
       {/* Profile Card */}
       <Card className="bg-card-gradient">
-        <CardContent className="p-4">
+        <CardContent className="p-3 md:p-4">
           <div className="flex items-start gap-4">
             <Avatar className="w-16 h-16">
               {profileUser?.avatar_url ? (
@@ -471,7 +471,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
               )}
 
               {/* Stats Row */}
-              <div className="mt-2 flex items-center gap-6 text-sm">
+              <div className="mt-1.5 flex items-center gap-6 text-sm">
                 <div className="text-center">
                   <div className="font-semibold text-brand-text">{totalTakes || 0}</div>
                   <div className="text-xs text-brand-muted">takes</div>
@@ -498,7 +498,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
               {/* Bio row */}
               {profileUser?.bio ? (
-                <p className="mt-2 text-sm text-brand-text whitespace-pre-wrap break-words max-w-2xl">
+                <p className="mt-2 text-sm text-brand-text/90 whitespace-pre-wrap break-words max-w-2xl leading-snug">
                   {profileUser.bio}
                 </p>
               ) : (
@@ -640,14 +640,14 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
 
       {/* User's Takes */}
       <div className="flex-1 min-h-0">
-        <h3 className="text-lg font-semibold text-brand-text mb-4">{viewingOwnProfile ? 'Your Takes' : 'Takes'}</h3>
+        <h3 className="text-sm uppercase tracking-wide text-brand-muted mb-2">{viewingOwnProfile ? 'Your takes' : 'Takes'}</h3>
         {userTakes.length > 0 ? (
-          <div className="space-y-4">
+          <div className="space-y-3">
             {userTakes.map((take) => (
               <div key={take.id} className="space-y-2">
                 {take.prompt_date && (
-                  <div className="text-sm text-brand-muted">
-                    <span className="font-semibold text-brand-text">Prompt:</span> {promptById[(take as any).prompt_id] || promptByDate[take.prompt_date] || '—'}
+                  <div className="text-xs text-brand-muted">
+                    <span className="text-brand-text/80">Prompt:</span> {promptById[(take as any).prompt_id] || promptByDate[take.prompt_date] || '—'}
                   </div>
                 )}
                 <TakeCard 

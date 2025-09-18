@@ -67,8 +67,8 @@ export const NotificationsScreen: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex-shrink-0 p-4 border-b border-brand-border bg-brand-surface flex items-center justify-between">
-        <h2 className="text-xl font-semibold text-brand-text">Notifications</h2>
+      <div className="flex-shrink-0 px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90 backdrop-blur-sm flex items-center justify-between">
+        <div className="text-[11px] uppercase tracking-wide text-brand-muted">Alerts</div>
         {notifications.some(n => !n.read) && (
           <Button variant="outline" size="sm" onClick={handleMarkAllRead}>Mark all as read</Button>
         )}
@@ -80,11 +80,11 @@ export const NotificationsScreen: React.FC = () => {
           <div className="flex items-center justify-center h-full text-brand-muted">No notifications yet.</div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="p-4 space-y-3">
+            <div className="p-3 space-y-2">
               {notifications.map((n) => (
                 <Card
                   key={n.id}
-                  className={`flex items-center gap-3 p-3 cursor-pointer transition-all ${!n.read ? 'border-brand-accent bg-brand-accent/10' : 'border-brand-border bg-brand-surface'}`}
+                  className={`flex items-center gap-3 p-3 cursor-pointer transition-all ${!n.read ? 'border-brand-accent/80 bg-brand-accent/10' : 'border-brand-border/70 bg-brand-surface/70'}`}
                   onClick={() => handleClick(n)}
                 >
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-muted/20">

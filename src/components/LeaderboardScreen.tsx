@@ -127,19 +127,22 @@ const LeaderboardScreen: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-brand-background">
-      <div className="sticky top-0 bg-brand-background z-10 p-4 border-b border-brand-border">
-        <div className="flex items-center">
-          <h1 className="text-2xl font-bold text-brand-text flex items-center gap-2"><Flame className="w-6 h-6 text-brand-primary" />Streak Leaderboard</h1>
-          <p className="text-brand-muted text-sm ml-3">{leaderboard.length} active users</p>
+      <div className="sticky top-0 bg-brand-surface/90 backdrop-blur-sm z-10 px-3 py-2 border-b border-brand-border/70">
+        <div className="flex items-center justify-between">
+          <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
+            <Flame className="w-4 h-4 text-brand-primary" />
+            <span>Streaks</span>
+            <span className="text-brand-text/80 ml-1">{leaderboard.length}</span>
+          </div>
         </div>
       </div>
       
       <ScrollArea className="flex-1">
-        <div className="p-4 space-y-2">
+        <div className="p-3 space-y-2">
           {leaderboard.map((user, index) => (
             <Card 
               key={user.id} 
-              className={`bg-brand-surface border-brand-border transition-all duration-200 cursor-pointer hover:bg-brand-background hover:border-brand-primary ${index < 3 ? 'ring-2 ring-brand-primary/30' : ''}`}
+              className={`bg-brand-surface/70 border-brand-border/70 transition-all duration-200 cursor-pointer hover:border-brand-primary ${index < 3 ? 'ring-1 ring-brand-primary/30' : ''}`}
               onClick={() => handleUserClick(user)}
             >
               <CardContent className="p-3">
@@ -155,7 +158,7 @@ const LeaderboardScreen: React.FC = () => {
                       </AvatarFallback>
                     </Avatar>
                     <div className="min-w-0 flex-1">
-                      <span className="text-brand-text font-medium truncate block hover:text-brand-primary">
+                      <span className="text-brand-text font-medium truncate block">
                         {user.username}
                       </span>
                     </div>

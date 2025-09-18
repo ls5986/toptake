@@ -190,21 +190,22 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="p-4 space-y-4">
-              <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10">
-                <h2 className="text-xl font-semibold text-brand-text flex items-center gap-2">
-                  <Trophy className="w-5 h-5 text-yellow-400" />
-                  {format(selectedDate, 'MMM dd, yyyy')} Top Takes ({topTakes.length})
-                </h2>
-                <div className="flex items-center gap-2">
+            <div className="p-3 space-y-3">
+              <div className="flex items-center justify-between sticky top-0 bg-brand-surface/90 backdrop-blur-sm py-2 z-10 border-b border-brand-border/70 px-1 rounded">
+                <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
+                  <Trophy className="w-4 h-4 text-yellow-400" />
+                  <span>Top takes</span>
+                  <span className="text-brand-text/80 ml-1">{topTakes.length}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
                   <Popover>
                     <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="gap-2">
+                      <Button variant="outline" size="sm" className="px-3 py-1.5 h-8 gap-1.5">
                         <CalendarIcon className="h-4 w-4" />
-                        {format(selectedDate, 'MMM dd, yyyy')}
+                        <span className="text-xs">{format(selectedDate, 'MMM dd')}</span>
                       </Button>
                     </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="end">
+                    <PopoverContent className="w-auto p-2 bg-brand-surface border-brand-border" align="end">
                       <Calendar
                         mode="single"
                         selected={selectedDate}
@@ -218,6 +219,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
                     disabled={refreshing}
                     variant="outline"
                     size="sm"
+                    className="h-8 w-8 p-0"
                   >
                     <RefreshCw className={`w-4 h-4 text-brand-accent ${refreshing ? 'animate-spin' : ''}`} />
                   </Button>
@@ -263,7 +265,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
                 </div>
               )}
               {topTakes.length > 0 && (
-                <div className="flex justify-center py-4">
+                <div className="flex justify-center py-3">
                   <Button onClick={handleLoadMore} variant="outline" size="sm" disabled={refreshing || loading}>
                     {refreshing || loading ? 'Loading…' : 'Load more'}
                   </Button>

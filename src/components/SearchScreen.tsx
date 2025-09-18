@@ -89,25 +89,25 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onGoToTake }) => {
   };
 
   return (
-    <div className="p-4">
+    <div className="p-3">
       <form onSubmit={onSubmit} className="flex gap-2">
         <Input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           placeholder="Search users and takes"
-          className="flex-1"
+          className="flex-1 bg-brand-surface/70 border-brand-border/70"
         />
-        <Button type="submit">Search</Button>
+        <Button type="submit" variant="outline">Search</Button>
       </form>
 
       {recent.length > 0 && !query.trim() && (
-        <div className="mt-4">
+        <div className="mt-3">
           <div className="text-sm text-brand-muted mb-2">Recent</div>
           <div className="flex flex-wrap gap-2">
             {recent.map((r) => (
               <button
                 key={r}
-                className="px-3 py-1 rounded bg-brand-surface border border-brand-border text-sm hover:border-brand-accent"
+                className="px-3 py-1 rounded bg-brand-surface/70 border border-brand-border/70 text-sm hover:border-brand-accent"
                 onClick={() => setQuery(r)}
               >
                 {r}
@@ -117,7 +117,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onGoToTake }) => {
         </div>
       )}
 
-      <div className="mt-4">
+      <div className="mt-3">
         <Tabs value={activeTab} onValueChange={(v: any) => setActiveTab(v)}>
           <TabsList className="grid grid-cols-2 w-full">
             <TabsTrigger value="people">People</TabsTrigger>
@@ -130,7 +130,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onGoToTake }) => {
         <div className="mt-3 space-y-2">
           {loading && <div className="text-brand-muted text-sm">Searching…</div>}
           {!loading && profiles.map((p) => (
-            <Card key={p.id} className="bg-brand-surface border-brand-border hover:border-brand-accent">
+            <Card key={p.id} className="bg-brand-surface/70 border-brand-border/70 hover:border-brand-accent">
               <CardContent className="p-3 flex items-center justify-between">
                 <div className="text-brand-text font-medium">{p.username || 'user'}</div>
                 <Button size="sm" variant="outline" onClick={() => navigate(`/` + encodeURIComponent(p.username || ''))}>View</Button>
@@ -147,7 +147,7 @@ export const SearchScreen: React.FC<SearchScreenProps> = ({ onGoToTake }) => {
         <div className="mt-3 space-y-2">
           {loading && <div className="text-brand-muted text-sm">Searching…</div>}
           {!loading && takes.map((t) => (
-            <Card key={t.id} className="bg-brand-surface border-brand-border hover:border-brand-accent">
+            <Card key={t.id} className="bg-brand-surface/70 border-brand-border/70 hover:border-brand-accent">
               <CardContent className="p-3">
                 <div className="text-sm text-brand-muted mb-1">{new Date(t.prompt_date).toLocaleDateString()}</div>
                 <div className="text-brand-text mb-2 break-words">{t.content}</div>
