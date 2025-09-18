@@ -5,7 +5,7 @@ import { Take } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { RefreshCw, Trophy, CalendarIcon } from 'lucide-react';
+import { RefreshCw, Trophy, CalendarIcon, Flame } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodayPrompt } from '@/lib/supabase';
 import { TakeCard } from './TakeCard';
@@ -18,6 +18,7 @@ import { usePromptForDate } from '@/hooks/usePromptForDate';
 import { useTakesForDate } from '@/hooks/useTakesForDate';
 import { spendCredits } from '@/lib/credits';
 import { getReactionCounts, addReaction, ReactionType } from '@/lib/reactions';
+import LeaderboardScreen from './LeaderboardScreen';
 
 interface TopTakesScreenProps {
   focusedTakeId?: string | null;
@@ -30,6 +31,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
   const [topTakes, setTopTakes] = useState<Take[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [subTab, setSubTab] = useState<'top' | 'streaks'>('top');
   const fetchInProgress = useRef(false);
   const takeRefs = useRef<Record<string, HTMLDivElement | null>>({});
   const [highlightedTakeId, setHighlightedTakeId] = useState<string | null>(null);
@@ -177,7 +179,31 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
       </div>
       
       <div className="flex-1 min-h-0">
-        {loading ? (
+        {/* Sub-tabs */}
+        <div className="sticky top-0 z-10 bg-brand-surface/90 backdrop-blur border-b border-brand-border/70 px-2 py-2">
+          <div className="flex items-center gap-2">
+            <div className="inline-flex rounded-md overflow-hidden border border-brand-border/70">
+              <button
+                className={`px-3 py-1.5 text-sm ${subTab==='top' ? 'bg-brand-accent/20 text-brand-text' : 'text-brand-muted'}`}
+                onClick={()=> setSubTab('top')}
+              >
+                Top
+              </button>
+              <button
+                className={`px-3 py-1.5 text-sm ${subTab==='streaks' ? 'bg-brand-accent/20 text-brand-text' : 'text-brand-muted'}`}
+                onClick={()=> setSubTab('streaks')}
+              >
+                Streaks
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {subTab === 'streaks' ? (
+          <div className="h-full">
+            <LeaderboardScreen />
+          </div>
+        ) : loading ? (
           <div className="flex items-center justify-center h-full">
             <div className="text-center text-white">
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
