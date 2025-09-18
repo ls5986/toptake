@@ -51,6 +51,7 @@ export const TakeCard: React.FC<TakeCardProps> = ({
   const { toast } = useToast();
   const [userReaction, setUserReaction] = useState<string | null>(null);
   const [reactionTypes, setReactionTypes] = useState<{ name: string; emoji: string }[]>([]);
+  const [commentCountState, setCommentCountState] = useState<number>(take.commentCount || 0);
   const { theme } = useTheme();
   const surfaces = (() => {
     try { return deriveThemeSurfaces(getThemeColors(theme)); } catch { return null as any; }
@@ -106,6 +107,19 @@ export const TakeCard: React.FC<TakeCardProps> = ({
     };
     if (take.id && user?.id) fetchReactions();
   }, [take.id, user?.id]);
+
+  // Normalize comment count for consistent engagement across pages
+  useEffect(() => {
+    (async () => {
+      try {
+        const { count } = await supabase
+          .from('comments')
+          .select('id', { count: 'exact', head: true })
+          .eq('take_id', take.id);
+        setCommentCountState(count || 0);
+      } catch {}
+    })();
+  }, [take.id]);
 
   const handleReaction = async (reaction: string) => {
     if (!canInteract) {
@@ -257,12 +271,12 @@ export const TakeCard: React.FC<TakeCardProps> = ({
         : 'A');
 
   // Helper to show comment count (flat for now, can be improved to count nested)
-  const commentCount = take.commentCount || 0;
+  const commentCount = commentCountState;
 
   // Engagement = sum of all reactions + commentCount
   // Prefer server-provided counts if available, fallback to client counts
   const serverReaction = (take as any).reactionCount ?? 0;
-  const engagementCount = (serverReaction || Object.values(reactionCounts || {}).reduce((sum, count) => sum + count, 0)) + (take.commentCount || 0);
+  const engagementCount = (serverReaction || Object.values(reactionCounts || {}).reduce((sum, count) => sum + count, 0)) + commentCount;
 
   // Format the prompt date if available on the take
   const promptDateLabel = (() => {
