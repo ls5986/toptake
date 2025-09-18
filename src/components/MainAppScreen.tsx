@@ -26,6 +26,8 @@ import AccountSettingsModal from './AccountSettingsModal';
 import NotificationsScreen from './NotificationsScreen';
 import SearchScreen from './SearchScreen';
 import LateSubmitModal from './LateSubmitModal';
+import MessagesInbox from './MessagesInbox';
+import ChatThread from './ChatThread';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
@@ -254,13 +256,9 @@ const MainAppScreen: React.FC = () => {
       }
 
       if (currentTab === 'messages') {
-        const MessagesInbox = require('./MessagesInbox').default;
-        const ChatThread = require('./ChatThread').default;
         const chatId = focusedTakeId;
-        if (chatId) {
-          return <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} />
-        }
-        return <MessagesInbox onOpenThread={(id: string)=> setFocusedTakeId(id)} />
+        if (chatId) return <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} />;
+        return <MessagesInbox onOpenThread={(id: string)=> setFocusedTakeId(id)} />;
       }
 
       return (
