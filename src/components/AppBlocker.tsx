@@ -153,29 +153,27 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
   return (
     <>
       <Dialog open={isBlocked} onOpenChange={handleClose}>
-        <DialogContent className="sm:max-w-[600px] p-0 bg-brand-surface border-brand-border">
+        <DialogContent className="sm:max-w-[480px] p-0 bg-brand-surface border-brand-border shadow-xl">
           <form onSubmit={handleSubmit} className="space-y-6">
-            <DialogHeader>
-              <DialogTitle className="text-center">
-                <div className="flex items-center justify-center mb-2">
-                  <Lock className="w-8 h-8 text-brand-danger mr-2" />
-                  <h2 className="text-xl font-bold text-brand-danger">App Locked</h2>
-                </div>
-              </DialogTitle>
-              <DialogDescription className="text-brand-muted text-center">
-                You haven't posted today — unlock the app by dropping your take
+            <DialogHeader className="px-5 pt-4 pb-1">
+              <div className="flex items-center gap-2">
+                <Lock className="w-5 h-5 text-brand-danger" />
+                <DialogTitle className="text-base font-semibold text-brand-danger">App Locked</DialogTitle>
+              </div>
+              <DialogDescription className="text-brand-muted text-sm mt-1">
+                You haven't posted today — drop a take to continue
               </DialogDescription>
             </DialogHeader>
             
             <div className="space-y-4">
-              <div className="bg-brand-surface p-4 rounded-lg">
+              <div className="bg-brand-background/60 border border-brand-border rounded-lg px-4 py-3">
                 <div className="flex items-center mb-2">
                   <span className="font-semibold text-brand-accent">
                     {isLateSubmission ? `${format(effectiveDate, 'MMM dd, yyyy')} Prompt` : "Today's Prompt"}
                   </span>
                 </div>
                 {promptLoading ? (
-                  <div className="animate-pulse bg-brand-muted h-4 rounded"></div>
+                  <div className="animate-pulse bg-brand-muted/40 h-4 rounded"></div>
                 ) : (
                   <p className="text-brand-muted">{prompt.prompt_text}</p>
                 )}
@@ -183,7 +181,7 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
 
               {/* Show takes for the target date in late submission mode */}
               {isLateSubmission && (
-                <div className="bg-brand-surface p-4 rounded-lg">
+                <div className="bg-brand-background/60 border border-brand-border rounded-lg px-4 py-3">
                   <div className="flex items-center justify-between mb-3">
                     <span className="font-semibold text-brand-accent">
                       Takes from {format(effectiveDate, 'MMM dd, yyyy')}
@@ -200,7 +198,7 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
                       ))}
                     </div>
                   ) : takes.length > 0 ? (
-                    <div className="space-y-3 max-h-48 overflow-y-auto">
+                  <div className="space-y-3 max-h-48 overflow-y-auto pr-1">
                       {takes.map((take) => (
                         <div key={take.id} className="p-3 bg-brand-background rounded border border-brand-border">
                           <div className="flex items-start justify-between">
@@ -227,11 +225,11 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
                   value={response}
                   onChange={(e) => setResponse(e.target.value.slice(0, 280))}
                   placeholder="Share your take... (280 characters max)"
-                  className="min-h-24 resize-none"
+                  className="min-h-24 resize-none bg-brand-background border-brand-border rounded-md"
                   maxLength={280}
                   disabled={loading}
                 />
-                <div className="text-right text-brand-muted text-sm">
+                <div className="text-right text-brand-muted text-xs mt-1">
                   {response.length}/280
                 </div>
               </div>
@@ -257,7 +255,7 @@ export const AppBlocker = ({ isBlocked, onSubmit, message, targetDate }: AppBloc
               </div>
             </div>
             
-            <div className="flex justify-end gap-3 px-6 pb-6">
+            <div className="flex justify-end gap-3 px-5 pb-5">
               <Button
                 type="button"
                 variant="outline"

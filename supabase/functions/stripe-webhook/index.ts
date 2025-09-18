@@ -29,64 +29,41 @@ serve(async (req) => {
       // Handle late submission payment
       if (paymentIntent.metadata.type === 'late_submission') {
         const { userId, promptDate } = paymentIntent.metadata
-        
-        // Start a transaction
-        const { error: transactionError } = await supabaseClient.rpc('begin_transaction');
-        if (transactionError) throw transactionError;
 
-        try {
-          // Update user's late submission status
-          const { error: submissionError } = await supabaseClient
-            .from('user_late_submissions')
-            .upsert({
-              user_id: userId,
-              prompt_date: promptDate,
-              payment_id: paymentIntent.id,
-              amount_paid: paymentIntent.amount / 100,
-              status: 'completed',
-              created_at: new Date().toISOString()
-            });
+        // Update user's late submission status (idempotent on user_id + prompt_date)
+        const { error: submissionError } = await supabaseClient
+          .from('user_late_submissions')
+          .upsert({
+            user_id: userId,
+            prompt_date: promptDate,
+            payment_id: paymentIntent.id,
+            amount_paid: paymentIntent.amount / 100,
+            status: 'completed',
+            created_at: new Date().toISOString()
+          });
+        if (submissionError) throw submissionError;
 
-          if (submissionError) throw submissionError;
+        // Record credit history (safe to insert multiple rows)
+        const { error: historyError } = await supabaseClient
+          .from('credit_history')
+          .insert({
+            user_id: userId,
+            credit_type: 'late_submit',
+            amount: 1,
+            action: 'purchase',
+            price: paymentIntent.amount / 100,
+            stripe_payment_id: paymentIntent.id,
+            created_at: new Date().toISOString()
+          });
+        if (historyError) throw historyError;
 
-          // Record credit history
-          const { error: historyError } = await supabaseClient
-            .from('credit_history')
-            .insert({
-              user_id: userId,
-              credit_type: 'late_submit',
-              amount: 1,
-              action: 'purchase',
-              price: paymentIntent.amount / 100,
-              stripe_payment_id: paymentIntent.id,
-              created_at: new Date().toISOString()
-            });
-
-          if (historyError) throw historyError;
-
-          // Update user credits
-          const { error: creditError } = await supabaseClient
-            .from('user_credits')
-            .upsert({
-              user_id: userId,
-              credit_type: 'late_submit',
-              balance: 1,
-              created_at: new Date().toISOString()
-            }, {
-              onConflict: 'user_id,credit_type',
-              count: 'balance'
-            });
-
-          if (creditError) throw creditError;
-
-          // Commit transaction
-          const { error: commitError } = await supabaseClient.rpc('commit_transaction');
-          if (commitError) throw commitError;
-        } catch (error) {
-          // Rollback transaction on any error
-          await supabaseClient.rpc('rollback_transaction');
-          throw error;
-        }
+        // Increment credits using RPC (idempotency handled upstream by your Stripe event replay protections)
+        const { error: creditRpcError } = await supabaseClient.rpc('add_user_credits', {
+          p_user_id: userId,
+          p_credit_type: 'late_submit',
+          p_amount: 1
+        });
+        if (creditRpcError) throw creditRpcError;
       }
     }
 

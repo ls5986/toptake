@@ -15,7 +15,7 @@ interface LateSubmitModalProps {
 }
 
 const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPurchase, date }) => {
-  const { userCredits, setUserCredits, submitTake, user } = useAppContext();
+  const { userCredits, setUserCredits, submitTake, user, refreshUserCredits } = useAppContext();
   const { processLateSubmission, loading, error } = useLateSubmission();
   const { toast } = useToast();
   const [step, setStep] = useState<'initial' | 'processing' | 'compose' | 'success' | 'error'>('initial');
@@ -39,31 +39,16 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
     if (userCredits.late_submit > 0) {
       setStep('processing');
       try {
-        // Use credit
-        const { error: creditError } = await supabase
-          .from('user_credits')
-          .update({ balance: userCredits.late_submit - 1 })
-          .eq('user_id', user.id)
-          .eq('credit_type', 'late_submit');
-
+        // Use credit via RPC for atomicity
+        const { error: creditError } = await supabase.rpc('use_user_credits', {
+          p_user_id: user.id,
+          p_credit_type: 'late_submit',
+          p_amount: 1
+        });
         if (creditError) throw creditError;
 
-        // Record credit history
-        const { error: historyError } = await supabase
-          .from('credit_history')
-          .insert({
-            user_id: user.id,
-            credit_type: 'late_submit',
-            amount: -1,
-            action: 'use',
-            created_at: new Date().toISOString()
-          });
-
-        if (historyError) {
-          console.error('Error recording credit history:', historyError);
-        }
-
         setUserCredits(prev => ({ ...prev, late_submit: prev.late_submit - 1 }));
+        try { await refreshUserCredits(); } catch {}
         await loadPromptForDate();
         setStep('compose');
         onPurchase();
@@ -81,6 +66,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
       setStep('processing');
       const success = await processLateSubmission(date.toISOString().split('T')[0], 1.99, promoCode?.trim().toUpperCase());
       if (success) {
+        try { await refreshUserCredits(); } catch {}
         await loadPromptForDate();
         setStep('compose');
         onPurchase();

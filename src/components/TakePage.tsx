@@ -102,25 +102,45 @@ const TakePage: React.FC<TakePageProps> = ({ takeId, commentId }) => {
           setPrompt(promptData?.prompt_text || '');
         }
       }
-      // Fetch comments via RPC with aggregated votes and usernames
-      const { data: rpcData, error: rpcError } = await supabase
-        .rpc('get_comments_with_votes', { take_id: takeId });
-      if (rpcError) {
-        console.error('Error loading comments via RPC:', rpcError);
+      // Fetch comments strictly for this take, then aggregate votes client-side
+      const { data: rows, error: commentsErr } = await supabase
+        .from('comments')
+        .select('id, user_id, content, is_anonymous, created_at, parent_comment_id, profiles(username)')
+        .eq('take_id', takeId)
+        .order('created_at', { ascending: true });
+      if (commentsErr) {
+        console.error('Error loading comments:', commentsErr);
         setComments([]);
       } else {
-        const commentsWithVotes: Comment[] = (rpcData || []).map((c: any) => ({
+        const base: Comment[] = (rows || []).map((c: any) => ({
           id: c.id,
           user_id: c.user_id,
-          username: c.is_anonymous ? 'Anonymous' : (c.username || 'User'),
+          username: c.is_anonymous ? 'Anonymous' : (c.profiles?.username || 'User'),
           content: c.content,
           is_anonymous: c.is_anonymous,
           created_at: c.created_at,
           parent_comment_id: c.parent_comment_id,
-          like_count: c.like_count || 0,
-          dislike_count: c.dislike_count || 0,
+          like_count: 0,
+          dislike_count: 0,
         }));
-        setComments(buildCommentTree(commentsWithVotes));
+        // Aggregate votes for these comments
+        const ids = base.map(c => c.id);
+        if (ids.length) {
+          const { data: votes } = await supabase
+            .from('comment_votes')
+            .select('comment_id, vote_type')
+            .in('comment_id', ids);
+          const counts: Record<string, { like: number; dislike: number }> = {};
+          (votes || []).forEach((v: any) => {
+            counts[v.comment_id] = counts[v.comment_id] || { like: 0, dislike: 0 };
+            if (v.vote_type === 'like') counts[v.comment_id].like += 1; else if (v.vote_type === 'dislike') counts[v.comment_id].dislike += 1;
+          });
+          base.forEach(c => {
+            const t = counts[c.id];
+            if (t) { c.like_count = t.like; c.dislike_count = t.dislike; }
+          });
+        }
+        setComments(buildCommentTree(base));
       }
       setLoading(false);
     };

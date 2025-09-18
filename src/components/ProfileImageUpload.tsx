@@ -50,9 +50,10 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
     try {
       const fileExt = file.name.split('.').pop();
       const fileName = `${user.id}-${Date.now()}.${fileExt}`;
-      const filePath = `avatars/${fileName}`;
+      // Store inside the 'avatars' bucket at the root (optionally namespaced by user id)
+      const filePath = `${user.id}/${fileName}`;
 
-      console.log('[Avatar] uploading to storage', { path: filePath });
+      console.log('[Avatar] uploading to storage', { path: filePath, bucket: 'avatars' });
       const { error: uploadError } = await supabase.storage
         .from('avatars')
         .upload(filePath, file, { upsert: true, contentType: file.type, cacheControl: '3600' });

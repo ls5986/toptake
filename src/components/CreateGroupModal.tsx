@@ -41,7 +41,7 @@ const CreateGroupModal: React.FC<Props> = ({ isOpen, onClose, onCreated }) => {
     <Dialog open={isOpen} onOpenChange={(open)=>{ if (!open && !loading) onClose(); }}>
       <DialogContent className="max-w-md">
         <DialogHeader>
-          <DialogTitle>Create group</DialogTitle>
+          <DialogTitle>New Group</DialogTitle>
         </DialogHeader>
         <div className="space-y-3">
           <div>

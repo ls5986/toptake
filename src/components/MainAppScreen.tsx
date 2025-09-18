@@ -350,6 +350,7 @@ const MainAppScreen: React.FC = () => {
             .select('id, created_at')
             .eq('thread_id', p.thread_id)
             .gt('created_at', p.last_read_at || '1970-01-01')
+            .neq('sender_id', user.id) // exclude own messages
             .limit(1);
           if ((msgs || []).length) total += 1; // indicator per-thread
         }

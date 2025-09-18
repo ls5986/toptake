@@ -689,19 +689,19 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                     </div>
                   </div>
                 )}
-                {/* Lock/blur if viewer has not posted on this specific date */}
-                <div className={!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) ? 'relative select-none' : ''}
+                {/* Lock/blur if viewer has not posted on this specific date (never lock on own profile) */}
+                <div className={(!viewingOwnProfile && !viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10))) ? 'relative select-none' : ''}
                      onClick={async ()=>{
                        try {
                          const key = String((take as any).prompt_date || '').slice(0,10);
-                         if (!viewerPostedDates.has(key)) {
+                         if (!viewingOwnProfile && !viewerPostedDates.has(key)) {
                            // Preselect the date and open late submit modal in the main app via URL param
                            const url = `/?late=${encodeURIComponent(key)}`;
                            window.location.href = url;
                          }
                        } catch {}
                      }}>
-                  <div className={!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) ? 'pointer-events-none blur-sm' : ''}>
+                  <div className={(!viewingOwnProfile && !viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10))) ? 'pointer-events-none blur-sm' : ''}>
                     {String((take as any).content || '').startsWith('[[PAID_SKIP]]') ? (
                       <div className="rounded border p-3 text-sm" style={{ background: surfaces.surface, borderColor: surfaces.border }}>
                         <div className="text-brand-text/90 font-medium">Paid skip</div>
@@ -719,7 +719,7 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
                       />
                     )}
                   </div>
-                  {!viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) && (
+                  {!viewingOwnProfile && !viewerPostedDates.has(String((take as any).prompt_date || '').slice(0,10)) && (
                     <div className="absolute inset-0 flex items-center justify-center">
                       <div className="px-3 py-1.5 rounded-full text-xs font-semibold border" style={{ background: surfaces.calloutBg, borderColor: surfaces.calloutBorder }}>🔒 Submit a late take for this date to unlock</div>
                     </div>

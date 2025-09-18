@@ -2,5 +2,9 @@
   "check-expired-credits": {
     "schedule": "0 0 * * *",
     "function": "check-expired-credits"
+  },
+  "schedule-group-prompts": {
+    "schedule": "0 * * * *",
+    "function": "schedule-group-prompts"
   }
 } 
