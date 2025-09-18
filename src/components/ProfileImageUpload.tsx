@@ -124,10 +124,14 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       try {
         const { data: verify } = await supabase
           .from('profiles')
-          .select('avatar_url')
+          .select('*')
           .eq('id', user.id)
           .maybeSingle();
         console.log('[Avatar] verify avatar_url', verify?.avatar_url);
+        try {
+          localStorage.setItem(`profile:${user.id}`, JSON.stringify(verify || {}));
+          window.dispatchEvent(new CustomEvent('profile:updated', { detail: { avatar_url: verify?.avatar_url } }));
+        } catch {}
       } catch (verifyErr) { console.warn('[Avatar] verify readback failed', verifyErr); }
 
       toast({ title: 'Profile picture updated successfully!' });
