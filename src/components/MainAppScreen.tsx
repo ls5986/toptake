@@ -761,10 +761,8 @@ const MainAppScreen: React.FC = () => {
           date={selectedDate}
         />
       )}
-
-      </div>
       
-      {/* Bottom Navigation - part of flex layout, not fixed */}
+
       <BottomNav 
         currentTab={currentTab} 
         onTabChange={(tab) => {
