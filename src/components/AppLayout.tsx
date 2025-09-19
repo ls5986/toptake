@@ -120,14 +120,7 @@ const AppLayout: React.FC = () => {
     );
   }
 
-  // Direct user profile view (opened from feed/take card)
-  if (currentScreen === 'userProfile') {
-    return (
-      <Suspense fallback={<LoadingSpinner />}>
-        <ProfileView />
-      </Suspense>
-    );
-  }
+  // Remove direct user profile view; always use MainAppScreen shell so header/nav are consistent
 
   // Specific screens
   if (currentScreen === 'take') {
