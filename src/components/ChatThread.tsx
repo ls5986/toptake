@@ -27,6 +27,7 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
   const [participants, setParticipants] = useState<Array<{ id: string; username: string; avatar_url?: string }>>([]);
   const [threadName, setThreadName] = useState<string | null>(null);
   const [todayPrompt, setTodayPrompt] = useState<string | null>(null);
+  const [reply, setReply] = useState('');
 
   useEffect(() => {
     let cancelled = false;
@@ -144,6 +145,18 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
     }
   };
 
+  const replyToPrompt = async () => {
+    const text = reply.trim();
+    if (!text) return;
+    setReply('');
+    try {
+      await supabase.rpc('reply_to_group_prompt', { p_thread: threadId, p_content: text });
+      const msg: Message = { id: Math.random().toString(36).slice(2), sender_id: user!.id, content: text, created_at: new Date().toISOString() };
+      setMessages(prev => [...prev, msg]);
+      setTimeout(()=> endRef.current?.scrollIntoView({ behavior: 'smooth' }), 10);
+    } catch {}
+  };
+
   // mark read when opening
   useEffect(() => {
     (async ()=>{
@@ -209,6 +222,22 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
         ) : (
           <ScrollArea className="h-full">
             <div className="p-3 space-y-2 pb-4">
+              {todayPrompt && (
+                <div className="mb-3 p-3 border border-brand-border/70 rounded bg-brand-background">
+                  <div className="text-[11px] uppercase tracking-wide text-brand-muted mb-1">Today’s Group Prompt</div>
+                  <div className="text-sm text-brand-text mb-2">{todayPrompt}</div>
+                  <div className="flex gap-2">
+                    <input
+                      className="flex-1 p-2 rounded bg-brand-surface border border-brand-border text-brand-text placeholder-brand-muted focus:outline-none"
+                      value={reply}
+                      onChange={(e)=>setReply(e.target.value)}
+                      placeholder="Reply to today’s prompt…"
+                      onKeyDown={(e)=>{ if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); replyToPrompt(); } }}
+                    />
+                    <Button onClick={replyToPrompt} disabled={!reply.trim()} className="px-3">Reply</Button>
+                  </div>
+                </div>
+              )}
               {messages.map(m => {
                 const isSelf = m.sender_id === user?.id;
                 const sender = senderMap[m.sender_id];
