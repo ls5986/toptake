@@ -598,7 +598,7 @@ const MainAppScreen: React.FC = () => {
       
       <div className={`flex-1 flex flex-col min-h-0 ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
         {/* Minimal header with hamburger + logo (no tabs) */}
-        <div className="flex-shrink-0 border-b border-brand-border safe-topbar">
+        <div className="flex-shrink-0 border-b border-brand-border safe-topbar bg-brand-surface">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
             <button
               className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80 touch-target"
