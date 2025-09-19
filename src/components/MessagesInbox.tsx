@@ -106,7 +106,7 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
   }, [user?.id]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-full pb-16 md:pb-20" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
         <div className="flex items-center gap-2">
           <div className="text-[11px] uppercase tracking-wide text-brand-muted">Messages</div>

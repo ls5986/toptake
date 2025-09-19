@@ -165,7 +165,7 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
   }, [participants]);
 
   return (
-    <div className="flex-1 flex flex-col h-full">
+    <div className="flex-1 flex flex-col h-full pb-16 md:pb-20" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
       <div className="flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
@@ -236,7 +236,7 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
           </ScrollArea>
         )}
       </div>
-      <div className="border-t border-brand-border/70 p-2 flex gap-2 bg-brand-surface">
+      <div className="border-t border-brand-border/70 p-2 flex gap-2 bg-brand-surface mb-16 md:mb-20" style={{ marginBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
         <input className="flex-1 p-2 rounded bg-brand-background border border-brand-border" value={input} onChange={e=>setInput(e.target.value)} placeholder="Message" onKeyDown={(e)=>{ if (e.key==='Enter') send(); }} />
         <Button onClick={send}>Send</Button>
       </div>
