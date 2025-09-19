@@ -5,8 +5,85 @@ import { Card, CardContent } from '@/components/ui/card';
 import { useAppContext } from '@/contexts/AppContext';
 import { fixPromptWithAI } from '@/lib/openai';
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
+import { Edit2, Trash2, Check, X } from 'lucide-react';
 
 interface Props { threadId: string; onBack: () => void; }
+
+interface PromptCardProps {
+  prompt: { id: string; prompt_text: string; prompt_date: string | null; created_at: string };
+  onSetToday: () => void;
+  onEdit: (id: string, newText: string) => void;
+  onDelete: (id: string) => void;
+  isModerator: boolean;
+}
+
+const PromptCard: React.FC<PromptCardProps> = ({ prompt, onSetToday, onEdit, onDelete, isModerator }) => {
+  const [isEditing, setIsEditing] = useState(false);
+  const [editText, setEditText] = useState(prompt.prompt_text);
+
+  const handleSave = () => {
+    if (editText.trim() && editText !== prompt.prompt_text) {
+      onEdit(prompt.id, editText.trim());
+    }
+    setIsEditing(false);
+  };
+
+  const handleCancel = () => {
+    setEditText(prompt.prompt_text);
+    setIsEditing(false);
+  };
+
+  return (
+    <div className="border border-brand-border/70 rounded p-3">
+      {isEditing ? (
+        <div className="space-y-2">
+          <textarea
+            className="w-full p-2 rounded bg-brand-background border border-brand-border text-sm"
+            value={editText}
+            onChange={(e) => setEditText(e.target.value)}
+            rows={3}
+          />
+          <div className="flex gap-2">
+            <Button size="sm" onClick={handleSave} className="bg-brand-accent hover:bg-brand-primary">
+              <Check className="w-3 h-3 mr-1" />
+              Save
+            </Button>
+            <Button size="sm" variant="outline" onClick={handleCancel}>
+              <X className="w-3 h-3 mr-1" />
+              Cancel
+            </Button>
+          </div>
+        </div>
+      ) : (
+        <div>
+          <div className="text-sm text-brand-text mb-2">{prompt.prompt_text}</div>
+          <div className="flex items-center justify-between">
+            <div className="text-[11px] text-brand-muted">
+              {prompt.prompt_date ? `For ${prompt.prompt_date}` : 'No date set'}
+            </div>
+            <div className="flex gap-1">
+              {!prompt.prompt_date && (
+                <Button size="sm" variant="outline" onClick={onSetToday}>
+                  Use for today
+                </Button>
+              )}
+              {isModerator && (
+                <>
+                  <Button size="sm" variant="ghost" onClick={() => setIsEditing(true)}>
+                    <Edit2 className="w-3 h-3" />
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={() => onDelete(prompt.id)} className="text-red-500 hover:text-red-700">
+                    <Trash2 className="w-3 h-3" />
+                  </Button>
+                </>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
   const { user } = useAppContext();
@@ -210,6 +287,35 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
     setPrompts((pr as any) || []);
   };
 
+  const editPrompt = async (id: string, newText: string) => {
+    try {
+      await supabase.from('group_prompts').update({ prompt_text: newText }).eq('id', id);
+      const { data: pr } = await supabase
+        .from('group_prompts')
+        .select('id,prompt_text,prompt_date,created_at')
+        .eq('thread_id', threadId)
+        .order('created_at', { ascending: false });
+      setPrompts((pr as any) || []);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to edit prompt');
+    }
+  };
+
+  const deletePrompt = async (id: string) => {
+    if (!confirm('Are you sure you want to delete this prompt?')) return;
+    try {
+      await supabase.from('group_prompts').delete().eq('id', id);
+      const { data: pr } = await supabase
+        .from('group_prompts')
+        .select('id,prompt_text,prompt_date,created_at')
+        .eq('thread_id', threadId)
+        .order('created_at', { ascending: false });
+      setPrompts((pr as any) || []);
+    } catch (e: any) {
+      setError(e?.message || 'Failed to delete prompt');
+    }
+  };
+
   const saveSchedule = async () => {
     if (!threadMeta) return;
     try {
@@ -409,15 +515,14 @@ const GroupDetails: React.FC<Props> = ({ threadId, onBack }) => {
             <div className="text-sm font-medium mb-2">Saved prompts</div>
             <div className="space-y-2">
               {prompts.map(p => (
-                <div key={p.id} className="border border-brand-border/70 rounded p-2">
-                  <div className="text-sm text-brand-text">{p.prompt_text}</div>
-                  <div className="text-[11px] text-brand-muted mt-1">{p.prompt_date ? `For ${p.prompt_date}` : 'No date set'}</div>
-                  {!p.prompt_date && (
-                    <div className="mt-1">
-                      <Button size="sm" variant="outline" onClick={()=>setToday(p.id)}>Use for today</Button>
-                    </div>
-                  )}
-                </div>
+                <PromptCard 
+                  key={p.id} 
+                  prompt={p} 
+                  onSetToday={()=>setToday(p.id)} 
+                  onEdit={(id, newText) => editPrompt(id, newText)}
+                  onDelete={(id) => deletePrompt(id)}
+                  isModerator={members.find(m => m.id === user?.id)?.role === 'moderator'}
+                />
               ))}
               {prompts.length === 0 && <div className="text-brand-muted text-sm">No prompts yet.</div>}
             </div>
