@@ -766,11 +766,15 @@ const MainAppScreen: React.FC = () => {
       </div>
       
       {/* Bottom Navigation - part of flex layout, not fixed */}
-      <BottomNav currentTab={currentTab} onTabChange={(tab)=>{
-        if (tab==='feed') navigate('/');
-        if (tab==='profile') navigate('/profile');
-        setCurrentTab(tab);
-      }} unreadNotifications={unreadNotifications} />
+      <BottomNav 
+        currentTab={currentTab} 
+        onTabChange={(tab) => {
+          if (tab === 'feed') navigate('/');
+          if (tab === 'profile') navigate('/profile');
+          setCurrentTab(tab);
+        }} 
+        unreadNotifications={unreadNotifications} 
+      />
     </div>
   );
 };
