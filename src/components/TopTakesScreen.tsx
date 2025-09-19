@@ -268,32 +268,21 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
           </div>
 
           {topTakes.map((take) => {
-            const futureTake = isFutureTake(take);
-            const canView = !futureTake || canSneakPeek;
+            // Standardize UX: always render takes as interactive content here
+            // (Sneak peek lock temporarily disabled to avoid overlay issues)
+            const futureTake = false;
+            const canView = true;
             return (
               <div
                 key={take.id}
                 ref={el => (takeRefs.current[take.id] = el)}
                 className={`relative ${highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}`}
               >
-                {!canView ? (
-                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
-                    <div className="text-white text-lg mb-2">🔒 Sneak Peek Locked</div>
-                    <Button
-                      onClick={() => handleSneakPeekUnlock(take)}
-                      className="bg-blue-500 text-white hover:bg-blue-600"
-                    >
-                      {canSneakPeek ? 'Unlock Sneak Peek' : 'Buy Sneak Peek Credit'}
-                    </Button>
-                  </div>
-                ) : null}
-                <div className={canView ? '' : 'blur-sm pointer-events-none select-none'}>
-                  <TakeCard 
-                    take={take} 
-                    onReact={handleReaction}
-                    reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
-                  />
-                </div>
+                <TakeCard 
+                  take={take} 
+                  onReact={handleReaction}
+                  reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
+                />
               </div>
             );
           })}
