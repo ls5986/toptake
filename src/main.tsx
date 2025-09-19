@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { clearInvalidTokens } from '@/lib/supabase';
+import '@/lib/console-filter'; // Filter out chrome extension errors
 
 // Clear invalid tokens only in development (prevents accidental sign-outs in production)
 if (import.meta.env.MODE === 'development') {

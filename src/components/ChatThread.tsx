@@ -165,8 +165,9 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
   }, [participants]);
 
   return (
-    <div className="flex-1 flex flex-col h-full pb-16 md:pb-20" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
-      <div className="flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
+    <div className="flex-1 flex flex-col h-full">
+      {/* Fixed Header */}
+      <div className="flex-shrink-0 flex items-center justify-between px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90">
         <div className="flex items-center gap-3 min-w-0">
           <Button variant="ghost" size="sm" onClick={onBack}>Back</Button>
           <div className="flex items-center gap-2 min-w-0">
@@ -200,12 +201,14 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
           )}
         </div>
       </div>
-      <div className="flex-1 min-h-0">
+
+      {/* Scrollable Messages Area */}
+      <div className="flex-1 min-h-0 overflow-hidden">
         {loading ? (
           <div className="h-full flex items-center justify-center text-brand-muted">Loading…</div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="p-3 space-y-2">
+            <div className="p-3 space-y-2 pb-4">
               {messages.map(m => {
                 const isSelf = m.sender_id === user?.id;
                 const sender = senderMap[m.sender_id];
@@ -236,9 +239,25 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
           </ScrollArea>
         )}
       </div>
-      <div className="border-t border-brand-border/70 p-2 flex gap-2 bg-brand-surface mb-16 md:mb-20" style={{ marginBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
-        <input className="flex-1 p-2 rounded bg-brand-background border border-brand-border" value={input} onChange={e=>setInput(e.target.value)} placeholder="Message" onKeyDown={(e)=>{ if (e.key==='Enter') send(); }} />
-        <Button onClick={send}>Send</Button>
+
+      {/* Fixed Input Area at Bottom */}
+      <div className="flex-shrink-0 border-t border-brand-border/70 p-3 bg-brand-surface">
+        <div className="flex gap-2">
+          <input 
+            className="flex-1 p-3 rounded-lg bg-brand-background border border-brand-border text-brand-text placeholder-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-accent/50 focus:border-brand-accent" 
+            value={input} 
+            onChange={e=>setInput(e.target.value)} 
+            placeholder="Type a message..." 
+            onKeyDown={(e)=>{ if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); send(); } }} 
+          />
+          <Button 
+            onClick={send} 
+            disabled={!input.trim()}
+            className="px-4 py-3 bg-brand-accent hover:bg-brand-primary text-white rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            Send
+          </Button>
+        </div>
       </div>
     </div>
   );
