@@ -629,7 +629,7 @@ const MainAppScreen: React.FC = () => {
       <div className={`flex-1 flex flex-col min-h-0`}>
         {/* Minimal header with hamburger + logo (no tabs) */}
         <div className="flex-shrink-0 border-b border-brand-border safe-topbar bg-brand-surface">
-          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
+          <div className="w-full flex justify-between items-center safe-px py-3">
             <button
               className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80 touch-target"
               onClick={() => setMenuOpen(true)}
@@ -650,7 +650,7 @@ const MainAppScreen: React.FC = () => {
         {/* Desktop tabs removed; navigation handled exclusively by BottomNav */}
         
         <div className="flex-1 min-h-0">
-          <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto h-full">
+          <div className="w-full h-full">
             {/* Simple date picker with monthly status indicators */}
             <div className="flex items-center justify-center gap-1.5 my-2 px-2 text-sm" style={{ display: (username || (currentTab !== 'feed' && currentTab !== 'toptakes')) ? 'none' : undefined }}>
               <Button variant="ghost" size="icon" onClick={goToPrevDay} aria-label="Previous day">

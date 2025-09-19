@@ -12,7 +12,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, unreadNo
 
   return (
     <nav className="flex-shrink-0 bg-brand-surface border-t border-brand-border safe-pb">
-      <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto grid grid-cols-5">
+      <div className="w-full grid grid-cols-5">
         <button className={itemCls(currentTab==='feed')} onClick={()=>onTabChange('feed')} aria-label="Feed">
           <Home className="w-5 h-5" />
           <span>Feed</span>
