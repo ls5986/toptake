@@ -629,7 +629,7 @@ const MainAppScreen: React.FC = () => {
       <div className={`flex-1 flex flex-col min-h-0`}>
         {/* Minimal header with hamburger + logo (no tabs) */}
         <div className="flex-shrink-0 border-b border-brand-border safe-topbar bg-brand-surface">
-          <div className="w-full flex justify-between items-center safe-px py-3">
+          <div className="w-full flex justify-between items-center py-3">
             <button
               className="p-2 rounded hover:bg-brand-surface/80 focus:outline-none active:opacity-80 touch-target"
               onClick={() => setMenuOpen(true)}
