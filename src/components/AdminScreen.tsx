@@ -13,7 +13,7 @@ import PromptCalendar from '@/components/PromptCalendar';
 import PromptGenerator from '@/components/PromptGenerator';
 import PromptRecommendations from '@/components/PromptRecommendations';
 import PromptScheduler from '@/components/PromptScheduler';
-import { GitHubIntegration } from '@/components/GitHubIntegration';
+// GitHubIntegration removed
 
 interface AdminUser {
   id: string;
@@ -163,9 +163,7 @@ const AdminScreen: React.FC = () => {
     }
   };
 
-  const handleGitHubConnect = (repoUrl: string) => {
-    toast({ title: 'GitHub Connected', description: `Connected to ${repoUrl}` });
-  };
+  // GitHub connect handler removed
 
   if (loading) {
     return (
@@ -191,7 +189,7 @@ const AdminScreen: React.FC = () => {
             <TabsTrigger value="analytics">Analytics</TabsTrigger>
             <TabsTrigger value="suggestions">Suggestions</TabsTrigger>
             <TabsTrigger value="generate">Generate</TabsTrigger>
-            <TabsTrigger value="github">GitHub</TabsTrigger>
+            {/* GitHub tab removed */}
             <TabsTrigger value="users">Users</TabsTrigger>
           </TabsList>
           
@@ -267,9 +265,7 @@ const AdminScreen: React.FC = () => {
             <PromptGenerator />
           </TabsContent>
           
-          <TabsContent value="github">
-            <GitHubIntegration onConnect={handleGitHubConnect} />
-          </TabsContent>
+          {/* GitHub content removed */}
           
           <TabsContent value="users">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
