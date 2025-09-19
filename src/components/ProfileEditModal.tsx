@@ -58,11 +58,39 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   );
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!user) return;
+    console.log('[ProfileEditModal] 📝 handleSubmit called', { 
+      timestamp: new Date().toISOString(),
+      userId: user?.id,
+      formData: {
+        username: formData.username,
+        full_name: formData.full_name,
+        bio: formData.bio,
+        avatar_url: formData.avatar_url
+      }
+    });
 
+    e.preventDefault();
+    if (!user) {
+      console.log('[ProfileEditModal] ❌ early return - no user');
+      return;
+    }
+
+    console.log('[ProfileEditModal] ⏳ setting loading state to true');
     setLoading(true);
+    
     try {
+      console.log('[ProfileEditModal] 💾 updating profile in database', { 
+        userId: user.id,
+        table: 'profiles',
+        updateData: {
+          username: formData.username,
+          full_name: formData.full_name,
+          bio: formData.bio,
+          avatar_url: formData.avatar_url
+        }
+      });
+
+      const dbUpdateStartTime = Date.now();
       const { error } = await supabase
         .from('profiles')
         .update({
@@ -72,31 +100,94 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
           avatar_url: formData.avatar_url
         })
         .eq('id', user.id);
+      const dbUpdateDuration = Date.now() - dbUpdateStartTime;
 
-      if (error) throw error;
+      console.log('[ProfileEditModal] 📊 database update completed', { 
+        duration: `${dbUpdateDuration}ms`,
+        hasError: !!error,
+        error: error
+      });
+
+      if (error) {
+        console.error('[ProfileEditModal] ❌ database update error', { 
+          error: error,
+          errorMessage: error?.message,
+          errorCode: error?.code
+        });
+        throw error;
+      }
+
+      console.log('[ProfileEditModal] ✅ database update successful');
 
       if (formData.email !== user.email) {
+        console.log('[ProfileEditModal] 📧 email changed, updating auth user', { 
+          oldEmail: user.email,
+          newEmail: formData.email
+        });
+
+        const emailUpdateStartTime = Date.now();
         const { error: emailError } = await supabase.auth.updateUser({
           email: formData.email
         });
-        if (emailError) throw emailError;
+        const emailUpdateDuration = Date.now() - emailUpdateStartTime;
+
+        console.log('[ProfileEditModal] 📊 email update completed', { 
+          duration: `${emailUpdateDuration}ms`,
+          hasError: !!emailError,
+          error: emailError
+        });
+
+        if (emailError) {
+          console.error('[ProfileEditModal] ❌ email update error', { 
+            error: emailError,
+            errorMessage: emailError?.message
+          });
+          throw emailError;
+        }
+
+        console.log('[ProfileEditModal] ✅ email update successful - showing confirmation toast');
         toast({ 
           title: 'Email update initiated',
           description: 'Please check your new email for confirmation'
         });
+      } else {
+        console.log('[ProfileEditModal] ℹ️ email unchanged, skipping email update');
       }
 
-      onUpdate({ ...profile, ...formData });
+      console.log('[ProfileEditModal] 📞 calling onUpdate callback with final profile data');
+      const finalProfile = { ...profile, ...formData };
+      console.log('[ProfileEditModal] 🔄 final profile object', { 
+        originalProfile: profile,
+        formData,
+        finalProfile
+      });
+
+      onUpdate(finalProfile);
+      console.log('[ProfileEditModal] ✅ onUpdate callback completed');
+
+      console.log('[ProfileEditModal] 🎉 profile update successful - showing success toast');
       toast({ title: 'Profile updated successfully!' });
+      
+      console.log('[ProfileEditModal] 🚪 closing modal');
       onClose();
     } catch (error: unknown) {
+      console.error('[ProfileEditModal] ❌ profile update failed', { 
+        error: error,
+        errorMessage: error instanceof Error ? error.message : String(error),
+        errorStack: error instanceof Error ? error.stack : undefined,
+        timestamp: new Date().toISOString()
+      });
+
+      console.log('[ProfileEditModal] 🚨 showing error toast to user');
       toast({ 
         title: 'Error updating profile',
         description: (error as Error).message,
         variant: 'destructive'
       });
     } finally {
+      console.log('[ProfileEditModal] 🧹 setting loading state to false');
       setLoading(false);
+      console.log('[ProfileEditModal] ✅ cleanup completed');
     }
   };
 
@@ -118,9 +209,44 @@ const ProfileEditModal: React.FC<ProfileEditModalProps> = ({
   };
 
   const handleImageUpdate = (imageUrl: string) => {
-    setFormData(prev => ({ ...prev, avatar_url: imageUrl }));
+    console.log('[ProfileEditModal] 🖼️ handleImageUpdate called', { 
+      timestamp: new Date().toISOString(),
+      imageUrl,
+      currentAvatarUrl: formData.avatar_url,
+      profileId: profile?.id,
+      username: profile?.username
+    });
+
+    console.log('[ProfileEditModal] 📝 updating formData with new avatar URL');
+    setFormData(prev => {
+      const newFormData = { ...prev, avatar_url: imageUrl };
+      console.log('[ProfileEditModal] ✅ formData updated', { 
+        previousAvatarUrl: prev.avatar_url,
+        newAvatarUrl: imageUrl,
+        formDataChanged: prev.avatar_url !== imageUrl
+      });
+      return newFormData;
+    });
+
     // Immediately reflect in parent header so avatar updates without full submit
-    try { onUpdate({ ...profile, avatar_url: imageUrl } as any); } catch {}
+    console.log('[ProfileEditModal] 📞 calling onUpdate callback to update parent component');
+    try { 
+      const updatedProfile = { ...profile, avatar_url: imageUrl } as any;
+      console.log('[ProfileEditModal] 🔄 creating updated profile object', { 
+        originalProfile: profile,
+        updatedProfile,
+        avatarUrlChanged: profile?.avatar_url !== imageUrl
+      });
+      
+      onUpdate(updatedProfile);
+      console.log('[ProfileEditModal] ✅ onUpdate callback completed successfully');
+    } catch (updateErr) {
+      console.error('[ProfileEditModal] ❌ onUpdate callback failed', { 
+        error: updateErr,
+        errorMessage: updateErr instanceof Error ? updateErr.message : String(updateErr),
+        imageUrl
+      });
+    }
   };
 
   return (
