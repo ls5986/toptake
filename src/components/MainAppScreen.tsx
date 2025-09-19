@@ -6,7 +6,6 @@ import { useAppContext } from '@/contexts/AppContext';
 import { TakeCard } from './TakeCard';
 import { AppBlocker } from './AppBlocker';
 import { TodaysPrompt } from './TodaysPrompt';
-import { Take } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { MonetizationModals } from './MonetizationModals';
 import { supabase } from '@/lib/supabase';
@@ -131,23 +130,11 @@ const MainAppScreen: React.FC = () => {
     if (username) setCurrentTab('profile');
   }, [username]);
 
-  // Removed loadTakes; use hook values directly
+  // Removed legacy fake takes loader (avoids unused setters and lint errors)
 
-  const loadFakeTakes = () => {
+  const handleReaction = async (takeId: string, reaction: string) => {
     try {
-      const stored = localStorage.getItem('fakeTakes');
-      if (stored) {
-        setTakes(JSON.parse(stored));
-      }
-    } catch (error) {
-      console.error('Error loading fake takes:', error);
-    }
-    setLoading(false);
-  };
-
-  const handleReaction = async (takeId: string, reaction: keyof Take['reactions']) => {
-    try {
-      if (!user?.hasPostedToday) {
+      if (!(user as any)?.hasPostedToday) {
         toast({ title: "🔒 Post today's take first to react!", variant: "destructive" });
         return;
       }
@@ -567,7 +554,8 @@ const MainAppScreen: React.FC = () => {
 
     try {
       // Convert date to user's timezone
-      const userDate = new Date(date.getTime() + (user.timezone_offset * 60000));
+      const tzOffset = Number((user as any)?.timezone_offset || 0);
+      const userDate = new Date(date.getTime() + (tzOffset * 60000));
       const promptDate = userDate.toISOString().split('T')[0];
 
       // Check if user has already submitted for this date

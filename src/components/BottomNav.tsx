@@ -2,8 +2,8 @@ import React from 'react';
 import { Home, Search, Bell, Star, User } from 'lucide-react';
 
 interface BottomNavProps {
-  currentTab: 'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search';
-  onTabChange: (tab: 'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search') => void;
+  currentTab: 'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search' | 'messages';
+  onTabChange: (tab: 'feed' | 'leaderboard' | 'profile' | 'toptakes' | 'admin' | 'suggestions' | 'notifications' | 'search' | 'messages') => void;
   unreadNotifications?: number;
 }
 
