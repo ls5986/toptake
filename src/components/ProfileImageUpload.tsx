@@ -24,11 +24,22 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
   const [pendingFile, setPendingFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
 
+  console.log('[Avatar] 🔄 ProfileImageUpload render', {
+    timestamp: new Date().toISOString(),
+    currentImageUrl,
+    username,
+    uploading,
+    hasFileInputRef: !!fileInputRef.current,
+    userId: user?.id
+  });
+
   const handleFileSelect = async (event: React.ChangeEvent<HTMLInputElement>) => {
     console.log('[Avatar] 🎯 handleFileSelect called', { 
       timestamp: new Date().toISOString(),
       eventType: event.type,
-      targetFiles: event.target.files?.length || 0
+      targetFiles: event.target.files?.length || 0,
+      target: event.target,
+      files: event.target.files
     });
 
     const file = event.target.files?.[0];
@@ -467,19 +478,24 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
             </AvatarFallback>
           )}
         </Avatar>
-        <Button
-          size="sm"
-          className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-brand-accent hover:bg-brand-primary"
-          onClick={() => { 
-            console.log('[Avatar] 📷 camera button clicked', { 
-              timestamp: new Date().toISOString(),
-              uploading,
-              hasFileInput: !!fileInputRef.current
-            }); 
-            fileInputRef.current?.click(); 
-          }}
-          disabled={uploading}
-        >
+      <Button
+        size="sm"
+        className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-brand-accent hover:bg-brand-primary"
+        onClick={() => {
+          console.log('[Avatar] 📷 camera button clicked', { 
+            timestamp: new Date().toISOString(),
+            uploading,
+            hasFileInput: !!fileInputRef.current,
+            fileInputElement: fileInputRef.current,
+            currentImageUrl,
+            username
+          });
+          console.log('[Avatar] 🖱️ about to trigger file input click');
+          fileInputRef.current?.click();
+          console.log('[Avatar] ✅ file input click triggered');
+        }}
+        disabled={uploading}
+      >
           {uploading ? (
             <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white border-brand-accent" />
           ) : (
@@ -557,6 +573,12 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
         accept="image/*"
         onChange={handleFileSelect}
         className="hidden"
+        onClick={() => {
+          console.log('[Avatar] 🖱️ file input clicked', { 
+            timestamp: new Date().toISOString(),
+            hasRef: !!fileInputRef.current
+          });
+        }}
       />
     </div>
   );
