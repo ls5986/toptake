@@ -281,11 +281,11 @@ const MainAppScreen: React.FC = () => {
 
       if (currentTab === 'notifications') {
         return (
-          <ScrollContainer>
+          <ScrollArea className="h-full">
             <div className="p-3">
               <NotificationsScreen />
             </div>
-          </ScrollContainer>
+          </ScrollArea>
         );
       }
 
