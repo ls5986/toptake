@@ -251,11 +251,11 @@ const MainAppScreen: React.FC = () => {
 
       if (currentTab === 'toptakes') {
         return (
-          <ScrollContainer>
+          <ScrollArea className="h-full">
             <div className="p-2">
               <TopTakesScreen focusedTakeId={focusedTakeId} selectedDate={selectedDate} onDateChange={setSelectedDate} />
             </div>
-          </ScrollContainer>
+          </ScrollArea>
         );
       }
 
