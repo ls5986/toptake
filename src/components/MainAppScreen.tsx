@@ -589,14 +589,14 @@ const MainAppScreen: React.FC = () => {
   // Friends overlay removed; search is now a dedicated tab
 
   return (
-    <div className="bg-brand-background min-h-screen flex flex-col pb-16 md:pb-20" style={{ paddingBottom: 'calc(env(safe-area-inset-bottom) + 64px)' }}>
+    <div className="bg-brand-background min-h-screen flex flex-col">
       <AppBlocker 
         isBlocked={isAppBlocked} 
         onSubmit={handleUnlock}
         targetDate={showLateSubmit ? selectedDate : undefined}
       />
       
-      <div className={`flex-1 flex flex-col ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-0 ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
         {/* Minimal header with hamburger + logo (no tabs) */}
         <div className="flex-shrink-0 border-b border-brand-border safe-topbar">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
@@ -763,8 +763,9 @@ const MainAppScreen: React.FC = () => {
         />
       )}
 
-      {/* Spacer retained for legacy pages; combined with container padding ensures nothing is hidden */}
-      <div className="h-14 md:h-16 pointer-events-none" />
+      </div>
+      
+      {/* Bottom Navigation - part of flex layout, not fixed */}
       <BottomNav currentTab={currentTab} onTabChange={(tab)=>{
         if (tab==='feed') navigate('/');
         if (tab==='profile') navigate('/profile');

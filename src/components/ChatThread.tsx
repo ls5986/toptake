@@ -241,7 +241,7 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
       </div>
 
       {/* Fixed Input Area at Bottom */}
-      <div className="flex-shrink-0 border-t border-brand-border/70 p-3 pb-24 bg-brand-surface">
+      <div className="flex-shrink-0 border-t border-brand-border/70 p-3 bg-brand-surface">
         <div className="flex gap-2">
           <input 
             className="flex-1 p-3 rounded-lg bg-brand-background border border-brand-border text-brand-text placeholder-brand-muted focus:outline-none focus:ring-2 focus:ring-brand-accent/50 focus:border-brand-accent" 

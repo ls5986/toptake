@@ -11,7 +11,7 @@ const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, unreadNo
   const itemCls = (active: boolean) => `flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] ${active ? 'text-brand-text' : 'text-brand-muted'}`;
 
   return (
-    <nav className="fixed bottom-0 left-0 right-0 z-30 bg-brand-surface/95 backdrop-blur-sm border-t border-brand-border safe-pb">
+    <nav className="flex-shrink-0 bg-brand-surface/95 backdrop-blur-sm border-t border-brand-border safe-pb">
       <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto grid grid-cols-5">
         <button className={itemCls(currentTab==='feed')} onClick={()=>onTabChange('feed')} aria-label="Feed">
           <Home className="w-5 h-5" />

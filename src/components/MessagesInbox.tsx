@@ -142,7 +142,7 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
           </div>
         ) : (
           <ScrollArea className="h-full">
-            <div className="p-4 pb-24 space-y-3">
+            <div className="p-4 space-y-3">
               {!explore ? (
                 <>
                   {threads.map(t => (
