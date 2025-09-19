@@ -73,7 +73,7 @@ export const NotificationsScreen: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full">
-      <div className="flex-shrink-0 px-3 py-2 border-b border-brand-border/70 bg-brand-surface/90 backdrop-blur-sm flex items-center justify-between">
+      <div className="flex-shrink-0 px-3 py-2 border-b border-brand-border/70 bg-brand-surface flex items-center justify-between">
         <div className="text-[11px] uppercase tracking-wide text-brand-muted">Alerts</div>
         {notifications.some(n => !n.read) && (
           <Button variant="outline" size="sm" onClick={handleMarkAllRead}>Mark all as read</Button>

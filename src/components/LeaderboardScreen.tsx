@@ -134,7 +134,7 @@ const LeaderboardScreen: React.FC = () => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-brand-background">
-      <div className="sticky top-0 bg-brand-surface/90 backdrop-blur-sm z-10 px-3 py-2 border-b border-brand-border/70">
+      <div className="sticky top-0 bg-brand-surface z-10 px-3 py-2 border-b border-brand-border/70">
         <div className="flex items-center justify-between">
           <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
             <Flame className="w-4 h-4 text-brand-primary" />

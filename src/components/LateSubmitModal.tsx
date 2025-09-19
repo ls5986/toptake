@@ -236,7 +236,7 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
               {composeError && (
                 <div className="text-brand-danger text-sm">{composeError}</div>
               )}
-              <div className="sticky bottom-0 bg-brand-surface/90 backdrop-blur supports-[backdrop-filter]:bg-brand-surface/70 py-3 space-y-2">
+              <div className="sticky bottom-0 bg-brand-surface py-3 space-y-2">
                 <Button onClick={handleComposeSubmit} disabled={composeLoading || !composeContent.trim()} className="w-full h-11">
                   {composeLoading ? 'Submitting…' : 'Submit Take for This Date'}
                 </Button>

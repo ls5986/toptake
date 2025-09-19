@@ -180,7 +180,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
       
       <div className="flex-1 min-h-0">
         {/* Sub-tabs */}
-        <div className="sticky top-0 z-10 bg-brand-surface/90 backdrop-blur border-b border-brand-border/70 px-2 py-2">
+        <div className="sticky top-0 z-10 bg-brand-surface border-b border-brand-border/70 px-2 py-2">
           <div className="flex items-center gap-2">
             <div className="inline-flex rounded-md overflow-hidden border border-brand-border/70">
               <button
@@ -217,7 +217,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
         ) : (
           <ScrollArea className="h-full">
             <div className="p-3 space-y-3">
-              <div className="flex items-center justify-between sticky top-0 bg-brand-surface/90 backdrop-blur-sm py-2 z-10 border-b border-brand-border/70 px-1 rounded">
+              <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10 border-b border-brand-border/70 px-1 rounded">
                 <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
                   <Trophy className="w-4 h-4 text-yellow-400" />
                   <span>Top takes</span>
