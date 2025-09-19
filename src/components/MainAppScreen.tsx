@@ -619,7 +619,7 @@ const MainAppScreen: React.FC = () => {
   // Friends overlay removed; search is now a dedicated tab
 
   return (
-    <div className="bg-brand-background min-h-screen flex flex-col">
+    <div className="bg-brand-background min-h-screen flex flex-col w-full">
       <AppBlocker 
         isBlocked={isAppBlocked} 
         onSubmit={handleUnlock}

@@ -9,8 +9,8 @@ interface Props {
 // Layout: flex-1 min-h-0 + inner div for padding
 const ScrollContainer: React.FC<Props> = ({ children, className = '' }) => {
   return (
-    <div className={`flex-1 min-h-0 overflow-hidden ${className}`}>
-      <div className="h-full overflow-y-auto">
+    <div className={`flex-1 min-h-0 overflow-hidden w-full ${className}`}>
+      <div className="w-full h-full overflow-y-auto">
         {children}
       </div>
     </div>
