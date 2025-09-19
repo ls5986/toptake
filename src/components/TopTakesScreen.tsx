@@ -33,6 +33,8 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
   const [subTab, setSubTab] = useState<'top' | 'streaks'>('top');
   const fetchInProgress = useRef(false);
   const takeRefs = useRef<Record<string, HTMLDivElement | null>>({});
+  const containerRef = useRef<HTMLDivElement | null>(null);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
   const [highlightedTakeId, setHighlightedTakeId] = useState<string | null>(null);
   const [showSneakPeekModal, setShowSneakPeekModal] = useState(false);
   const [unlockingTakeId, setUnlockingTakeId] = useState<string | null>(null);
@@ -105,6 +107,24 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
     }
   };
 
+  // Infinite scroll using ScrollArea viewport as root
+  useEffect(() => {
+    const sentinel = sentinelRef.current;
+    if (!sentinel) return;
+    // Find the nearest Radix ScrollArea viewport
+    const rootEl = containerRef.current?.closest('[data-radix-scroll-area-viewport]') as HTMLElement | null;
+    const observer = new IntersectionObserver((entries) => {
+      const entry = entries[0];
+      if (entry.isIntersecting) {
+        handleLoadMore();
+      }
+    }, { root: rootEl || undefined, threshold: 0.1 });
+
+    observer.observe(sentinel);
+    return () => observer.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [topTakes, loading, refreshing]);
+
   const handleReaction = async (takeId: string, reaction: ReactionType) => {
     if (!user) return;
     await addReaction(takeId, user.id, reaction);
@@ -167,7 +187,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
   }
 
   return (
-    <div className="w-full">
+    <div className="w-full" ref={containerRef}>
       <TodaysPrompt 
         prompt={promptText} 
         takeCount={topTakes.length} 
@@ -284,13 +304,8 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
               <p className="text-sm mt-2">Be the first to share your take</p>
             </div>
           )}
-          {topTakes.length > 0 && (
-            <div className="flex justify-center py-3">
-              <Button onClick={handleLoadMore} variant="outline" size="sm" disabled={refreshing || loading}>
-                {refreshing || loading ? 'Loading…' : 'Load more'}
-              </Button>
-            </div>
-          )}
+          {/* Infinite scroll sentinel */}
+          <div ref={sentinelRef} className="h-6" />
         </div>
       )}
 
