@@ -8,11 +8,11 @@ interface BottomNavProps {
 }
 
 const BottomNav: React.FC<BottomNavProps> = ({ currentTab, onTabChange, unreadNotifications = 0 }) => {
-  const itemCls = (active: boolean) => `flex flex-col items-center justify-center gap-0.5 py-2 text-[11px] ${active ? 'text-brand-text' : 'text-brand-muted'}`;
+  const itemCls = (active: boolean) => `h-full w-full flex flex-col items-center justify-center gap-1 text-[11px] select-none ${active ? 'text-brand-text' : 'text-brand-muted'}`;
 
   return (
-    <nav className="flex-shrink-0 bg-brand-surface border-t border-brand-border">
-      <div className="w-full grid grid-cols-5">
+    <nav className="flex-shrink-0 bg-brand-surface border-t border-brand-border w-full h-14">
+      <div className="w-full h-full grid grid-cols-5">
         <button className={itemCls(currentTab==='feed')} onClick={()=>onTabChange('feed')} aria-label="Feed">
           <Home className="w-5 h-5" />
           <span>Feed</span>
