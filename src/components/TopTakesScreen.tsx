@@ -232,7 +232,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
         </div>
       ) : (
         <div className="p-3 space-y-3">
-          <div className="flex items-center justify-between bg-brand-surface py-2 border-b border-brand-border px-1 rounded">
+          <div className="flex items-center justify-between bg-brand-surface py-2 border-b border-brand-border px-1">
             <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
               <Trophy className="w-4 h-4 text-yellow-400" />
               <span>Top takes</span>
@@ -274,7 +274,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
               <div
                 key={take.id}
                 ref={el => (takeRefs.current[take.id] = el)}
-                className={highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}
+                className={`relative ${highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}`}
               >
                 {!canView ? (
                   <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
