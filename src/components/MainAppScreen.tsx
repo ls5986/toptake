@@ -11,6 +11,7 @@ import { useToast } from '@/hooks/use-toast';
 import { MonetizationModals } from './MonetizationModals';
 import { supabase } from '@/lib/supabase';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import ScrollContainer from '@/components/ui/ScrollContainer';
 import BottomNav from './BottomNav';
 import LeaderboardScreen from './LeaderboardScreen';
 import ProfileView from './ProfileView';
@@ -229,31 +230,63 @@ const MainAppScreen: React.FC = () => {
       }
       
       if (currentTab === 'leaderboard') {
-        return <LeaderboardScreen />;
+        return (
+          <ScrollContainer>
+            <div className="p-3">
+              <LeaderboardScreen />
+            </div>
+          </ScrollContainer>
+        );
       }
       
       if (currentTab === 'profile') {
-        return <ProfileView />;
+        return (
+          <ScrollArea className="h-full">
+            <div className="p-3">
+              <ProfileView />
+            </div>
+          </ScrollArea>
+        );
       }
 
       if (currentTab === 'toptakes') {
-        return <TopTakesScreen focusedTakeId={focusedTakeId} selectedDate={selectedDate} onDateChange={setSelectedDate} />;
+        return (
+          <ScrollContainer>
+            <div className="p-2">
+              <TopTakesScreen focusedTakeId={focusedTakeId} selectedDate={selectedDate} onDateChange={setSelectedDate} />
+            </div>
+          </ScrollContainer>
+        );
       }
 
       if (currentTab === 'search') {
-        return <SearchScreen onGoToTake={handleGoToTake} />;
+        return (
+          <ScrollContainer>
+            <div className="p-3">
+              <SearchScreen onGoToTake={handleGoToTake} />
+            </div>
+          </ScrollContainer>
+        );
       }
 
       if (currentTab === 'suggestions') {
         return (
-          <div className="flex-1 p-4">
-            <PromptRecommendations />
-          </div>
+          <ScrollContainer>
+            <div className="p-4">
+              <PromptRecommendations />
+            </div>
+          </ScrollContainer>
         );
       }
 
       if (currentTab === 'notifications') {
-        return <NotificationsScreen />;
+        return (
+          <ScrollContainer>
+            <div className="p-3">
+              <NotificationsScreen />
+            </div>
+          </ScrollContainer>
+        );
       }
 
       if (currentTab === 'messages') {
@@ -268,14 +301,13 @@ const MainAppScreen: React.FC = () => {
       return (
         <div className="flex-1 flex flex-col h-full">
           <div className="flex-shrink-0">
-          <TodaysPrompt 
-            prompt={promptText} 
-            takeCount={(sharedTakes as any)?.length || 0} 
-            loading={!promptText && sharedLoading}
-          />
+            <TodaysPrompt 
+              prompt={promptText} 
+              takeCount={(sharedTakes as any)?.length || 0} 
+              loading={!promptText && sharedLoading}
+            />
           </div>
-          
-          <div className="flex-1 min-h-0">
+          <ScrollContainer>
             { (sharedLoading) ? (
               <div className="flex items-center justify-center h-full">
                 <div className="text-center text-brand-text">
@@ -284,26 +316,24 @@ const MainAppScreen: React.FC = () => {
                 </div>
               </div>
             ) : (
-              <ScrollArea className="h-full">
-                <div className="p-3 space-y-3">
-                  <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
-                    <span className="inline-block align-middle">💬</span>
-                    <span>Today’s takes</span>
-                    <span className="text-brand-text/80 ml-1">{(sharedTakes as any)?.length || 0}</span>
-                  </div>
-                  {(sharedTakes as any)?.map((take: any) => (
-                    <TakeCard key={take.id} take={take} onReact={handleReaction} />
-                  ))}
-                  {(!(sharedTakes as any)?.length) && (
-                    <div className="text-center text-brand-muted py-8">
-                      <p>No takes yet today!</p>
-                      <p className="text-sm mt-2">Be the first to share your take</p>
-                    </div>
-                  )}
+              <div className="p-3 space-y-3">
+                <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
+                  <span className="inline-block align-middle">💬</span>
+                  <span>Today’s takes</span>
+                  <span className="text-brand-text/80 ml-1">{(sharedTakes as any)?.length || 0}</span>
                 </div>
-              </ScrollArea>
+                {(sharedTakes as any)?.map((take: any) => (
+                  <TakeCard key={take.id} take={take} onReact={handleReaction} />
+                ))}
+                {(!(sharedTakes as any)?.length) && (
+                  <div className="text-center text-brand-muted py-8">
+                    <p>No takes yet today!</p>
+                    <p className="text-sm mt-2">Be the first to share your take</p>
+                  </div>
+                )}
+              </div>
             )}
-          </div>
+          </ScrollContainer>
         </div>
       );
     } catch (error) {
@@ -596,7 +626,7 @@ const MainAppScreen: React.FC = () => {
         targetDate={showLateSubmit ? selectedDate : undefined}
       />
       
-      <div className={`flex-1 flex flex-col min-h-0 ${isAppBlocked ? 'blur-sm pointer-events-none' : ''}`}>
+      <div className={`flex-1 flex flex-col min-h-0`}>
         {/* Minimal header with hamburger + logo (no tabs) */}
         <div className="flex-shrink-0 border-b border-brand-border safe-topbar bg-brand-surface">
           <div className="max-w-2xl lg:max-w-5xl xl:max-w-6xl mx-auto flex justify-between items-center safe-px py-3">
