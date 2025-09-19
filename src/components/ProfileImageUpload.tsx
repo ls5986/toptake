@@ -479,6 +479,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
           )}
         </Avatar>
       <Button
+        type="button"
         size="sm"
         className="absolute -bottom-2 -right-2 rounded-full w-8 h-8 p-0 bg-brand-accent hover:bg-brand-primary"
         onClick={() => {
@@ -506,6 +507,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       
       {!pendingFile ? (
         <Button
+          type="button"
           variant="outline"
           size="sm"
           onClick={() => { 
@@ -525,6 +527,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
       ) : (
         <div className="flex gap-2">
           <Button
+            type="button"
             onClick={() => { 
               console.log('[Avatar] ✅ confirm upload button clicked', { 
                 timestamp: new Date().toISOString(),
@@ -541,6 +544,7 @@ const ProfileImageUpload: React.FC<ProfileImageUploadProps> = ({
           </Button>
           <Button
             variant="outline"
+            type="button"
             onClick={() => { 
               console.log('[Avatar] ❌ cancel upload button clicked', { 
                 timestamp: new Date().toISOString(),
