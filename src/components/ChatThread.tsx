@@ -10,6 +10,8 @@ interface Message {
   sender_id: string;
   content: string | null;
   created_at: string;
+  message_type?: string | null;
+  group_prompt_id?: string | null;
 }
 
 interface Props {
@@ -117,7 +119,7 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
         filter: `thread_id=eq.${threadId}`
       }, (payload: any) => {
         const row = payload.new as any;
-        setMessages(prev => [...prev, { id: row.id, sender_id: row.sender_id, content: row.content, created_at: row.created_at }]);
+        setMessages(prev => [...prev, { id: row.id, sender_id: row.sender_id, content: row.content, created_at: row.created_at, message_type: row.message_type, group_prompt_id: row.group_prompt_id }]);
         setTimeout(()=> endRef.current?.scrollIntoView({ behavior: 'smooth' }), 10);
         // Mark as read on incoming messages when viewing the thread
         try {
@@ -151,7 +153,7 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
     setReply('');
     try {
       await supabase.rpc('reply_to_group_prompt', { p_thread: threadId, p_content: text });
-      const msg: Message = { id: Math.random().toString(36).slice(2), sender_id: user!.id, content: text, created_at: new Date().toISOString() };
+      const msg: Message = { id: Math.random().toString(36).slice(2), sender_id: user!.id, content: text, created_at: new Date().toISOString(), message_type: 'prompt_reply' };
       setMessages(prev => [...prev, msg]);
       setTimeout(()=> endRef.current?.scrollIntoView({ behavior: 'smooth' }), 10);
     } catch {}
@@ -256,6 +258,12 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
                         {isSelf ? 'You' : (sender?.username || 'Unknown')}
                       </div>
                       <div className={`px-3 py-2 rounded border ${isSelf ? 'bg-brand-accent/20 border-brand-accent/60' : 'bg-brand-surface/70 border-brand-border/70'}`}>
+                        {m.message_type === 'prompt_reply' && (
+                          <div className="text-[10px] mb-1 inline-flex items-center gap-1 text-brand-primary">
+                            <span>📄</span>
+                            <span>Reply to today’s prompt</span>
+                          </div>
+                        )}
                         <div className="text-sm text-brand-text whitespace-pre-wrap break-words">{m.content}</div>
                         <div className="text-[10px] text-brand-muted mt-1">{new Date(m.created_at).toLocaleTimeString()}</div>
                       </div>

@@ -20,6 +20,17 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- Ensure one reply per user per prompt at the database level
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_indexes WHERE schemaname='public' AND indexname='uniq_chat_prompt_reply'
+  ) THEN
+    CREATE UNIQUE INDEX uniq_chat_prompt_reply
+      ON public.chat_messages(group_prompt_id, sender_id)
+      WHERE group_prompt_id IS NOT NULL;
+  END IF;
+END $$;
+
 -- 2) RPC: reply_to_group_prompt(thread -> message linked to today's prompt)
 CREATE OR REPLACE FUNCTION public.reply_to_group_prompt(
   p_thread uuid,
@@ -50,6 +61,14 @@ BEGIN
 
   IF v_prompt_id IS NULL THEN
     RAISE EXCEPTION 'no prompt set for today';
+  END IF;
+
+  -- prevent multiple replies by same user
+  IF EXISTS (
+    SELECT 1 FROM public.chat_messages m
+    WHERE m.group_prompt_id = v_prompt_id AND m.sender_id = auth.uid()
+  ) THEN
+    RAISE EXCEPTION 'already_replied';
   END IF;
 
   INSERT INTO public.chat_messages(thread_id, sender_id, content, message_type, group_prompt_id)
