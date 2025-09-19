@@ -29,6 +29,8 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
   const [participants, setParticipants] = useState<Array<{ id: string; username: string; avatar_url?: string }>>([]);
   const [threadName, setThreadName] = useState<string | null>(null);
   const [todayPrompt, setTodayPrompt] = useState<string | null>(null);
+  const [todayPromptId, setTodayPromptId] = useState<string | null>(null);
+  const [hasRepliedToPrompt, setHasRepliedToPrompt] = useState(false);
   const [reply, setReply] = useState('');
 
   useEffect(() => {
@@ -94,11 +96,26 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
           const todayStr = today.toISOString().slice(0,10);
           const { data: gp } = await supabase
             .from('group_prompts')
-            .select('prompt_text')
+            .select('id,prompt_text')
             .eq('thread_id', threadId)
             .eq('prompt_date', todayStr)
             .maybeSingle();
-          if (!cancelled) setTodayPrompt((gp as any)?.prompt_text || null);
+          if (!cancelled) {
+            setTodayPrompt((gp as any)?.prompt_text || null);
+            setTodayPromptId((gp as any)?.id || null);
+          }
+          // If prompt exists, check if current user already replied
+          if ((gp as any)?.id && user?.id) {
+            const { data: existing } = await supabase
+              .from('chat_messages')
+              .select('id', { head: false, count: 'exact' })
+              .eq('group_prompt_id', (gp as any).id)
+              .eq('sender_id', user.id)
+              .limit(1);
+            if (!cancelled) setHasRepliedToPrompt(!!(existing && (existing as any[]).length));
+          } else {
+            if (!cancelled) setHasRepliedToPrompt(false);
+          }
         } catch { if (!cancelled) setTodayPrompt(null); }
       } finally {
         if (!cancelled) setLoading(false);
@@ -150,13 +167,22 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
   const replyToPrompt = async () => {
     const text = reply.trim();
     if (!text) return;
+    if (hasRepliedToPrompt) return;
     setReply('');
     try {
       await supabase.rpc('reply_to_group_prompt', { p_thread: threadId, p_content: text });
       const msg: Message = { id: Math.random().toString(36).slice(2), sender_id: user!.id, content: text, created_at: new Date().toISOString(), message_type: 'prompt_reply' };
       setMessages(prev => [...prev, msg]);
+      setHasRepliedToPrompt(true);
       setTimeout(()=> endRef.current?.scrollIntoView({ behavior: 'smooth' }), 10);
-    } catch {}
+    } catch (e: any) {
+      // Log server message to help diagnose (e.g., 'no prompt set for today', 'already_replied')
+      console.error('[chat] reply_to_group_prompt failed', e);
+      const msg = String(e?.message || e || '').toLowerCase();
+      if (msg.includes('already_replied')) {
+        setHasRepliedToPrompt(true);
+      }
+    }
   };
 
   // mark read when opening
@@ -235,8 +261,9 @@ const ChatThread: React.FC<Props> = ({ threadId, onBack, onOpenDetails }) => {
                       onChange={(e)=>setReply(e.target.value)}
                       placeholder="Reply to today’s prompt…"
                       onKeyDown={(e)=>{ if (e.key==='Enter' && !e.shiftKey) { e.preventDefault(); replyToPrompt(); } }}
+                      disabled={hasRepliedToPrompt}
                     />
-                    <Button onClick={replyToPrompt} disabled={!reply.trim()} className="px-3">Reply</Button>
+                    <Button onClick={replyToPrompt} disabled={hasRepliedToPrompt || !reply.trim()} className="px-3">{hasRepliedToPrompt ? 'Replied' : 'Reply'}</Button>
                   </div>
                 </div>
               )}
