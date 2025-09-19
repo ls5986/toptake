@@ -4,8 +4,7 @@ import { TodaysPrompt } from './TodaysPrompt';
 import { Take } from '@/types';
 import { supabase } from '@/lib/supabase';
 import { useAppContext } from '@/contexts/AppContext';
-import { ScrollArea } from '@/components/ui/scroll-area';
-import { RefreshCw, Trophy, CalendarIcon, Flame } from 'lucide-react';
+import { RefreshCw, Trophy, CalendarIcon } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { getTodayPrompt } from '@/lib/supabase';
 import { TakeCard } from './TakeCard';
@@ -168,139 +167,133 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
   }
 
   return (
-    <div className="flex-1 flex flex-col h-full">
-      <div className="flex-shrink-0">
-        <TodaysPrompt 
-          prompt={promptText} 
-          takeCount={topTakes.length} 
-          loading={promptLoading}
-          selectedDate={selectedDate}
-        />
-      </div>
-      
-      <div className="flex-1 min-h-0">
-        {/* Sub-tabs */}
-        <div className="sticky top-0 z-10 bg-brand-surface border-b border-brand-border/70 px-2 py-2">
-          <div className="flex items-center gap-2">
-            <div className="inline-flex rounded-md overflow-hidden border border-brand-border/70">
-              <button
-                className={`px-3 py-1.5 text-sm ${subTab==='top' ? 'bg-brand-accent/20 text-brand-text' : 'text-brand-muted'}`}
-                onClick={()=> setSubTab('top')}
-              >
-                Top
-              </button>
-              <button
-                className={`px-3 py-1.5 text-sm ${subTab==='streaks' ? 'bg-brand-accent/20 text-brand-text' : 'text-brand-muted'}`}
-                onClick={()=> setSubTab('streaks')}
-              >
-                Streaks
-              </button>
-            </div>
+    <div className="w-full">
+      <TodaysPrompt 
+        prompt={promptText} 
+        takeCount={topTakes.length} 
+        loading={promptLoading}
+        selectedDate={selectedDate}
+      />
+
+      {/* Sub-tabs (non-sticky; parent provides scrolling) */}
+      <div className="border-b border-brand-border px-2 py-2 bg-brand-surface">
+        <div className="flex items-center gap-2">
+          <div className="inline-flex rounded-md overflow-hidden border border-brand-border">
+            <button
+              className={`px-3 py-1.5 text-sm ${subTab==='top' ? 'bg-brand-accent/20 text-brand-text' : 'text-brand-muted'}`}
+              onClick={()=> setSubTab('top')}
+            >
+              Top
+            </button>
+            <button
+              className={`px-3 py-1.5 text-sm ${subTab==='streaks' ? 'bg-brand-accent/20 text-brand-text' : 'text-brand-muted'}`}
+              onClick={()=> setSubTab('streaks')}
+            >
+              Streaks
+            </button>
           </div>
         </div>
+      </div>
 
-        {subTab === 'streaks' ? (
-          <div className="h-full">
-            <LeaderboardScreen />
+      {subTab === 'streaks' ? (
+        <div className="p-3">
+          <LeaderboardScreen />
+        </div>
+      ) : loading ? (
+        <div className="flex items-center justify-center py-16">
+          <div className="text-center text-white">
+            <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
+            <p>Loading top takes...</p>
           </div>
-        ) : loading ? (
-          <div className="flex items-center justify-center h-full">
-            <div className="text-center text-white">
-              <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-purple-400 mx-auto mb-4"></div>
-              <p>Loading top takes...</p>
+        </div>
+      ) : !promptText ? (
+        <div className="text-center text-brand-danger py-8">
+          <p>No prompt found for today's topic!</p>
+        </div>
+      ) : (
+        <div className="p-3 space-y-3">
+          <div className="flex items-center justify-between bg-brand-surface py-2 border-b border-brand-border px-1 rounded">
+            <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
+              <Trophy className="w-4 h-4 text-yellow-400" />
+              <span>Top takes</span>
+              <span className="text-brand-text/80 ml-1">{topTakes.length}</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button variant="outline" size="sm" className="px-3 py-1.5 h-8 gap-1.5">
+                    <CalendarIcon className="h-4 w-4" />
+                    <span className="text-xs">{format(selectedDate, 'MMM dd')}</span>
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-2 bg-brand-surface border-brand-border" align="end">
+                  <Calendar
+                    mode="single"
+                    selected={selectedDate}
+                    onSelect={(date) => date && onDateChange(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+              <Button
+                onClick={handleRefresh}
+                disabled={refreshing}
+                variant="outline"
+                size="sm"
+                className="h-8 w-8 p-0"
+              >
+                <RefreshCw className={`w-4 h-4 text-brand-accent ${refreshing ? 'animate-spin' : ''}`} />
+              </Button>
             </div>
           </div>
-        ) : !promptText ? (
-          <div className="text-center text-brand-danger py-8">
-            <p>No prompt found for today's topic!</p>
-          </div>
-        ) : (
-          <ScrollArea className="h-full">
-            <div className="p-3 space-y-3">
-              <div className="flex items-center justify-between sticky top-0 bg-brand-surface py-2 z-10 border-b border-brand-border/70 px-1 rounded">
-                <div className="text-[11px] uppercase tracking-wide text-brand-muted flex items-center gap-1">
-                  <Trophy className="w-4 h-4 text-yellow-400" />
-                  <span>Top takes</span>
-                  <span className="text-brand-text/80 ml-1">{topTakes.length}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button variant="outline" size="sm" className="px-3 py-1.5 h-8 gap-1.5">
-                        <CalendarIcon className="h-4 w-4" />
-                        <span className="text-xs">{format(selectedDate, 'MMM dd')}</span>
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-2 bg-brand-surface border-brand-border" align="end">
-                      <Calendar
-                        mode="single"
-                        selected={selectedDate}
-                        onSelect={(date) => date && onDateChange(date)}
-                        initialFocus
-                      />
-                    </PopoverContent>
-                  </Popover>
-                  <Button
-                    onClick={handleRefresh}
-                    disabled={refreshing}
-                    variant="outline"
-                    size="sm"
-                    className="h-8 w-8 p-0"
-                  >
-                    <RefreshCw className={`w-4 h-4 text-brand-accent ${refreshing ? 'animate-spin' : ''}`} />
-                  </Button>
+
+          {topTakes.map((take) => {
+            const futureTake = isFutureTake(take);
+            const canView = !futureTake || canSneakPeek;
+            return (
+              <div
+                key={take.id}
+                ref={el => (takeRefs.current[take.id] = el)}
+                className={highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}
+              >
+                {!canView ? (
+                  <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
+                    <div className="text-white text-lg mb-2">🔒 Sneak Peek Locked</div>
+                    <Button
+                      onClick={() => handleSneakPeekUnlock(take)}
+                      className="bg-blue-500 text-white hover:bg-blue-600"
+                    >
+                      {canSneakPeek ? 'Unlock Sneak Peek' : 'Buy Sneak Peek Credit'}
+                    </Button>
+                  </div>
+                ) : null}
+                <div className={canView ? '' : 'blur-sm pointer-events-none select-none'}>
+                  <TakeCard 
+                    take={take} 
+                    onReact={handleReaction}
+                    reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
+                  />
                 </div>
               </div>
-              
-              {topTakes
-                .map((take, index) => {
-                  const futureTake = isFutureTake(take);
-                  const canView = !futureTake || canSneakPeek;
-                  return (
-                    <div
-                      key={take.id}
-                      ref={el => (takeRefs.current[take.id] = el)}
-                      className={highlightedTakeId === take.id ? 'ring-2 ring-brand-accent rounded-lg transition-all duration-300' : ''}
-                    >
-                      {!canView ? (
-                        <div className="absolute inset-0 bg-black/60 flex flex-col items-center justify-center z-10 rounded-lg">
-                          <div className="text-white text-lg mb-2">🔒 Sneak Peek Locked</div>
-                          <Button
-                            onClick={() => handleSneakPeekUnlock(take)}
-                            className="bg-blue-500 text-white hover:bg-blue-600"
-                          >
-                            {canSneakPeek ? 'Unlock Sneak Peek' : 'Buy Sneak Peek Credit'}
-                          </Button>
-                        </div>
-                      ) : null}
-                      <div className={canView ? '' : 'blur-sm pointer-events-none select-none'}>
-                        <TakeCard 
-                          take={take} 
-                          onReact={handleReaction}
-                          reactionCounts={reactionCounts[take.id] || { wildTake: 0, fairPoint: 0, mid: 0, thatYou: 0 }}
-                        />
-                      </div>
-                    </div>
-                  );
-                })}
-              
-              {topTakes.length === 0 && (
-                <div className="text-center text-gray-400 py-8">
-                  <p>No top takes yet today!</p>
-                  <p className="text-sm mt-2">Be the first to share your take</p>
-                </div>
-              )}
-              {topTakes.length > 0 && (
-                <div className="flex justify-center py-3">
-                  <Button onClick={handleLoadMore} variant="outline" size="sm" disabled={refreshing || loading}>
-                    {refreshing || loading ? 'Loading…' : 'Load more'}
-                  </Button>
-                </div>
-              )}
+            );
+          })}
+
+          {topTakes.length === 0 && (
+            <div className="text-center text-gray-400 py-8">
+              <p>No top takes yet today!</p>
+              <p className="text-sm mt-2">Be the first to share your take</p>
             </div>
-          </ScrollArea>
-        )}
-      </div>
+          )}
+          {topTakes.length > 0 && (
+            <div className="flex justify-center py-3">
+              <Button onClick={handleLoadMore} variant="outline" size="sm" disabled={refreshing || loading}>
+                {refreshing || loading ? 'Loading…' : 'Load more'}
+              </Button>
+            </div>
+          )}
+        </div>
+      )}
+
       <BillingModal isOpen={showSneakPeekModal} onClose={() => setShowSneakPeekModal(false)} />
     </div>
   );
