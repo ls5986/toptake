@@ -57,22 +57,30 @@ export const MonetizationModals: React.FC<MonetizationModalsProps> = ({
       case 'anonymous':
         return {
           amount: PRICES.ANONYMOUS_CREDITS,
-          description: "5 Anonymous Credits"
+          description: "Anonymous Credits",
+          lookupKey: 'credits_anonymous_10_299',
+          mode: 'payment' as const,
         };
       case 'streak':
         return {
           amount: PRICES.STREAK_RESTORE,
-          description: "Streak Restore"
+          description: "Late Submit Credits",
+          lookupKey: 'credits_late_submit_5_199',
+          mode: 'payment' as const,
         };
       case 'premium':
         return {
           amount: PRICES.PREMIUM_MONTHLY,
-          description: "Premium Monthly Subscription"
+          description: "Premium Monthly Subscription",
+          lookupKey: 'sub_toptake_plus_monthly',
+          mode: 'subscription' as const,
         };
       case 'boost':
         return {
           amount: PRICES.BOOST_24H,
-          description: "24-Hour Boost"
+          description: "Boost Credits",
+          lookupKey: 'credits_boost_3_499',
+          mode: 'payment' as const,
         };
       default:
         return null;
@@ -153,6 +161,8 @@ export const MonetizationModals: React.FC<MonetizationModalsProps> = ({
               <StripePayment
                 amount={getPaymentConfig(selectedPayment)!.amount}
                 description={getPaymentConfig(selectedPayment)!.description}
+                lookupKey={getPaymentConfig(selectedPayment)!.lookupKey}
+                mode={getPaymentConfig(selectedPayment)!.mode}
                 onSuccess={onSuccess}
                 onError={handleError}
               />
