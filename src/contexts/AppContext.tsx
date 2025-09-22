@@ -590,6 +590,14 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
   useEffect(() => {
     const onVisibility = () => {
       if (document.visibilityState === 'visible') {
+        // If returning from Stripe checkout, refresh credits once
+        try {
+          const flag = localStorage.getItem('pendingCheckout');
+          if (flag) {
+            localStorage.removeItem('pendingCheckout');
+            refreshUserCredits();
+          }
+        } catch {}
         initializeAuth({ coldStart: false });
       }
     };

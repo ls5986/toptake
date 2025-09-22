@@ -29,6 +29,8 @@ import LateSubmitModal from './LateSubmitModal';
 import MessagesInbox from './MessagesInbox';
 import ChatThread from './ChatThread';
 import GroupDetails from './GroupDetails';
+import CreditsBadge from './CreditsBadge';
+import CreditsDrawer from './CreditsDrawer';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
@@ -52,6 +54,7 @@ const MainAppScreen: React.FC = () => {
   const [unreadNotifications, setUnreadNotifications] = useState(0);
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [focusedTakeId, setFocusedTakeId] = useState<string | null>(null);
+  const [showCredits, setShowCredits] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -663,6 +666,9 @@ const MainAppScreen: React.FC = () => {
                 <span className="absolute -top-1 -right-1 bg-brand-accent text-white rounded-full text-[10px] px-1 leading-none">{unreadMessages > 9 ? '9+' : unreadMessages}</span>
               )}
             </button>
+            <div className="ml-2">
+              <CreditsBadge onClick={() => setShowCredits(true)} />
+            </div>
           </div>
         </div>
         
@@ -710,6 +716,15 @@ const MainAppScreen: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <CreditsDrawer 
+        isOpen={showCredits} 
+        onClose={() => setShowCredits(false)} 
+        onBuy={(type) => { 
+          setShowPremiumModal(true); 
+          setShowCredits(false); 
+        }} 
+      />
 
       {(showAnonymousModal || showPremiumModal) && (
         <MonetizationModals

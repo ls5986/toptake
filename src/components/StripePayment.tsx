@@ -103,6 +103,7 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
               return;
             }
             if (!body.url) throw new Error('Checkout URL missing');
+            try { localStorage.setItem('pendingCheckout', '1'); } catch {}
             window.location.href = body.url;
           } catch (err: any) {
             onError(err?.message || 'Failed to start checkout');
