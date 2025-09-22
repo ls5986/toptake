@@ -91,19 +91,19 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
       // Membership handling
       if ((lookupKey === 'sub_toptake_plus_monthly') && userId) {
         try {
-          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
-          for (const type of creditTypes) {
-            await supabase.rpc('add_user_credits', { p_user_id: userId, p_credit_type: type, p_amount: 5 });
-          }
-          await supabase.from('purchases').insert({
+          const { data: purchaseRow } = await supabase.from('purchases').insert({
             user_id: userId,
             product_type: 'membership',
             amount: 1,
             price_id: priceId,
             stripe_session_id: session.id,
             amount_paid: (session.amount_total || 0) / 100
-          });
-          console.log('✅ Granted TopTake+ monthly starter credits');
+          }).select().single();
+          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
+          for (const type of creditTypes) {
+            await supabase.rpc('grant_credit', { p_user: userId, p_type: type, p_amount: 5, p_description: 'Membership starter', p_purchase_id: purchaseRow?.id || null, p_stripe_payment_id: session.payment_intent || null });
+          }
+          console.log('✅ Granted TopTake+ monthly starter credits via grant_credit');
         } catch (err) {
           console.error('Error granting membership credits:', err);
         }
@@ -137,33 +137,33 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
       const creditInfo = creditMapping[lookupKey] || creditMapping[priceId];
       if (creditInfo && userId) {
         try {
-          // Use the add_user_credits function from the database
-          const { error } = await supabase.rpc('add_user_credits', {
-            p_user_id: userId,
-            p_credit_type: creditInfo.type,
-            p_amount: creditInfo.amount
-          });
-          
-          if (error) {
-            console.error('Error adding credits:', error);
-            // Log to monitoring service in production
-          } else {
-            console.log(`✅ Added ${creditInfo.amount} ${creditInfo.type} credits to user ${userId}`);
-            
-            // Also log the purchase for analytics
-            await supabase.from('purchases').insert({
+          // Insert purchase first (idempotent by unique session)
+          const { data: purchaseRow } = await supabase
+            .from('purchases')
+            .insert({
               user_id: userId,
               product_type: creditInfo.type,
               amount: creditInfo.amount,
               price_id: priceId,
               stripe_session_id: session.id,
-              amount_paid: session.amount_total / 100 // Convert from cents
-            });
+              amount_paid: session.amount_total / 100
+            })
+            .select().single()
+            .catch(() => ({ data: null }));
 
-            // If suggestion_boost, record request for admin review
-            if (creditInfo.type === 'suggestion_boost') {
-              await supabase.from('suggestion_boosts').insert({ user_id: userId, prompt_text: session.metadata?.prompt_text || null });
-            }
+          // Grant credits via RPC (idempotent by stripe_payment_id inside grant_credit)
+          await supabase.rpc('grant_credit', {
+            p_user: userId,
+            p_type: creditInfo.type,
+            p_amount: creditInfo.amount,
+            p_description: `Stripe ${session.id}`,
+            p_purchase_id: purchaseRow?.id || null,
+            p_stripe_payment_id: session.payment_intent || null
+          });
+
+          // If suggestion_boost, record request for admin review
+          if (creditInfo.type === 'suggestion_boost') {
+            await supabase.from('suggestion_boosts').insert({ user_id: userId, prompt_text: session.metadata?.prompt_text || null });
           }
         } catch (err) {
           console.error('Error processing credit purchase:', err);

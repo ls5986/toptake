@@ -43,35 +43,19 @@ export const useCredits = () => {
       setIsLoading(true);
       setError(null);
 
-      // Check if user has enough credits
-      if (userCredits[type] < amount) {
-        return false;
-      }
-
-      // Get current user
+      // Spend via RPC (atomic)
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('User not authenticated');
-
-      // Start a transaction
-      const { error: updateError } = await supabase
-        .from('user_credits')
-        .update({ [type]: userCredits[type] - amount })
-        .eq('user_id', user.id);
-
-      if (updateError) throw updateError;
-
-      // Record credit usage in history
-      await supabase.rpc('add_credit_history', {
-        p_user_id: user.id,
-        p_credit_type: type,
+      const { data, error: rpcErr } = await supabase.rpc('spend_credit', {
+        p_user: user.id,
+        p_type: type,
         p_amount: amount,
-        p_action: 'use',
-        p_description: description || `Used ${amount} ${type} credit(s)`
+        p_reason: description || null
       });
-
-      // Refresh credits in app
+      if (rpcErr) throw rpcErr;
+      const ok = data === true;
       await refreshUserCredits();
-      return true;
+      return ok;
     } catch (err) {
       console.error('Error using credit:', err);
       setError(err.message || 'Failed to use credit');
@@ -94,11 +78,11 @@ export const useCredits = () => {
       if (!user) throw new Error('User not authenticated');
 
       const { data, error: historyError } = await supabase
-        .rpc('get_credit_history', {
-          p_user_id: user.id,
-          p_limit: limit,
-          p_offset: offset
-        });
+        .from('credit_history')
+        .select('*')
+        .eq('user_id', user.id)
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
 
       if (historyError) throw historyError;
       return data || [];
@@ -115,7 +99,7 @@ export const useCredits = () => {
       if (!user) throw new Error('User not authenticated');
 
       const { data, error: purchasesError } = await supabase
-        .from('credit_purchases')
+        .from('purchases')
         .select('*')
         .eq('user_id', user.id)
         .order('created_at', { ascending: false });
@@ -156,7 +140,7 @@ export const useCredits = () => {
 
 export async function getUserCredits(userId: string, creditType: CreditType): Promise<number> {
   const { data, error } = await supabase
-    .from('user_credits')
+    .from('user_credits_balances')
     .select('balance')
     .eq('user_id', userId)
     .eq('credit_type', creditType)
@@ -167,15 +151,20 @@ export async function getUserCredits(userId: string, creditType: CreditType): Pr
 
 export async function updateUserCredits(userId: string, creditType: CreditType, newBalance: number): Promise<boolean> {
   const { error } = await supabase
-    .from('user_credits')
+    .from('user_credits_balances')
     .upsert({ user_id: userId, credit_type: creditType, balance: newBalance });
   return !error;
 }
 
 export async function spendCredits(userId: string, creditType: CreditType, amount: number): Promise<boolean> {
-  const current = await getUserCredits(userId, creditType);
-  if (current < amount) return false;
-  return await updateUserCredits(userId, creditType, current - amount);
+  // Deprecated: kept for backward compatibility; use spendCreditRPC via useCredits/useCredit.
+  const { data, error } = await supabase.rpc('spend_credit', {
+    p_user: userId,
+    p_type: creditType,
+    p_amount: amount,
+    p_reason: null
+  });
+  return !error && data === true;
 }
 
 export async function addCredits(userId: string, creditType: CreditType, amount: number): Promise<boolean> {
