@@ -207,9 +207,11 @@ const MainAppScreen: React.FC = () => {
       // If route contains a username, render that profile inside the main layout
       if (username) {
         return (
-          <div className="flex-1 p-0">
-            <ProfileRoute />
-          </div>
+          <ScrollArea className="h-full">
+            <div className="p-3">
+              <ProfileRoute />
+            </div>
+          </ScrollArea>
         );
       }
       if (currentTab === 'admin' && user?.is_admin) {
