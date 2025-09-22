@@ -215,7 +215,13 @@ const MainAppScreen: React.FC = () => {
         );
       }
       if (currentTab === 'admin' && user?.is_admin) {
-        return <AdminScreen />;
+        return (
+          <ScrollArea className="h-full">
+            <div className="p-3">
+              <AdminScreen />
+            </div>
+          </ScrollArea>
+        );
       }
       
       if (currentTab === 'leaderboard') {
@@ -282,9 +288,31 @@ const MainAppScreen: React.FC = () => {
         const chatId = focusedTakeId;
         // Simple details toggle via URL hash
         const showDetails = (()=>{ try { return window.location.hash === '#details'; } catch { return false; } })();
-        if (chatId && showDetails) return <GroupDetails threadId={chatId} onBack={()=>{ window.location.hash=''; }} />;
-        if (chatId) return <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} onOpenDetails={()=>{ window.location.hash = '#details'; }} />;
-        return <MessagesInbox onOpenThread={(id: string)=> setFocusedTakeId(id)} />;
+        if (chatId && showDetails) {
+          return (
+            <ScrollArea className="h-full">
+              <div className="p-3">
+                <GroupDetails threadId={chatId} onBack={()=>{ window.location.hash=''; }} />
+              </div>
+            </ScrollArea>
+          );
+        }
+        if (chatId) {
+          return (
+            <ScrollArea className="h-full">
+              <div className="p-3">
+                <ChatThread threadId={chatId} onBack={()=> setFocusedTakeId(null)} onOpenDetails={()=>{ window.location.hash = '#details'; }} />
+              </div>
+            </ScrollArea>
+          );
+        }
+        return (
+          <ScrollArea className="h-full">
+            <div className="p-3">
+              <MessagesInbox onOpenThread={(id: string)=> setFocusedTakeId(id)} />
+            </div>
+          </ScrollArea>
+        );
       }
 
       return (
