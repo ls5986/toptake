@@ -438,6 +438,41 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
       // This is the single source of truth
       await checkHasPostedTodayFromBackend(profile.id);
       if (debug) console.log('[INIT] hasPostedToday updated');
+      
+      // Prefetch today's prompt and first 100 takes for fast initial render
+      try {
+        const today = new Date();
+        const todayStr = today.getFullYear() + '-' + String(today.getMonth() + 1).padStart(2, '0') + '-' + String(today.getDate()).padStart(2, '0');
+        // Prompt (idempotent, cached by date)
+        supabase
+          .from('daily_prompts')
+          .select('prompt_text')
+          .eq('prompt_date', todayStr)
+          .maybeSingle()
+          .then(({ data }) => {
+            const text = data?.prompt_text || '';
+            try { localStorage.setItem(`prompt:${todayStr}`, JSON.stringify({ value: text, expiresAt: Date.now() + 24*60*60*1000 })); } catch {}
+          })
+          .catch(()=>{});
+        // Takes (first page)
+        supabase.rpc('get_takes_for_date', { p_user_id: profile.id, p_date: todayStr, p_limit: 100 })
+          .then(({ data }) => {
+            if (!Array.isArray(data)) return;
+            const formatted = data.map((t: any) => ({
+              id: t.id,
+              userId: t.user_id,
+              content: t.content,
+              username: t.is_anonymous ? 'Anonymous' : (t.user_id === profile.id ? 'You' : (t.username || '')),
+              isAnonymous: t.is_anonymous,
+              timestamp: t.created_at,
+              prompt_date: t.prompt_date,
+              commentCount: t.comment_count || 0,
+              reactionCount: t.reaction_count || 0,
+            }));
+            try { localStorage.setItem(`takes:${todayStr}`, JSON.stringify({ value: formatted, expiresAt: Date.now() + 5*60*1000 })); } catch {}
+          })
+          .catch(()=>{});
+      } catch {}
       setError(null);
       
       if (opts?.coldStart || !user) setIsLoading(false);

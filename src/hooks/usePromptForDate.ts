@@ -30,6 +30,21 @@ export function usePromptForDate(date: Date) {
       return;
     }
 
+    // Try localStorage cache (persists across reloads)
+    try {
+      const lsKey = `prompt:${dateStr}`;
+      const raw = localStorage.getItem(lsKey);
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed && parsed.expiresAt > Date.now()) {
+          promptCache[dateStr] = parsed.value || '';
+          setPromptText(parsed.value || '');
+          setLoading(false);
+          return;
+        }
+      }
+    } catch {}
+
     setPromptText('');
     const fetchPrompt = async () => {
       const { data, error } = await supabase
@@ -44,6 +59,10 @@ export function usePromptForDate(date: Date) {
       } else {
         const text = data?.prompt_text || '';
         promptCache[dateStr] = text;
+        // Cache in localStorage for 1 day (prompt is immutable for a date)
+        try {
+          localStorage.setItem(`prompt:${dateStr}`, JSON.stringify({ value: text, expiresAt: Date.now() + 24 * 60 * 60 * 1000 }));
+        } catch {}
         setPromptText(text);
         setError(null);
       }

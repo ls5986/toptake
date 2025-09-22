@@ -32,6 +32,9 @@ function formatLocalYMD(date: Date): string {
   return `${y}-${m}-${d}`;
 }
 
+// Simple in-memory inflight and cache map
+const takesInflight: Record<string, Promise<any>> = {};
+
 export function useTakesForDate(date: Date) {
   const [takes, setTakes] = useState<FormattedTake[]>([]);
   const [loading, setLoading] = useState(true);
@@ -65,13 +68,26 @@ export function useTakesForDate(date: Date) {
         if (before) args.p_before_created_at = before;
         console.log('[useTakesForDate] fetch', { dateStr, before })
         let data: RpcTakeRow[] | null = null;
-        try {
-          const rpc = await supabase.rpc('get_takes_for_date', args);
-          if (rpc.error) throw rpc.error;
-          data = (rpc.data as RpcTakeRow[]) || [];
-        } catch (e) {
-          console.warn('[useTakesForDate] RPC failed, will try fallback', e);
-          data = null;
+        if (!before && takesInflight[cacheKey]) {
+          // De-dupe concurrent first-page fetches
+          try {
+            data = await takesInflight[cacheKey];
+          } catch {
+            data = null;
+          }
+        } else {
+          try {
+            const promise = supabase.rpc('get_takes_for_date', { ...args, p_limit: before ? 50 : 100 });
+            if (!before) takesInflight[cacheKey] = promise as any;
+            const rpc = await promise;
+            if (rpc.error) throw rpc.error;
+            data = (rpc.data as RpcTakeRow[]) || [];
+          } catch (e) {
+            console.warn('[useTakesForDate] RPC failed, will try fallback', e);
+            data = null;
+          } finally {
+            if (!before) delete takesInflight[cacheKey];
+          }
         }
 
         // Fallback: direct query if RPC empty or failed
@@ -174,7 +190,8 @@ export function useTakesForDate(date: Date) {
             });
           } else {
             setTakes(formatted);
-            try { localStorage.setItem(cacheKey, JSON.stringify({ value: formatted, expiresAt: Date.now() + 30_000 })); } catch {}
+            // Cache for 5 minutes
+            try { localStorage.setItem(cacheKey, JSON.stringify({ value: formatted, expiresAt: Date.now() + 5 * 60 * 1000 })); } catch {}
           }
         }
       } catch (e: any) {
