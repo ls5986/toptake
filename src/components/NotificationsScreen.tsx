@@ -90,7 +90,7 @@ export const NotificationsScreen: React.FC = () => {
               {notifications.map((n) => (
                 <Card
                   key={n.id}
-                  className={`flex items-center gap-3 p-3 cursor-pointer transition-all ${!n.read ? 'border-brand-accent/80 bg-brand-accent/10' : 'border-brand-border/70 bg-brand-surface/70'}`}
+                  className={`flex items-center gap-3 p-3 cursor-pointer transition-all ${!n.read ? 'border-brand-accent/80 bg-brand-accent/10' : 'border-brand-border bg-brand-surface'}`}
                   onClick={() => handleClick(n)}
                 >
                   <span className="flex items-center justify-center w-8 h-8 rounded-full bg-brand-muted/20">

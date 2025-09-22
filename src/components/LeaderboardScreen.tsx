@@ -149,7 +149,7 @@ const LeaderboardScreen: React.FC = () => {
           {leaderboard.map((user, index) => (
             <Card 
               key={user.id} 
-              className={`bg-brand-surface/70 border-brand-border/70 transition-all duration-200 cursor-pointer hover:border-brand-primary ${index < 3 ? 'ring-1 ring-brand-primary/30' : ''}`}
+              className={`bg-brand-surface border-brand-border transition-all duration-200 cursor-pointer hover:border-brand-primary ${index < 3 ? 'ring-1 ring-brand-primary/30' : ''}`}
               onClick={() => handleUserClick(user)}
             >
               <CardContent className="p-3">

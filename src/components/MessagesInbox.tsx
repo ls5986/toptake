@@ -146,7 +146,7 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
               {!explore ? (
                 <>
                   {threads.map(t => (
-                    <Card key={t.id} className="bg-brand-surface/70 border-brand-border/70 hover:border-brand-accent/50 hover:bg-brand-surface cursor-pointer transition-all duration-200" onClick={()=>onOpenThread(t.id)}>
+                    <Card key={t.id} className="bg-brand-surface border-brand-border hover:border-brand-accent/50 cursor-pointer transition-all duration-200" onClick={()=>onOpenThread(t.id)}>
                       <CardContent className="p-4">
                         <div className="flex items-center gap-3">
                           <div className="flex -space-x-2">
@@ -185,7 +185,7 @@ const MessagesInbox: React.FC<MessagesInboxProps> = ({ onOpenThread }) => {
               ) : (
                 <>
                   {discover.map(t => (
-                    <Card key={t.id} className="bg-brand-surface/70 border-brand-border/70 hover:border-brand-accent/50 transition-all duration-200">
+                    <Card key={t.id} className="bg-brand-surface border-brand-border hover:border-brand-accent/50 transition-all duration-200">
                       <CardContent className="p-4 flex items-center justify-between">
                         <div className="flex-1">
                           <div className="text-brand-text font-medium mb-1">{t.name || 'Group'}</div>
