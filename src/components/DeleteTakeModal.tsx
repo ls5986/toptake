@@ -79,6 +79,7 @@ const DeleteTakeModal: React.FC<DeleteTakeModalProps> = ({
 
       // Update local state
       setUserCredits({ ...userCredits, delete: userCredits.delete - 1 });
+      toast({ title: 'Delete credit used', description: '-1 Delete credit' });
 
       toast({ 
         title: 'Take Deleted', 

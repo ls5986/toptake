@@ -59,6 +59,7 @@ const PromptScreen: React.FC = () => {
         return;
       }
       setUserCredits({ ...userCredits, anonymous: userCredits.anonymous - 1 });
+      toast({ title: 'Anonymous credit used', description: '-1 Anonymous credit' });
     }
     // Fetch today's prompt by local date
     const { data: prompt, error } = await supabase
@@ -111,6 +112,7 @@ const PromptScreen: React.FC = () => {
       return;
     }
     setUserCredits({ ...userCredits, late_submit: userCredits.late_submit - 1 });
+    toast({ title: 'Late Submit credit used', description: '-1 Late Submit credit' });
 
     try {
       const dateStr = new Date().toISOString().split('T')[0];

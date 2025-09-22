@@ -175,6 +175,7 @@ const TopTakesScreen: React.FC<TopTakesScreenProps> = ({ focusedTakeId, selected
       return;
     }
     setUserCredits({ ...userCredits, sneak_peek: userCredits.sneak_peek - 1 });
+    toast({ title: 'Sneak Peek credit used', description: '-1 Sneak Peek credit' });
     // Insert into sneak_peeks and decrement credit
     await supabase.from('sneak_peeks').insert({ user_id: user.id, take_id: take.id, created_at: new Date().toISOString() });
     toast({ title: 'Sneak Peek Unlocked', description: 'You have unlocked a future take!' });

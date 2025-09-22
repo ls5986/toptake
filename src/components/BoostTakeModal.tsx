@@ -57,6 +57,7 @@ const BoostTakeModal: React.FC<BoostTakeModalProps> = ({
 
       // Update local state
       setUserCredits({ ...userCredits, boost: userCredits.boost - 1 });
+      toast({ title: 'Boost credit used', description: '-1 Boost credit' });
 
       // TODO: Implement actual boost logic here
       // This would typically involve updating the take in the database
