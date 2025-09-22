@@ -172,10 +172,11 @@ const MainAppScreen: React.FC = () => {
       if (tab === 'admin' && !user?.is_admin) {
         return;
       }
+      // Normalize routes for tabs
+      if (tab === 'feed') navigate('/');
+      if (tab === 'profile') navigate('/profile');
       // If we are on a /:username route, clear it for any non-profile tabs
-      if (tab !== 'profile' && username) {
-        navigate('/');
-      }
+      if (tab !== 'profile' && username) navigate('/');
       // search opens inline SearchScreen tab
       setCurrentTab(tab);
     } catch (error) {
@@ -813,11 +814,7 @@ const MainAppScreen: React.FC = () => {
 
       <BottomNav 
         currentTab={currentTab} 
-        onTabChange={(tab) => {
-          if (tab === 'feed') navigate('/');
-          if (tab === 'profile') navigate('/profile');
-          setCurrentTab(tab);
-        }} 
+        onTabChange={handleTabChange}
         unreadNotifications={unreadNotifications} 
       />
     </div>
