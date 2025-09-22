@@ -17,6 +17,7 @@ interface CreditPackage {
   credits: number;
   id: string;
   type: 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'extra_takes' | 'delete';
+  lookupKey: string;
 }
 
 const packages: CreditPackage[] = [
@@ -26,7 +27,8 @@ const packages: CreditPackage[] = [
     price: 2.99, 
     credits: 10, 
     id: 'anonymous_credits',
-    type: 'anonymous'
+    type: 'anonymous',
+    lookupKey: 'credits_anonymous_10_299'
   },
   { 
     name: 'Late Submit Credits', 
@@ -34,7 +36,8 @@ const packages: CreditPackage[] = [
     price: 1.99, 
     credits: 5, 
     id: 'late_submit_credits',
-    type: 'late_submit'
+    type: 'late_submit',
+    lookupKey: 'credits_late_submit_5_199'
   },
   { 
     name: 'Sneak Peek Credits', 
@@ -42,7 +45,8 @@ const packages: CreditPackage[] = [
     price: 3.99, 
     credits: 5, 
     id: 'sneak_peek_credits',
-    type: 'sneak_peek'
+    type: 'sneak_peek',
+    lookupKey: 'credits_sneak_peek_5_399'
   },
   { 
     name: 'Boost Credits', 
@@ -50,7 +54,8 @@ const packages: CreditPackage[] = [
     price: 4.99, 
     credits: 3, 
     id: 'boost_credits',
-    type: 'boost'
+    type: 'boost',
+    lookupKey: 'credits_boost_3_499'
   },
   { 
     name: 'Extra Takes Credits', 
@@ -58,7 +63,8 @@ const packages: CreditPackage[] = [
     price: 2.99, 
     credits: 5, 
     id: 'extra_takes_credits',
-    type: 'extra_takes'
+    type: 'extra_takes',
+    lookupKey: 'credits_extra_takes_5_299'
   },
   { 
     name: 'Delete Credits', 
@@ -66,7 +72,8 @@ const packages: CreditPackage[] = [
     price: 1.99, 
     credits: 5, 
     id: 'delete_credits',
-    type: 'delete'
+    type: 'delete',
+    lookupKey: 'credits_delete_5_199'
   },
 ];
 
@@ -147,6 +154,9 @@ const BillingModal: React.FC<BillingModalProps> = ({ isOpen, onClose }) => {
                   description={`${pkg.name} - ${pkg.credits} credits`}
                   onSuccess={handlePaymentSuccess}
                   onError={handlePaymentError}
+                  lookupKey={pkg.lookupKey}
+                  mode="payment"
+                  metadata={{ product_type: pkg.type }}
                 />
               ) : (
                 <Button 

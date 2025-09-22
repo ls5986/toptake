@@ -9,6 +9,9 @@ interface StripePaymentProps {
   description: string;
   onSuccess: () => void;
   onError: (error: string) => void;
+  lookupKey?: string;
+  mode?: 'payment' | 'subscription';
+  metadata?: Record<string, any>;
 }
 
 export const StripePayment: React.FC<StripePaymentProps> = ({
@@ -16,6 +19,9 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
   description,
   onSuccess,
   onError,
+  lookupKey,
+  mode = 'payment',
+  metadata,
 }) => {
   const [clientSecret, setClientSecret] = useState<string | null>(null);
   const [isInitializing, setIsInitializing] = useState(true);
@@ -69,14 +75,43 @@ export const StripePayment: React.FC<StripePaymentProps> = ({
     );
   }
 
-  // Production mode - Stripe implementation would go here
-  // For now, just show a placeholder
+  // Production mode - create a Checkout Session via backend and redirect
   return (
-    <div className="w-full max-w-md mx-auto p-4">
-      <div className="p-6 border-2 border-dashed border-blue-400 rounded-lg bg-blue-50">
-        <h3 className="text-lg font-semibold text-blue-800 mb-2">🚀 Production Mode</h3>
-        <p className="text-blue-700 mb-3">Stripe integration would be enabled here.</p>
-      </div>
+    <div className="w-full">
+      <Button
+        onClick={async () => {
+          try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error('User not authenticated');
+            if (!lookupKey) throw new Error('Missing product mapping (lookupKey)');
+
+            const backendUrl = (import.meta as any)?.env?.VITE_BACKEND_URL || 'https://toptake.onrender.com';
+            const resp = await fetch(`${backendUrl}/api/create-checkout-session`, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                lookupKey,
+                userId: user.id,
+                mode,
+                metadata: metadata || {}
+              })
+            });
+            if (!resp.ok) throw new Error('Failed to create checkout session');
+            const body = await resp.json();
+            if (body.free) {
+              onSuccess();
+              return;
+            }
+            if (!body.url) throw new Error('Checkout URL missing');
+            window.location.href = body.url;
+          } catch (err: any) {
+            onError(err?.message || 'Failed to start checkout');
+          }
+        }}
+        className="w-full"
+      >
+        Checkout with Stripe
+      </Button>
     </div>
   );
 }; 
