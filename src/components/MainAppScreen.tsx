@@ -31,6 +31,7 @@ import ChatThread from './ChatThread';
 import GroupDetails from './GroupDetails';
 import CreditsBadge from './CreditsBadge';
 import CreditsDrawer from './CreditsDrawer';
+import CreditsHistoryScreen from './CreditsHistoryScreen';
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { useTodayPrompt } from '@/hooks/useTodayPrompt';
@@ -55,6 +56,7 @@ const MainAppScreen: React.FC = () => {
   const [unreadMessages, setUnreadMessages] = useState(0);
   const [focusedTakeId, setFocusedTakeId] = useState<string | null>(null);
   const [showCredits, setShowCredits] = useState(false);
+  const [showCreditsHistory, setShowCreditsHistory] = useState(false);
   const [selectedDate, setSelectedDate] = useState(() => {
     const today = new Date();
     today.setHours(0,0,0,0);
@@ -283,6 +285,16 @@ const MainAppScreen: React.FC = () => {
           <ScrollArea className="h-full">
             <div className="p-3">
               <NotificationsScreen />
+            </div>
+          </ScrollArea>
+        );
+      }
+
+      if (showCreditsHistory) {
+        return (
+          <ScrollArea className="h-full">
+            <div className="p-3">
+              <CreditsHistoryScreen onBack={() => setShowCreditsHistory(false)} />
             </div>
           </ScrollArea>
         );
@@ -724,6 +736,7 @@ const MainAppScreen: React.FC = () => {
           setShowPremiumModal(true); 
           setShowCredits(false); 
         }} 
+        onViewHistory={() => { setShowCredits(false); setShowCreditsHistory(true); }}
       />
 
       {(showAnonymousModal || showPremiumModal) && (

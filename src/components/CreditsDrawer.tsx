@@ -6,6 +6,7 @@ interface Props {
   isOpen: boolean;
   onClose: () => void;
   onBuy: (type: 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'extra_takes' | 'delete') => void;
+  onViewHistory?: () => void;
 }
 
 const row = (
@@ -22,7 +23,7 @@ const row = (
   </div>
 );
 
-const CreditsDrawer: React.FC<Props> = ({ isOpen, onClose, onBuy }) => {
+const CreditsDrawer: React.FC<Props> = ({ isOpen, onClose, onBuy, onViewHistory }) => {
   const { userCredits } = useAppContext();
   if (!isOpen) return null;
   return (
@@ -33,6 +34,11 @@ const CreditsDrawer: React.FC<Props> = ({ isOpen, onClose, onBuy }) => {
           <div className="text-sm font-semibold text-brand-text">Your credits</div>
           <button className="text-brand-muted hover:text-brand-text" onClick={onClose}>Close</button>
         </div>
+        {onViewHistory && (
+          <div className="mb-2">
+            <button className="text-[12px] text-brand-accent hover:underline" onClick={onViewHistory}>View history</button>
+          </div>
+        )}
         {row('Anonymous', userCredits.anonymous, () => onBuy('anonymous'))}
         {row('Late submit', userCredits.late_submit, () => onBuy('late_submit'))}
         {row('Sneak peek', userCredits.sneak_peek, () => onBuy('sneak_peek'))}
