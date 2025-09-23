@@ -35,6 +35,17 @@ const LateSubmitModal: React.FC<LateSubmitModalProps> = ({ isOpen, onClose, onPu
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isOpen, date]);
 
+  // If user returns from checkout with a new credit, auto-advance and use it
+  useEffect(() => {
+    if (!isOpen) return;
+    if (step !== 'initial') return;
+    if ((userCredits?.late_submit || 0) > 0) {
+      // Automatically consume credit and move to compose
+      handleLateSubmit();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, step, userCredits?.late_submit]);
+
   const handleLateSubmit = async () => {
     if (userCredits.late_submit > 0) {
       setStep('processing');
