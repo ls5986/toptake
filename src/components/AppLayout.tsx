@@ -97,8 +97,8 @@ const AppLayout: React.FC = () => {
     );
   }
 
-  // New users need onboarding
-  if (shouldShowCarousel || currentScreen === 'welcome' || !user.username) {
+  // Onboarding carousel – show only when explicitly requested
+  if (shouldShowCarousel || currentScreen === 'welcome') {
     return (
       <Suspense fallback={<LoadingSpinner />}>
         <WelcomeCarousel onComplete={() => {
