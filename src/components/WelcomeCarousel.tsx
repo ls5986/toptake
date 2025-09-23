@@ -69,6 +69,18 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onComplete }) => {
       <div className="absolute top-8 left-1/2 transform -translate-x-1/2">
         <h2 className="text-2xl font-bold text-brand-text">Welcome to TopTake</h2>
       </div>
+      {/* Skip control to bypass if any overlay blocks clicks */}
+      <button
+        className="absolute top-6 right-6 text-sm text-brand-accent hover:underline z-20"
+        onClick={() => {
+          try { setShouldShowCarousel(false); } catch {}
+          if (onComplete) { onComplete(); }
+          try { setCurrentScreen('main'); } catch {}
+        }}
+        aria-label="Skip onboarding"
+      >
+        Skip
+      </button>
       <Slide slide={currentSlide} onNext={handleNext} />
       <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2">
         {[1, 2, 3].map((slide) => (
