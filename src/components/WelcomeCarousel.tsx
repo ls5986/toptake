@@ -85,9 +85,8 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onComplete }) => {
     if (currentSlide < 3) {
       setCurrentSlide(currentSlide + 1);
     } else {
-      // Carousel complete
+      // Carousel complete → delegate next step to parent
       try { setShouldShowCarousel(false); } catch {}
-      try { setCurrentScreen('main'); } catch {}
       if (onComplete) { onComplete(); }
     }
   };
@@ -103,7 +102,6 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onComplete }) => {
         onClick={() => {
           try { setShouldShowCarousel(false); } catch {}
           if (onComplete) { onComplete(); }
-          try { setCurrentScreen('main'); } catch {}
         }}
         aria-label="Skip onboarding"
       >

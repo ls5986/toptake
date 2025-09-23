@@ -98,14 +98,12 @@ const AppLayout: React.FC = () => {
   }
 
   // Onboarding carousel – show only when explicitly requested
-  if (shouldShowCarousel || currentScreen === 'welcome') {
+  if (shouldShowCarousel || currentScreen === 'welcome' || (!user.username && currentScreen !== 'profileSetup')) {
     return (
       <Suspense fallback={<LoadingSpinner />}>
         <WelcomeCarousel onComplete={() => {
-          try {
-            // Ensure we fully exit onboarding
-            setCurrentScreen('main');
-          } catch {}
+          // After the carousel, route to username setup if not set yet
+          setCurrentScreen('profileSetup');
         }} />
       </Suspense>
     );
