@@ -58,12 +58,9 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onComplete }) => {
       setCurrentSlide(currentSlide + 1);
     } else {
       // Carousel complete
-      setShouldShowCarousel(false);
-      if (onComplete) {
-        onComplete();
-      } else {
-        setCurrentScreen('main');
-      }
+      try { setShouldShowCarousel(false); } catch {}
+      if (onComplete) { onComplete(); }
+      try { setCurrentScreen('main'); } catch {}
     }
   };
 

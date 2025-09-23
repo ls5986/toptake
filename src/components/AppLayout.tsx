@@ -101,7 +101,12 @@ const AppLayout: React.FC = () => {
   if (shouldShowCarousel || currentScreen === 'welcome' || !user.username) {
     return (
       <Suspense fallback={<LoadingSpinner />}>
-        <WelcomeCarousel />
+        <WelcomeCarousel onComplete={() => {
+          try {
+            // Ensure we fully exit onboarding
+            setCurrentScreen('main');
+          } catch {}
+        }} />
       </Suspense>
     );
   }
