@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Button } from '@/components/ui/button';
 import { useAppContext } from '@/contexts/AppContext';
 import { Flame, Eye, Ghost } from 'lucide-react';
@@ -39,9 +39,12 @@ const Slide: React.FC<SlideProps> = ({ slide, onNext }) => {
       <h1 className="text-3xl font-bold mb-4 text-brand-text max-w-md">{current.title}</h1>
       <p className="text-lg text-brand-muted mb-12 max-w-md">{current.subtitle}</p>
       <Button 
-        onClick={onNext}
+        onClick={() => {
+          try { console.log('[WelcomeCarousel] next clicked', { slide }); } catch {}
+          onNext();
+        }}
         size="lg"
-        className="btn-primary px-8 py-3 text-lg"
+        className="btn-primary px-8 py-3 text-lg pointer-events-auto relative z-50"
       >
         {slide === 3 ? "Let's Go!" : 'Next'}
       </Button>
@@ -52,6 +55,31 @@ const Slide: React.FC<SlideProps> = ({ slide, onNext }) => {
 const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onComplete }) => {
   const { setShouldShowCarousel, setCurrentScreen } = useAppContext();
   const [currentSlide, setCurrentSlide] = useState(1);
+
+  // Safety: allow Enter key to advance, and auto-complete if stuck
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Enter') handleNext();
+    };
+    document.addEventListener('keydown', onKey);
+    return () => document.removeEventListener('keydown', onKey);
+  }, []);
+
+  useEffect(() => {
+    if (currentSlide === 3) {
+      // If user taps anywhere on screen on the final slide, advance
+      const onClickAnywhere = () => handleNext();
+      // Use capture to run before other handlers
+      document.addEventListener('click', onClickAnywhere, true);
+      const timeout = setTimeout(() => {
+        try { console.log('[WelcomeCarousel] auto-advance safety on final slide'); } catch {}
+      }, 0);
+      return () => {
+        clearTimeout(timeout);
+        document.removeEventListener('click', onClickAnywhere, true);
+      };
+    }
+  }, [currentSlide]);
 
   const handleNext = () => {
     if (currentSlide < 3) {
@@ -65,13 +93,13 @@ const WelcomeCarousel: React.FC<WelcomeCarouselProps> = ({ onComplete }) => {
   };
 
   return (
-    <div className="bg-gradient-to-br from-brand-background via-brand-surface to-brand-background min-h-screen relative">
+    <div className="bg-gradient-to-br from-brand-background via-brand-surface to-brand-background min-h-screen relative pointer-events-auto z-50">
       <div className="absolute top-8 left-1/2 transform -translate-x-1/2">
         <h2 className="text-2xl font-bold text-brand-text">Welcome to TopTake</h2>
       </div>
       {/* Skip control to bypass if any overlay blocks clicks */}
       <button
-        className="absolute top-6 right-6 text-sm text-brand-accent hover:underline z-20"
+        className="absolute top-6 right-6 text-sm text-brand-accent hover:underline z-[60]"
         onClick={() => {
           try { setShouldShowCarousel(false); } catch {}
           if (onComplete) { onComplete(); }
