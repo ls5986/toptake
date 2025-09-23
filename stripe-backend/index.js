@@ -71,7 +71,7 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
         'credits_late_submit_5_199': { type: 'late_submit', amount: 5 },
         'credits_sneak_peek_5_399': { type: 'sneak_peek', amount: 5 },
         'credits_boost_3_499': { type: 'boost', amount: 3 },
-        'credits_extra_takes_5_299': { type: 'extra_takes', amount: 5 },
+        // removed extra_takes
         'credits_delete_5_199': { type: 'delete', amount: 5 },
         'suggestion_boost_1_299': { type: 'suggestion_boost', amount: 1 },
 
@@ -84,7 +84,7 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
         'price_sneak_peek_1': { type: 'sneak_peek', amount: 1 },
         'price_sneak_peek_5': { type: 'sneak_peek', amount: 5 },
         'price_boost_1': { type: 'boost', amount: 1 },
-        'price_extra_takes_1': { type: 'extra_takes', amount: 1 },
+        // removed extra_takes
         'price_delete_1': { type: 'delete', amount: 1 }
       };
       
@@ -99,7 +99,7 @@ app.post('/api/stripe/webhook', bodyParser.raw({ type: 'application/json' }), as
             stripe_session_id: session.id,
             amount_paid: (session.amount_total || 0) / 100
           }).select().single();
-          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
+          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'delete'];
           for (const type of creditTypes) {
             await supabase.rpc('grant_credit', { p_user: userId, p_type: type, p_amount: 5, p_description: 'Membership starter', p_purchase_id: purchaseRow?.id || null, p_stripe_payment_id: session.payment_intent || null });
           }
@@ -217,7 +217,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
           'credits_late_submit_5_199': { type: 'late_submit', amount: 5 },
           'credits_sneak_peek_5_399': { type: 'sneak_peek', amount: 5 },
           'credits_boost_3_499': { type: 'boost', amount: 3 },
-          'credits_extra_takes_5_299': { type: 'extra_takes', amount: 5 },
+          // removed extra_takes
           'credits_delete_5_199': { type: 'delete', amount: 5 },
           'suggestion_boost_1_299': { type: 'suggestion_boost', amount: 1 },
         };
@@ -238,7 +238,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
         }
 
         if (lookupKey === 'sub_toptake_plus_monthly') {
-          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'extra_takes', 'delete'];
+          const creditTypes = ['anonymous', 'late_submit', 'sneak_peek', 'boost', 'delete'];
           for (const type of creditTypes) {
             await supabase.rpc('add_user_credits', { p_user_id: userId, p_credit_type: type, p_amount: 5 });
           }
@@ -339,7 +339,7 @@ app.post('/api/sync-products', async (req, res) => {
     { name: 'Late Submit Credits (5)', lookup_key: 'credits_late_submit_5_199', amount: 199, currency: 'usd' },
     { name: 'Sneak Peek Credits (5)', lookup_key: 'credits_sneak_peek_5_399', amount: 399, currency: 'usd' },
     { name: 'Boost Credits (3)', lookup_key: 'credits_boost_3_499', amount: 499, currency: 'usd' },
-    { name: 'Extra Takes Credits (5)', lookup_key: 'credits_extra_takes_5_299', amount: 299, currency: 'usd' },
+    // removed extra_takes
     { name: 'Delete Credits (5)', lookup_key: 'credits_delete_5_199', amount: 199, currency: 'usd' },
     { name: 'Suggestion Boost', lookup_key: 'suggestion_boost_1_299', amount: 299, currency: 'usd' },
     { name: 'Theme (single)', lookup_key: 'theme_single_099', amount: 99, currency: 'usd' },

@@ -160,7 +160,7 @@ const PromptRecommendations: React.FC = () => {
 
     // Optional: award 1 credit to the suggester
     try {
-      await supabase.rpc('grant_credit', { p_user: rec.user_id, p_type: 'extra_takes', p_amount: 1, p_description: 'Approved prompt suggestion' });
+      await supabase.rpc('grant_credit', { p_user: rec.user_id, p_type: 'boost', p_amount: 1, p_description: 'Approved prompt suggestion' });
     } catch {}
 
     await loadRecommendations();

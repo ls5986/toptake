@@ -16,7 +16,7 @@ interface CreditPackage {
   price: number;
   credits: number;
   id: string;
-  type: 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'extra_takes' | 'delete';
+  type: 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'delete';
   lookupKey: string;
 }
 
@@ -56,15 +56,6 @@ const packages: CreditPackage[] = [
     id: 'boost_credits',
     type: 'boost',
     lookupKey: 'credits_boost_3_499'
-  },
-  { 
-    name: 'Extra Takes Credits', 
-    description: 'Submit additional takes per day', 
-    price: 2.99, 
-    credits: 5, 
-    id: 'extra_takes_credits',
-    type: 'extra_takes',
-    lookupKey: 'credits_extra_takes_5_299'
   },
   { 
     name: 'Delete Credits', 

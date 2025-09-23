@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button';
 interface Props {
   isOpen: boolean;
   onClose: () => void;
-  onBuy: (type: 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'extra_takes' | 'delete') => void;
+  onBuy: (type: 'anonymous' | 'late_submit' | 'sneak_peek' | 'boost' | 'delete') => void;
   onViewHistory?: () => void;
 }
 
@@ -43,7 +43,6 @@ const CreditsDrawer: React.FC<Props> = ({ isOpen, onClose, onBuy, onViewHistory 
         {row('Late submit', userCredits.late_submit, () => onBuy('late_submit'))}
         {row('Sneak peek', userCredits.sneak_peek, () => onBuy('sneak_peek'))}
         {row('Boost', userCredits.boost, () => onBuy('boost'))}
-        {row('Extra takes', userCredits.extra_takes, () => onBuy('extra_takes'))}
         {row('Delete', userCredits.delete, () => onBuy('delete'))}
       </div>
     </div>
