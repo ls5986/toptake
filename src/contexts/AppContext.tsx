@@ -454,10 +454,32 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             try { localStorage.setItem(`prompt:${todayStr}`, JSON.stringify({ value: text, expiresAt: Date.now() + 24*60*60*1000 })); } catch {}
           })
           .catch(()=>{});
-        // Takes (first page)
-        supabase.rpc('get_takes_for_date', { p_user_id: profile.id, p_date: todayStr, p_limit: 100 })
-          .then(({ data }) => {
-            if (!Array.isArray(data)) return;
+        // Takes (first page) – prefer RPC if available, otherwise fallback to direct query
+        supabase
+          .rpc('get_takes_for_date', { p_user_id: profile.id, p_date: todayStr, p_limit: 100 })
+          .then(async ({ data, error }) => {
+            if (error || !Array.isArray(data)) {
+              // Fallback: direct query for today's takes
+              const { data: takes } = await supabase
+                .from('takes')
+                .select('id, user_id, content, is_anonymous, created_at, prompt_date')
+                .eq('prompt_date', todayStr)
+                .order('created_at', { ascending: false })
+                .limit(100);
+              const formatted = (takes || []).map((t: any) => ({
+                id: t.id,
+                userId: t.user_id,
+                content: t.content,
+                username: t.is_anonymous ? 'Anonymous' : (t.user_id === profile.id ? 'You' : ''),
+                isAnonymous: t.is_anonymous,
+                timestamp: t.created_at,
+                prompt_date: t.prompt_date,
+                commentCount: 0,
+                reactionCount: 0,
+              }));
+              try { localStorage.setItem(`takes:${todayStr}`, JSON.stringify({ value: formatted, expiresAt: Date.now() + 5*60*1000 })); } catch {}
+              return;
+            }
             const formatted = data.map((t: any) => ({
               id: t.id,
               userId: t.user_id,
@@ -471,7 +493,7 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
             }));
             try { localStorage.setItem(`takes:${todayStr}`, JSON.stringify({ value: formatted, expiresAt: Date.now() + 5*60*1000 })); } catch {}
           })
-          .catch(()=>{});
+          .catch(() => {});
       } catch {}
       setError(null);
       
