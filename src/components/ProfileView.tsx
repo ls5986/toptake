@@ -314,6 +314,39 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
     }
   };
 
+  // Fallback helpers when RPCs are unavailable
+  const tryFollowDirect = async (viewerId: string, targetId: string) => {
+    // Try schema (follower_id, followee_id)
+    let err: any = null;
+    try {
+      const { error } = await supabase.from('follows').insert({ follower_id: viewerId, followee_id: targetId });
+      if (!error) return true; err = error;
+    } catch (e) { err = e; }
+    // Try legacy schema (follower_id, followed_id)
+    try {
+      const { error } = await supabase.from('follows').insert({ follower_id: viewerId, followed_id: targetId });
+      if (!error) return true; err = error;
+    } catch (e) { err = e; }
+    console.warn('Follow insert fallback failed', err);
+    return false;
+  };
+
+  const tryUnfollowDirect = async (viewerId: string, targetId: string) => {
+    let ok = false;
+    try {
+      const { error } = await supabase.from('follows').delete().eq('follower_id', viewerId).eq('followee_id', targetId);
+      if (!error) ok = true;
+    } catch {}
+    if (!ok) {
+      try {
+        const { error } = await supabase.from('follows').delete().eq('follower_id', viewerId).eq('followed_id', targetId);
+        if (!error) ok = true;
+      } catch {}
+    }
+    if (!ok) console.warn('Unfollow delete fallback failed');
+    return ok;
+  };
+
   const openFollowers = async () => {
     setFollowersOpen(true);
     try {
@@ -357,14 +390,27 @@ const ProfileView: React.FC<ProfileViewProps> = ({ userId }) => {
       if (isFollowing) {
         if (!window.confirm('Unfollow this user?')) { setFollowActionBusy(false); return; }
         const { error } = await supabase.rpc('unfollow_user', { p_viewer: user.id, p_target: targetUserId });
-        if (error) toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
+        if (error) {
+          // Fallback to direct delete if RPC missing
+          const ok = await tryUnfollowDirect(user.id, targetUserId);
+          if (!ok) {
+            toast({ title: 'Failed to unfollow', description: error.message, variant: 'destructive' });
+          }
+        }
         setIsFollowing(false);
         setFollowerCount(c => Math.max(0, c - 1));
+        toast({ title: 'Unfollowed' });
       } else {
         const { error } = await supabase.rpc('follow_user', { p_viewer: user.id, p_target: targetUserId });
-        if (error) toast({ title: 'Failed to follow', description: error.message, variant: 'destructive' });
+        if (error) {
+          const ok = await tryFollowDirect(user.id, targetUserId);
+          if (!ok) {
+            toast({ title: 'Failed to follow', description: error.message, variant: 'destructive' });
+          }
+        }
         setIsFollowing(true);
         setFollowerCount(c => c + 1);
+        toast({ title: 'Following' });
       }
       // Fire-and-forget refresh to avoid UI stall
       try { loadFollowStats(); } catch {}
