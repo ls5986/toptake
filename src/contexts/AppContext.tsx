@@ -847,17 +847,19 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
         return;
       }
       const { data, error: creditsError } = await supabase
-        .from('user_credits')
+        .from('user_credits_balances')
         .select('credit_type, balance')
         .eq('user_id', user.id);
-      if (creditsError) {
-        throw creditsError;
-      }
+      if (creditsError) throw creditsError;
 
-      setUserCredits(data || defaultCredits);
-    } catch (err) {
+      const map: any = { ...defaultCredits };
+      (data || []).forEach((row: any) => {
+        if (row?.credit_type in map) map[row.credit_type] = row.balance ?? 0;
+      });
+      setUserCredits(map);
+    } catch (err: any) {
       console.error('Error fetching credits:', err);
-      setError(err.message || 'Failed to fetch credits');
+      setError(err?.message || 'Failed to fetch credits');
     } finally {
       setIsLoading(false);
     }

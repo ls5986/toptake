@@ -12,7 +12,6 @@ const CreditsBadge: React.FC<Props> = ({ onClick }) => {
     + (userCredits?.late_submit || 0)
     + (userCredits?.sneak_peek || 0)
     + (userCredits?.boost || 0)
-    + (userCredits?.extra_takes || 0)
     + (userCredits?.delete || 0);
 
   return (
